@@ -6,6 +6,7 @@
 - 单文件 `index.html`，无需构建，打开即用。
 - 数据后端：Supabase（Postgres + Auth + RLS），登录后数据按账号隔离、跨会话持久化。
 - 部署：GitHub Pages（本项目），URL 长期稳定。
+- **自包含**：Supabase 客户端（UMD）已完整 inline 进 `index.html`，**零外部 JS / CDN 依赖**，在中国 / 海外网络下都 100% 可用。
 
 ## 本地目录说明
 - `index.html` —— 部署到 GitHub Pages 的正式文件（由工作区 `班主任小台.html` 同步而来）。
