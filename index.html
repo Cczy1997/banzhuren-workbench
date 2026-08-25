@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>初一(1)班 · 班主任小台</title>
-<!-- 本工作台通过 Supabase 实现云端同步（单文件 HTML + Supabase Postgres + Auth + RLS） -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
-<script>window.supabase||document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js"><\/script>');</script>
+<!-- Supabase 客户端：优先加载同源本地文件 supabase.min.js（最稳，不受外部 CDN / 网络墙影响）；若缺失再回退公共 CDN -->
+<script src="./supabase.min.js"></script>
+<script>window.supabase||document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"><\/script>')</script>
+<script>window.supabase||document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js"><\/script>')</script>
 <style>
   :root{
     --bg1:#FFF6F9; --bg2:#FDEFF6; --bg3:#F0FBF7;
@@ -1598,7 +1599,7 @@
   function showAuth(msg){
     document.getElementById("authScreen").classList.add("show");
     document.getElementById("authErr").textContent = msg || "";
-    if(!db){ document.getElementById("authSub").textContent="未配置 Supabase：请在源码 SUPABASE_URL / SUPABASE_ANON_KEY 填入你的项目信息后重新部署。"; }
+    if(!db){ document.getElementById("authSub").textContent="无法加载 Supabase 客户端（可能是网络 / CDN 被拦截，或不是通过部署地址打开）。请刷新重试，或确认用 https://cczy1997.github.io/banzhuren-workbench/ 打开本页。"; }
   }
   function hideAuth(){ document.getElementById("authScreen").classList.remove("show"); }
   document.getElementById("authLogin").onclick=function(){
@@ -1637,11 +1638,17 @@
     db.auth.signOut().then(function(){ location.reload(); });
   };
   function onSignedIn(user){
-    curUid=user.id;
-    hideAuth();
-    document.getElementById("logoutBtn").style.display="";
-    renderSidebar();
-    bootLoad();
+    try{
+      curUid=user.id;
+      hideAuth();
+      document.getElementById("logoutBtn").style.display="";
+      renderSidebar();
+      render();            // 立即渲染外壳，避免数据加载失败时整页空白
+      bootLoad();
+    }catch(e){
+      console.error(e);
+      if(document.getElementById("authErr")) document.getElementById("authErr").textContent="界面渲染出错："+(e&&e.message||e);
+    }
   }
   function bootLoad(){
     setStatus("syncing");
