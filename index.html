@@ -706,6 +706,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   var DATA = {};
   ALLKEYS.forEach(function(k){ DATA[k]=[]; });
+  // 侧边栏 ORDER 中可能包含「无独立表的视图模块」（如 honorboard 荣誉榜），
+  // 也必须预置空数组，否则 secHTML 读取 DATA[k].length 时会抛错导致整页空白。
+  Object.keys(ORDER).forEach(function(cat){
+    (ORDER[cat]||[]).forEach(function(k){ if(!DATA.hasOwnProperty(k)) DATA[k]=[]; });
+  });
   var state = { cat:"overview", mod:"students", grid:{}, open:{} };
   var current = { mod:null, id:null };
   var CLS_YEAR = "初一", CLS_CLASS = "(1)班";
@@ -824,7 +829,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         var m=MODULES[k];
         sub+='<a class="'+(state.mod===k?'active':'')+'" data-mod="'+k+'">'
           + '<span>'+esc(stripEmoji(m.title))+'</span>'
-          + '<span class="cnt">'+DATA[k].length+'</span></a>';
+          + '<span class="cnt">'+(DATA[k]||[]).length+'</span></a>';
       });
       sub+='</div>';
     }
