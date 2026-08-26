@@ -507,6 +507,39 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pf-ai-busy{font-size:13.5px;color:var(--lav);font-weight:700}
   .pf-ai-h{font-size:14px;font-weight:800;color:#6a4fb0;margin-bottom:7px}
   .pf-ai-body{font-size:14px;line-height:1.65;white-space:pre-wrap;color:var(--ink)}
+  /* 成绩 AI 分析条 */
+  .grade-ai-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;background:#F6F4FF;border:1px solid #E6E0FB;border-radius:14px;padding:10px 12px}
+  .grade-ai-bar .gsep{color:var(--ink-soft);margin:0 2px}
+  .grade-ai-bar .glbl{font-size:13px;font-weight:700;color:var(--ink)}
+  .grade-ai-bar .g-sel{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--ink);background:#fff;max-width:150px}
+  .grade-ai-box{background:#F6F4FF;border:1px solid #E6E0FB;border-radius:16px;padding:13px 14px;margin-bottom:14px}
+  .btn-ai{background:#6a4fb0;color:#fff;border:none;border-radius:14px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-ai:hover{background:#5a3fa0}
+  /* 每周值日看板 */
+  .duty-board{background:linear-gradient(135deg,#FFF6FA,#F3F0FF);border:1.5px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px}
+  .duty-board .db-title{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:10px}
+  .duty-board .db-cur{color:var(--pink-d)}
+  .db-cfg{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;color:var(--ink-soft)}
+  .db-cfg-in{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--ink);background:#fff;min-width:230px;flex:1}
+  .db-timeline{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:12px}
+  .db-chip{background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--ink)}
+  .db-chip.cur{background:var(--pink);color:#fff;border-color:var(--pink)}
+  .db-arrow{color:var(--ink-soft);font-weight:700}
+  .db-assign{background:#fff;border-radius:14px;padding:12px;margin-bottom:12px;border:1px solid var(--line)}
+  .db-assign>b{display:block;font-size:13.5px;color:var(--ink-soft);margin-bottom:8px}
+  .db-day{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px dashed #f0e6ec}
+  .db-day:last-child{border-bottom:none}
+  .db-day>b{color:var(--pink-d);min-width:42px}
+  .db-task{background:#FFF3F7;border:1px solid #f3d9e4;border-radius:10px;padding:4px 9px;font-size:13px;font-weight:600;color:var(--ink)}
+  .db-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 2px}
+  .db-rf{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:12px;border:1px solid var(--line);font-size:14px;font-weight:700;color:var(--ink)}
+  .db-rf.done{color:var(--pink-d);justify-content:center}
+  .btn-ok{background:#1f9d5b;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-ok:hover{background:#178a4e}
+  .btn-bad{background:#e0584f;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-bad:hover{background:#c94a42}
+  .btn-mini{background:#fff;color:var(--ink);border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-mini:hover{background:#faf6f9}
   .pf-sec{margin-bottom:14px}
   .pf-sec-h{font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:7px;display:flex;align-items:center;gap:7px}
   .pf-cnt{font-size:11px;font-weight:700;color:var(--ink-soft);background:#F3ECF1;border-radius:999px;padding:1px 8px}
@@ -1292,11 +1325,212 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       box.innerHTML=renderSeatGrid(key);
       return;
     }
+    // 成绩 / 值日 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板）
+    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard() : "");
     if(!rows.length){
-      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
+      box.innerHTML = extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
     }
-    box.innerHTML = rows.map(function(r){ return cardHTML(key,r); }).join("");
+    box.innerHTML = extra + rows.map(function(r){ return cardHTML(key,r); }).join("");
+  }
+
+  /* ---------- 成绩 AI 分析 ---------- */
+  function gradeSubjects(){ var s={};(DATA.grades||[]).forEach(function(r){ if(r["科目"]) s[r["科目"]]=1; }); return Object.keys(s); }
+  function gradeStudentNames(){ var s={};(DATA.grades||[]).forEach(function(r){ if(r["学生姓名"]) s[r["学生姓名"]]=1; }); return Object.keys(s); }
+  function renderGradesAIBar(){
+    var names=gradeStudentNames();
+    var opts='<option value="">选择学生…</option>'+names.map(function(n){return '<option>'+esc(n)+'</option>';}).join("");
+    return '<div class="grade-ai-bar">'
+      +'<button class="btn-ai" data-gradeai="class">🤖 AI 班级学情分析</button>'
+      +'<span class="gsep">|</span>'
+      +'<span class="glbl">分析某生：</span><select class="g-sel" id="gradeAIName">'+opts+'</select>'
+      +'<button class="btn-ai" data-gradeai="student">🤖 分析该生各科</button>'
+      +'</div><div id="gradesAI" class="grade-ai-box" style="display:none"></div>';
+  }
+  function analyzeGrades(scope, name){
+    var key=localStorage.getItem("wb_cls_dashscope_key");
+    if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
+    var box=document.getElementById("gradesAI");
+    if(!box){ box=document.createElement("div"); box.id="gradesAI"; box.className="grade-ai-box"; var bar=document.querySelector("#list-grades .grade-ai-bar"); if(bar&&bar.parentNode) bar.parentNode.insertBefore(box, bar.nextSibling); }
+    box.style.display="block";
+    box.innerHTML='<div class="pf-ai-busy">🤖 正在分析'+(scope==="class"?"全班学情":"「"+esc(name)+"」各科成绩")+'，请稍候…</div>';
+    var g=DATA.grades||[];
+    var prompt;
+    if(scope==="class"){
+      var bySubj={}; g.forEach(function(r){ var s=r["科目"]; if(!s) return; (bySubj[s]=bySubj[s]||[]).push(r); });
+      var subjStat={};
+      Object.keys(bySubj).forEach(function(s){
+        var arr=bySubj[s].map(function(r){return Number(r["分数"])||0;}).filter(function(x){return x>0;});
+        if(!arr.length){ subjStat[s]={n:0}; return; }
+        var avg=arr.reduce(function(a,b){return a+b;},0)/arr.length;
+        subjStat[s]={n:arr.length, avg:Math.round(avg*10)/10, max:Math.max.apply(null,arr), min:Math.min.apply(null,arr)};
+      });
+      var byStu={}; g.forEach(function(r){ var n=r["学生姓名"]; if(!n) return; (byStu[n]=byStu[n]||[]).push(r); });
+      var stuAvg={};
+      Object.keys(byStu).forEach(function(n){
+        var arr=byStu[n].map(function(r){return Number(r["分数"])||0;}).filter(function(x){return x>0;});
+        if(arr.length) stuAvg[n]=Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10;
+      });
+      var topStu=Object.keys(stuAvg).sort(function(a,b){return stuAvg[b]-stuAvg[a];}).slice(0,5);
+      var lowStu=Object.keys(stuAvg).sort(function(a,b){return stuAvg[a]-stuAvg[b];}).slice(0,5);
+      prompt='你是资深班主任与学情分析师。基于以下某班成绩数据，给出**班级学情分析**。\n要求：\n'
+        +'1. 总体描述班级各科均分水平与分化程度。\n2. 指出**优势学科**与**薄弱学科**（结合均分/最高最低差）。\n'
+        +'3. 列出**尖子生**与**需帮扶学生**（用数据支撑）。\n4. 给出**教学与班级管理措施**（培优、补弱、分层作业、家校沟通等），具体可操作。\n5. 若数据不足请说明。\n'
+        +'=== 数据（'+g.length+' 条记录）===\n各科目统计：'+JSON.stringify(subjStat,null,1)
+        +'\n学生均分(前5)：'+JSON.stringify(topStu.map(function(n){return n+":"+stuAvg[n];}))
+        +'\n学生均分(后5)：'+JSON.stringify(lowStu.map(function(n){return n+":"+stuAvg[n];}));
+    } else {
+      var recs=(DATA.grades||[]).filter(function(r){return r["学生姓名"]===name;});
+      recs.sort(function(a,b){ var x=String(a["考试"]||""), y=String(b["考试"]||""); if(x<y)return -1; if(x>y)return 1; return 0; });
+      var bySubj2={};
+      recs.forEach(function(r){ var s=r["科目"]; if(!s) return; (bySubj2[s]=bySubj2[s]||[]).push({考试:r["考试"],分数:r["分数"],排名:r["班级排名"]}); });
+      prompt='你是资深班主任与学情分析师。请基于以下「'+name+'」同学的成绩数据，给出**个人各科分析**。\n要求：\n'
+        +'1. 用 2-3 句给出总体结论（学业水平、稳定性）。\n2. 分科列出**优势科目**与**薄弱科目**（结合分数与班级排名）。\n'
+        +'3. 指出**进步/退步趋势**（跨考试对比）。\n4. 给出**针对性建议**（该生可采取的学法、班主任可给予的帮扶、家校协同）。\n5. 不编造数据中不存在的事实。\n'
+        +'=== '+name+' 成绩（'+recs.length+' 条）===\n'+JSON.stringify(bySubj2,null,1);
+    }
+    qwenChat(prompt, key).then(function(reply){
+      box.innerHTML='<div class="pf-ai-h">🤖 '+(scope==="class"?"班级学情分析":"「"+esc(name)+"」各科分析")+'</div><div class="pf-ai-body">'+esc(reply)+'</div>';
+    }).catch(function(e){
+      box.innerHTML='<div class="pf-ai-busy">⚠️ 分析失败：'+(esc(e&&e.message||e))+'</div>';
+    });
+  }
+  function onGradeAI(scope){
+    if(scope==="student"){
+      var sel=document.getElementById("gradeAIName");
+      var nm=sel?sel.value:"";
+      if(!nm){ toast("请先选择一名学生"); return; }
+      analyzeGrades("student", nm);
+    } else { analyzeGrades("class"); }
+  }
+
+  /* ---------- 每周值日看板 + 流动红旗轮值 ---------- */
+  var DUTYROT_LS="wb_cls_dutyrot";
+  var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null };
+  var redflagAskedThisWeek=false;
+  function loadDutyRot(){
+    try{
+      var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
+      if(s&&Array.isArray(s.groups)&&s.groups.length){
+        dutyRot={ groups:s.groups.slice(), cursor:Math.max(0,Math.min(s.groups.length-1,s.cursor||0)), servedWeeks:s.servedWeeks||1, checkedWeek:s.checkedWeek||null };
+      }
+    }catch(e){}
+  }
+  function saveDutyRot(){ try{ localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){} }
+  function dutyDerivedGroups(){
+    var seen={}, out=[];
+    (DATA.duty||[]).forEach(function(r){ var g=r["值日组"]; if(g&&!seen[g]){ seen[g]=1; out.push(g); } });
+    return out;
+  }
+  function dutyGroupMembers(g){
+    var m={};
+    (DATA.duty||[]).forEach(function(r){ if(r["值日组"]!==g) return; String(r["学生姓名"]||"").split(/[,，、]/).forEach(function(n){ n=n.trim(); if(n) m[n]=1; }); });
+    return Object.keys(m);
+  }
+  function currentDutyGroup(){ return dutyRot.groups.length ? dutyRot.groups[dutyRot.cursor] : ""; }
+  function renderDutyBoard(){
+    var groups=dutyRot.groups, cur=currentDutyGroup();
+    var cfgHtml='<div class="db-cfg"><b>轮值设置</b>：<input class="db-cfg-in" id="dutyGroupsInput" placeholder="如：第一组,第二组,第三组" value="'+esc(groups.join(","))+'">'
+      +'<button class="btn-mini" data-dutycfg="save">保存</button>'
+      +'<button class="btn-mini" data-dutycfg="reset">从记录提取</button></div>';
+    if(!groups.length){
+      return '<div class="duty-board"><div class="db-title">📋 每周值日看板</div>'+cfgHtml
+        +'<div class="empty">请先在上方设置值日小组顺序（或点「从记录提取」自动读取值日安排中的小组），系统将依次轮值；每周一早上会询问是否获得流动红旗以决定是否切换下一组。</div></div>';
+    }
+    var tl=groups.map(function(g,i){
+      var tag = i===dutyRot.cursor ? " 🟢" : (i<dutyRot.cursor ? " ✔" : "");
+      return '<span class="db-chip'+(i===dutyRot.cursor?' cur':'')+'">'+(i+1)+'. '+esc(g)+tag+'</span>';
+    }).join('<span class="db-arrow">→</span>');
+    var wk=(DATA.duty||[]).filter(function(r){ return r["值日组"]===cur; });
+    var byDay={}; ["周一","周二","周三","周四","周五","周六","周日"].forEach(function(d){ byDay[d]=[]; });
+    wk.forEach(function(r){ var d=r["星期"]||"其他"; (byDay[d]=byDay[d]||[]).push(r); });
+    var assign="";
+    Object.keys(byDay).forEach(function(d){
+      if(!byDay[d].length) return;
+      assign+='<div class="db-day"><b>'+d+'</b>'+byDay[d].map(function(r){ return '<span class="db-task">'+esc(r["学生姓名"]||"")+'：'+esc(r["内容"]||"")+'</span>'; }).join("")+'</div>';
+    });
+    if(!assign) assign='<div class="db-empty">本周（'+esc(cur)+'）暂未录入具体值日分工，请在下方「值日安排」中添加「值日组='+esc(cur)+'」的记录。</div>';
+    var wkNow=isoWeek().key, rfHtml;
+    if(dutyRot.checkedWeek===wkNow){
+      rfHtml='<div class="db-rf done">✅ 本周流动红旗已记录</div>';
+    } else {
+      rfHtml='<div class="db-rf"><span>上周「'+esc(cur)+'」是否获得流动红旗？</span>'
+        +'<button class="btn-ok" data-redflag="won">✅ 获得（切换下一组 + 全员+5分）</button>'
+        +'<button class="btn-bad" data-redflag="lost">❌ 未获得（继续值日 + 全员-5分）</button></div>';
+    }
+    return '<div class="duty-board">'
+      +'<div class="db-title">📋 每周值日看板 · 本周：<span class="db-cur">'+esc(cur)+'</span>（已值日 '+dutyRot.servedWeeks+' 周）</div>'
+      +cfgHtml
+      +'<div class="db-timeline">'+tl+'</div>'
+      +'<div class="db-assign"><b>本周值日分工</b>'+assign+'</div>'
+      +rfHtml
+      +'</div>';
+  }
+  function askRedFlag(){
+    var cur=currentDutyGroup();
+    if(!cur){ toast("请先设置值日小组"); return; }
+    var m=document.getElementById("redflagModal");
+    if(!m){ m=document.createElement("div"); m.id="redflagModal"; m.className="mask"; document.body.appendChild(m); }
+    m.innerHTML='<div class="sheet"><div class="sheet-h" style="font-weight:800;font-size:17px;margin-bottom:12px">🚩 流动红旗 · 上周值日小组</div>'
+      +'<div style="font-size:14.5px;line-height:1.7;color:var(--ink)">上周值日小组：<b>'+esc(cur)+'</b><br>是否获得流动红旗？获得将切换下一组并为该组全员加 5 分；未获得则该组继续值日并全员扣 5 分。</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">'
+      +'<button class="btn-ok" data-rf="won">✅ 获得（切换+全员+5）</button>'
+      +'<button class="btn-bad" data-rf="lost">❌ 未获得（继续+全员-5）</button>'
+      +'<button class="btn-mini" data-rf="cancel">稍后</button></div></div>';
+    m.classList.add("show");
+    m.querySelectorAll('[data-rf]').forEach(function(b){
+      b.onclick=function(){
+        var a=b.getAttribute("data-rf"); m.classList.remove("show");
+        if(a==="cancel") return;
+        resolveRedFlag(a==="won");
+      };
+    });
+  }
+  function resolveRedFlag(won){
+    var cur=currentDutyGroup();
+    if(!cur) return;
+    var members=dutyGroupMembers(cur);
+    var wkNow=isoWeek().key;
+    var jobs=members.map(function(nm){
+      var st=(DATA.students||[]).filter(function(s){return s["姓名"]===nm;})[0];
+      var no=st?st["学号"]:"";
+      var rec={ 日期:todayStr(), 学生姓名:nm, 学号:no, 类型: won?"加分":"减分", 分值:5, 时间:nowHMS(), 原因:(won?"获流动红旗奖励（"+cur+"）":"未获流动红旗（"+cur+"）") };
+      return apiAdd("points", rec).then(function(o){
+        o["学生姓名"]=nm; o["学号"]=no; o["类型"]=won?"加分":"减分"; o["分值"]=5; o["原因"]=rec.原因; o["日期"]=rec.日期; o["时间"]=rec.时间;
+        DATA.points.push(o); return o;
+      });
+    });
+    Promise.all(jobs).then(function(){
+      if(won){ dutyRot.cursor=(dutyRot.cursor+1)%dutyRot.groups.length; dutyRot.servedWeeks=1; }
+      else { dutyRot.servedWeeks=(dutyRot.servedWeeks||1)+1; }
+      dutyRot.checkedWeek=wkNow;
+      saveDutyRot();
+      toast((won?"已切换至下一组并全员+5分":"该组继续值日并全员-5分")+"（"+members.length+" 人）");
+      renderList("duty"); render();
+    }).catch(function(e){ toast("加分失败："+(e&&e.message||e)); });
+  }
+  function onDutyCfg(act){
+    if(act==="save"){
+      var inp=document.getElementById("dutyGroupsInput"); if(!inp) return;
+      var arr=inp.value.split(/[,，、\n]/).map(function(s){return s.trim();}).filter(function(s){return s;});
+      if(!arr.length){ toast("请填写至少一个小值日小组"); return; }
+      dutyRot.groups=arr; if(dutyRot.cursor>=arr.length) dutyRot.cursor=0; dutyRot.servedWeeks=1;
+      saveDutyRot(); toast("轮值顺序已保存 ✓"); renderList("duty");
+    } else if(act==="reset"){
+      var d=dutyDerivedGroups();
+      if(!d.length){ toast("值日安排记录中暂无「值日组」"); return; }
+      dutyRot.groups=d; dutyRot.cursor=0; dutyRot.servedWeeks=1;
+      saveDutyRot(); toast("已从记录提取小组顺序 ✓"); renderList("duty");
+    }
+  }
+  function checkMondayRedFlag(){
+    if(redflagAskedThisWeek) return;
+    var d=new Date();
+    if(d.getDay()!==1) return;            // 仅周一
+    if(!dutyRot.groups.length) return;
+    if(dutyRot.checkedWeek===isoWeek().key) return;
+    redflagAskedThisWeek=true;
+    askRedFlag();
   }
 
   function extraPill(key, field, val){
@@ -2176,7 +2410,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return loadSchedulesSafe().then(function(){ return failed; });
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
+      loadDutyRot();
       render(); loadToday();
+      checkMondayRedFlag();
       if(failed.length===ALLKEYS.length){
         syncBanner("err","数据全部加载失败（可能为网络波动），点此重试");
       } else if(failed.length){
@@ -2656,6 +2892,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
     var aiBtn=e.target.closest("[data-ai]"); if(aiBtn){ openWeeklyGen(); return; }
+    var gai=e.target.closest("[data-gradeai]"); if(gai){ onGradeAI(gai.getAttribute("data-gradeai")); return; }
+    var rf=e.target.closest("[data-redflag]"); if(rf){ resolveRedFlag(rf.getAttribute("data-redflag")==="won"); return; }
+    var dcfg=e.target.closest("[data-dutycfg]"); if(dcfg){ onDutyCfg(dcfg.getAttribute("data-dutycfg")); return; }
     var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
     var mm=e.target.closest("[data-mallmode]"); if(mm){ mallMode=mm.getAttribute("data-mallmode"); render(); return; }
     var rd=e.target.closest("[data-redeem]"); if(rd){ openRedeem(rd.getAttribute("data-redeem")); return; }
@@ -3113,7 +3352,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   } else {
     showAuth();
   }
+  // 调试/自动化验证用：暴露内部状态与函数（不影响业务）
+  window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll };
 })();
-</script>
-</body>
-</html>
