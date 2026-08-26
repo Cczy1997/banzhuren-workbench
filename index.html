@@ -197,6 +197,26 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   .btn-mall:hover{background:#FFE3EE}
   .btn-mall:active{transform:scale(.97)}
+  /* 周报 · AI 生成入口 */
+  .btn-ai{
+    border:1px solid #8b5cf6;cursor:pointer;font-weight:700;font-size:12.5px;color:#6d28d9;
+    background:#F5F0FF;border-radius:999px;padding:8px 13px;transition:.15s;
+  }
+  .btn-ai:hover{background:#ECE3FF}
+  .btn-ai:active{transform:scale(.97)}
+  /* 周报 AI 弹窗 */
+  .wg-sheet{max-width:560px}
+  .wg-tip{font-size:12.5px;color:var(--ink-soft);margin:2px 0 10px;line-height:1.5}
+  .wg-label{display:block;font-weight:700;font-size:13px;margin:10px 0 5px;color:var(--ink)}
+  .wg-events{width:100%;min-height:120px;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13.5px;font-family:inherit;resize:vertical;box-sizing:border-box}
+  .wg-file{margin-bottom:6px}
+  .wg-status{font-size:12.5px;color:var(--ink-soft);min-height:16px;margin:8px 0}
+  .wg-actions{display:flex;gap:10px;margin:6px 0 10px}
+  .wg-result{border-top:1px dashed var(--line);padding-top:10px}
+  .wg-result h4{margin:10px 0 5px;font-size:13px;color:var(--pink-d)}
+  .wg-text{white-space:pre-wrap;line-height:1.6;font-size:13.5px;color:var(--ink);background:#FAFAFA;border-radius:10px;padding:10px}
+  .wg-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .wg-imgs img{width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
   /* 积分商城 */
   .mall-mode{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff}
   .mm-btn{border:none;background:#fff;cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink-soft);padding:7px 13px}
@@ -361,6 +381,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .hrow .hv{font-weight:800}
   .hrow .hv.pos{color:#1c9e6b}
   .hrow .hv.neg{color:#e23c3c}
+  .hrow .hv.hv-cur{font-weight:600;opacity:.7;font-size:12px;margin-left:2px}
   .honor .empty{padding:12px;color:var(--ink-soft);font-size:13px;background:#FAFAFA;border-radius:12px}
 
   /* modal */
@@ -590,6 +611,24 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <h3 id="redeemTitle">兑换奖品</h3>
     <button class="x" id="redeemClose">×</button>
     <div id="redeemBody"></div>
+  </div>
+</div>
+
+<!-- 班级周报 · AI 生成 -->
+<div class="mask" id="wgMask">
+  <div class="sheet wg-sheet">
+    <h3>🤖 AI 生成班级周报</h3>
+    <button class="x" id="wgClose">×</button>
+    <p class="wg-tip">粘贴本周发生的事情（活动、表扬、问题、数据等），可上传本周照片作为周报配图。AI 会生成图文结合的周报内容。</p>
+    <label class="wg-label">本周发生的事情</label>
+    <textarea id="wgEvents" class="wg-events" placeholder="例如：本周召开了秋季运动会，张三在 800 米夺冠；语文单元测试平均分 82，较上月提升；李四、王五课堂发言积极获表扬；周末有 3 人未交作业需关注……"></textarea>
+    <label class="wg-label">本周照片（选填，作为周报配图）</label>
+    <input type="file" id="wgFile" class="wg-file" accept=".jpg,.jpeg,.png,.gif,.webp" multiple>
+    <div id="wgStatus" class="wg-status"></div>
+    <div class="wg-actions">
+      <button class="btn-add" id="wgGenBtn">🤖 生成周报</button>
+    </div>
+    <div id="wgResult" class="wg-result" style="display:none"></div>
   </div>
 </div>
 
@@ -1020,6 +1059,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var m=MODULES[key];
     var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':'座位网格')+'</button>' : '';
     var ocrBtn = key==="attendance" ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别考勤表</button>' : '';
+    var aiBtn = key==="weekly" ? '<button class="btn-ai" data-ai="'+key+'">🤖 AI 生成周报</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
@@ -1027,6 +1067,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<span class="spacer"></span>'
       + gridBtn
       + ocrBtn
+      + aiBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
       +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
       +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
@@ -1201,57 +1242,67 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* ---------- 荣誉榜：个人积分TOP3 + 小组积分TOP2 ---------- */
   function renderHonor(){
-    // 个人净积分
-    var net={};
+    // 总积分(累积，不含兑换) 与 现在积分(可用，含兑换花费)
+    var total={}, cur={};
     DATA.points.forEach(function(r){
       var nm=r["学生姓名"]; if(!nm) return;
-      var v=Number(r["分值"])||0; if(r["类型"]==="减分") v=-v;
-      net[nm]=(net[nm]||0)+v;
+      var v=Number(r["分值"])||0;
+      if(r["类型"]==="兑换"){ cur[nm]=(cur[nm]||0)-v; }            // 兑换只减现在积分
+      else { var t=(r["类型"]==="减分")?-v:v; total[nm]=(total[nm]||0)+t; cur[nm]=(cur[nm]||0)+t; }
     });
-    var ind=Object.keys(net).map(function(n){return {n:n,v:net[n]};}).sort(function(a,b){return b.v-a.v;}).slice(0,3);
-    // 小组净积分 = 组内成员个人积分之和（学习小组来自学生档案）
+    Object.keys(total).forEach(function(n){ if(!(n in cur)) cur[n]=total[n]; });
+    var ind=Object.keys(total).map(function(n){return {n:n,t:total[n],c:cur[n]};}).sort(function(a,b){return b.t-a.t;}).slice(0,3);
+    // 小组积分 = 组内成员个人积分之和（学习小组来自学生档案）
     var gmap={};
     DATA.students.forEach(function(s){
       var g=s["学习小组"]; if(!g) return;
       var nm=s["姓名"]; if(!nm) return;
-      if(!(g in gmap)) gmap[g]=0;
-      if(nm in net) gmap[g]+=net[nm];
+      if(!(g in gmap)) gmap[g]={t:0,c:0};
+      if(nm in total){ gmap[g].t+=total[nm]; gmap[g].c+=cur[nm]; }
     });
-    var groups=Object.keys(gmap).map(function(g){return {g:g,v:gmap[g]};})
-      .filter(function(x){return x.v!==0;}).sort(function(a,b){return b.v-a.v;}).slice(0,2);
+    var groups=Object.keys(gmap).map(function(g){return {g:g,t:gmap[g].t,c:gmap[g].c};})
+      .filter(function(x){return x.t!==0;}).sort(function(a,b){return b.t-a.t;}).slice(0,2);
     var medal=["🥇","🥈","🥉"];
     var html='<div class="honor">'
       +'<div class="honor-h-row"><h2 class="honor-h">🏆 荣誉榜</h2><button class="btn-mall" data-mall="1">🛒 积分商城</button></div>'
-      +'<div class="honor-sub">个人积分 TOP3</div><div class="honor-list">';
+      +'<div class="honor-sub">个人积分 TOP3（累计积分，括号内为可用积分）</div><div class="honor-list">';
     if(!ind.length){
       html+='<div class="empty">暂无积分记录，去「加减分管理」记一笔吧～</div>';
     } else {
       ind.forEach(function(x,i){
         html+='<div class="hrow"><span class="medal">'+medal[i]+'</span>'
           +'<span class="hn">'+esc(x.n)+'</span>'
-          +'<span class="hv '+(x.v>=0?'pos':'neg')+'">'+(x.v>0?'+':'')+x.v+'</span></div>';
+          +'<span class="hv '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
+          + (x.t!==x.c?'<span class="hv hv-cur">（'+fmtPts(x.c)+'）</span>':'')
+          +'</div>';
       });
     }
     html+='</div>'
-      +'<div class="honor-sub">小组积分 TOP2</div><div class="honor-list">';
+      +'<div class="honor-sub">小组积分 TOP2（累计积分，括号内为可用积分）</div><div class="honor-list">';
     if(!groups.length){
       html+='<div class="empty">暂无小组积分，请先在「学生档案」给同学设置「学习小组」。</div>';
     } else {
       groups.forEach(function(x,i){
         html+='<div class="hrow g"><span class="medal">'+medal[i]+'</span>'
           +'<span class="hn">'+esc(x.g)+'</span>'
-          +'<span class="hv pos">'+(x.v>0?'+':'')+x.v+'</span></div>';
+          +'<span class="hv '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
+          + (x.t!==x.c?'<span class="hv hv-cur">（'+fmtPts(x.c)+'）</span>':'')
+          +'</div>';
       });
     }
     html+='</div></div>';
     return html;
   }
+  function fmtPts(v){ return (v>0?"+":"")+v; }
 
   /* ---------- 积分商城 ---------- */
   var mallMode="manage";      // manage=教师管理模式(可见难度) / redeem=兑换(学生)视图(隐藏难度)
   var redeemPrizeId=null;
-  function studentPoints(name){
-    var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; var x=Number(r["分值"])||0; if(r["类型"]==="减分") x=-x; v+=x; }); return v;
+  function studentPoints(name){   // 现在积分（可用，含兑换花费）
+    var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; var x=Number(r["分值"])||0; if(r["类型"]==="减分"||r["类型"]==="兑换") x=-x; v+=x; }); return v;
+  }
+  function studentTotal(name){    // 累积积分（不含兑换花费，成长总账）
+    var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; if(r["类型"]==="兑换") return; var x=Number(r["分值"])||0; if(r["类型"]==="减分") x=-x; v+=x; }); return v;
   }
   function classAvgPoints(){
     var names=(DATA.students||[]).map(function(s){return s["姓名"];}).filter(Boolean);
@@ -1348,11 +1399,85 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var no=st?st["学号"]:"";
     setStatus("syncing");
     var newData={}; Object.keys(p).forEach(function(k){ if(k!=="_id") newData[k]=p[k]; }); newData["已兑换"]=done+1;
-    var pt={日期:todayStr(), 学生姓名:name, 学号:no, 类型:"减分", 分值:price, 原因:"兑换："+(p["名称"]||"奖品")};
+    var pt={日期:todayStr(), 学生姓名:name, 学号:no, 类型:"兑换", 分值:price, 原因:"兑换："+(p["名称"]||"奖品")};
     Promise.all([ apiUpdate("mall", p._id, newData), apiAdd("points", pt) ])
       .then(function(){ closeRedeem(); toast("兑换成功，已扣 "+price+" 分 ✓"); return refreshAll(); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("兑换失败，请重试"); });
+  }
+
+  /* ---------- 班级周报 · AI 生成 ---------- */
+  var weeklyGenData=null, weeklyGenImgs=[];
+  function openWeeklyGen(){
+    if(!localStorage.getItem("wb_cls_dashscope_key")){ toast("请先在「AI 小助手」或「识别考勤表」中填写通义千问 API Key"); return; }
+    weeklyGenData=null; weeklyGenImgs=[];
+    var ev=document.getElementById("wgEvents"), fl=document.getElementById("wgFile"),
+        rs=document.getElementById("wgResult"), st=document.getElementById("wgStatus"), gb=document.getElementById("wgGenBtn");
+    if(ev) ev.value=""; if(fl) fl.value=""; if(rs){ rs.innerHTML=""; rs.style.display="none"; }
+    if(st) st.textContent=""; if(gb){ gb.disabled=false; gb.textContent="🤖 生成周报"; }
+    document.getElementById("wgMask").classList.add("show");
+  }
+  function closeWeeklyGen(){ document.getElementById("wgMask").classList.remove("show"); }
+  function setWGStatus(t, busy){ var st=document.getElementById("wgStatus"); if(st) st.textContent=t||""; var gb=document.getElementById("wgGenBtn"); if(gb) gb.disabled=!!busy; }
+  function genWeekly(){
+    var key=localStorage.getItem("wb_cls_dashscope_key"); if(!key){ toast("缺少 API Key"); return; }
+    var ev=document.getElementById("wgEvents"); if(!ev) return;
+    var events=ev.value.trim(); if(!events){ toast("请先描述本周发生的事情"); return; }
+    var fl=document.getElementById("wgFile");
+    weeklyGenImgs = fl && fl.files ? Array.prototype.slice.call(fl.files) : [];
+    setWGStatus("正在生成周报…", true);
+    var prompt='你是班主任的班级周报助手。根据下面「本周发生的事情」，生成一期图文结合的班级周报。\n'
+      +'要求：\n1. 语言温暖、积极、有班级温度，适合发给家长群或作为班级公告。\n'
+      +'2. 结构清晰，建议包含：本周亮点、学习情况、班级活动、表扬与进步、温馨提示。\n'
+      +'3. 不要编造未提及的具体人名或数据；照片将作为配图，可在文中自然提及「详见配图」。\n\n本周发生的事情：\n'+events;
+    qwenChat(prompt, key).then(function(txt){
+      var parts=parseWeekly(txt);
+      showWeeklyResult(parts, weeklyGenImgs);
+      setWGStatus("生成完成，可保存为本期周报或复制文本。", false);
+    }).catch(function(e){ setWGStatus("生成失败："+(e&&e.message||e), false); });
+  }
+  function parseWeekly(txt){
+    txt=(txt||"").trim();
+    var i=txt.indexOf("下周计划");
+    if(i<0) return {sum:txt, plan:""};
+    var head=txt.slice(0,i).replace(/^【?本周小结】?[:：]?\s*/,"").trim();
+    var tail=txt.slice(i+"下周计划".length).replace(/^[:：\s]*/,"").trim();
+    return {sum:head, plan:tail};
+  }
+  function showWeeklyResult(p, imgs){
+    weeklyGenData=p; weeklyGenImgs=imgs||[];
+    var imgsHtml="";
+    if(weeklyGenImgs.length){
+      imgsHtml='<h4>配图（'+weeklyGenImgs.length+' 张，保存后作为周报配图）</h4><div class="wg-imgs">'
+        + weeklyGenImgs.map(function(f){ try{ return '<img src="'+(window.URL&&URL.createObjectURL?URL.createObjectURL(f):"")+'" alt="'+esc(f.name)+'"/>'; }catch(e){ return ''; } }).join("")
+        +'</div>';
+    }
+    var html='<div class="wg-prev">'
+      +'<h4>本周小结</h4><div class="wg-text">'+esc(p.sum)+'</div>'
+      + (p.plan?'<h4>下周计划</h4><div class="wg-text">'+esc(p.plan)+'</div>':'')
+      + imgsHtml
+      +'</div>'
+      +'<div class="wg-actions"><button class="btn-add" id="wgSaveBtn">💾 保存为本期周报</button><button class="btn-grid" id="wgCopyBtn">📋 复制文本</button></div>';
+    var box=document.getElementById("wgResult"); box.innerHTML=html; box.style.display="block";
+    var gb=document.getElementById("wgGenBtn"); if(gb) gb.textContent="🔄 重新生成";
+    document.getElementById("wgSaveBtn").addEventListener("click", saveWeeklyReport);
+    document.getElementById("wgCopyBtn").addEventListener("click", function(){
+      var t="【本周小结】\n"+(p.sum||"")+"\n\n"+(p.plan?("【下周计划】\n"+p.plan+"\n\n"):"")+(weeklyGenImgs.length?("（配图 "+weeklyGenImgs.length+" 张）"):"");
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast("已复制 ✓"); }); }
+      else { toast("复制失败，请手动选择文本"); }
+    });
+  }
+  function saveWeeklyReport(){
+    var p=weeklyGenData; if(!p){ toast("请先生成周报"); return; }
+    var imgs=weeklyGenImgs||[];
+    setWGStatus("上传图片并保存中…", true);
+    var up=imgs.map(function(f){ return uploadOne("weekly", f); });
+    Promise.all(up).then(function(urls){
+      var data={ 标题:"班级周报 · "+todayStr(), 日期:todayStr(), 本周小结:p.sum, 下周计划:p.plan||"", 配图:urls };
+      return apiAdd("weekly", data);
+    }).then(function(){ closeWeeklyGen(); toast("周报已生成并保存 ✓"); return refreshAll(); })
+     .then(function(){ setStatus("ok"); })
+     .catch(function(e){ console.error(e); setWGStatus("保存失败："+(e&&e.message||e), false); });
   }
 
   /* ---------- 今日要处理 ---------- */
@@ -1870,6 +1995,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
+    var aiBtn=e.target.closest("[data-ai]"); if(aiBtn){ openWeeklyGen(); return; }
     var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
     var mm=e.target.closest("[data-mallmode]"); if(mm){ mallMode=mm.getAttribute("data-mallmode"); render(); return; }
     var rd=e.target.closest("[data-redeem]"); if(rd){ openRedeem(rd.getAttribute("data-redeem")); return; }
@@ -1906,6 +2032,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("ocrMask").addEventListener("click",function(e){ if(e.target===this) closeOCR(); });
   document.getElementById("ocrRecognize").addEventListener("click",ocrRecognize);
   document.getElementById("ocrDo").addEventListener("click",applyOCR);
+
+  /* 班级周报 · AI 生成弹窗 */
+  document.getElementById("wgClose").addEventListener("click",closeWeeklyGen);
+  document.getElementById("wgGenBtn").addEventListener("click",genWeekly);
+  document.getElementById("wgMask").addEventListener("click",function(e){ if(e.target===this) closeWeeklyGen(); });
 
   /* 积分商城 · 兑换弹窗（在容器上委派，避免 redeemBody 重渲染丢失监听） */
   document.getElementById("redeemMask").addEventListener("click",function(e){
