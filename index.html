@@ -418,6 +418,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .seat-scroll{overflow-x:auto;padding-bottom:6px}
   .seat-tip{font-size:12.5px;color:var(--ink-soft);margin:2px 0 10px}
   .seat-tip b{color:var(--pink-d)}
+  /* 讲台旁预留座位 */
+  .seat-reserved{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:8px 10px;background:#FFF6FA;border:1px dashed #f3c3d6;border-radius:12px;flex-wrap:wrap}
+  .seat-reserved .sr-label{font-weight:800;font-size:13px;color:var(--pink-d);white-space:nowrap}
+  .seatcell.reserved{width:96px;min-height:52px;background:#FFF1F7;border-style:dashed;border-color:#f0a9c8}
+  .seatcell.reserved.empty .seatno{color:var(--pink-d);opacity:.7;font-size:11px}
+  .btn-grid.btn-xls{background:#E7F7EF;color:#1f8a5b;border-color:#bfe7d2}
+  .btn-grid.btn-xls:hover{background:#D6F2E6}
 
   /* honor 荣誉榜 */
   .honor{margin-top:24px;background:#fff;border-radius:18px;padding:18px;box-shadow:0 4px 16px rgba(0,0,0,.05)}
@@ -833,7 +840,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     seats:{
       title:"🪑 座位安排", cat:"aff", unit:"个", main:"学生姓名", grid:true,
       fields:[
-        {name:"排号",type:"select",options:["1排","2排","3排","4排","5排","6排","7排","8排","9排","10排","11排","12排"]},
+        {name:"排号",type:"select",options:["预留","1排","2排","3排","4排","5排","6排","7排","8排","9排","10排","11排","12排"]},
         {name:"列号",type:"select",options:["1列","2列","3列","4列","5列","6列","7列","8列","9列","10列","11列","12列","13列","14列"]},
         {name:"学生姓名",type:"text",required:true,ph:"学生姓名"},
         {name:"学号",type:"text",ph:"01"}
@@ -1353,13 +1360,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<input class="sc-in" type="number" min="1" max="14" value="'+C+'" data-seatin="cols"> 列'
       +'<button class="btn-grid" data-seat="applylayout">应用布局</button>'
       +'<button class="btn-grid" data-seat="fill">👥 按名单排座</button>'
-      +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学</span>'
+      +'<button class="btn-grid btn-xls" data-seat="excel">📊 导出座位表(Excel)</button>'
+      +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学；预留座位点开可单独安排</span>'
       +'</div>';
     var tip='<div class="seat-tip">💡 座位表直接展示如下，可随时调整：先点一位同学高亮，再点另一位即可<b>交换位置</b>（自动保存）；点空白处可把同学移过去或新增。</div>';
+    // 讲台旁预留的两个座位（始终展示，独立于网格布局，按名单排座不会清空/覆盖）
+    var reserved=(DATA.seats||[]).filter(function(r){ return r["排号"]==="预留"; });
+    function resCell(col){
+      var rec=reserved.filter(function(r){ return String(r["列号"])===col; })[0];
+      var rid=rec?rec._id:"", name=rec?rec["学生姓名"]:"";
+      return '<div class="seatcell reserved '+(rec?"":"empty")+'" data-rc="r_'+col+'" data-rid="'+esc(rid)+'">'
+        +'<div class="seatname">'+esc(name)+'</div>'
+        +(rec?'':'<div class="seatno">预留</div>')
+        +'</div>';
+    }
+    var reservedHtml='<div class="seat-reserved"><span class="sr-label">预留座位</span>'+resCell("1")+resCell("2")+'</div>';
     // 按姓名查出性别（来自学生档案），男生蓝、女生粉
     var GENDER={};
     DATA.students.forEach(function(s){ var n=s["姓名"]; if(n) GENDER[n]=s["性别"]; });
-    var html=ctrl+tip+'<div class="podium">📚 讲 台</div>';
+    var html=ctrl+tip+'<div class="podium">📚 讲 台</div>'+reservedHtml;
     html+='<div class="seat-scroll"><div class="seatgrid" style="grid-template-columns:34px repeat('+C+',1fr)">';
     html+='<div class="seat-h corner"></div>';
     for(var c=1;c<=C;c++){ html+='<div class="seat-h">'+c+'</div>'; }
@@ -1385,6 +1404,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function onSeatClick(cell){
     var rc=cell.getAttribute("data-rc");
     var rid=cell.getAttribute("data-rid");
+    // 讲台旁预留座位：点空位→新增（预填排号=预留）；点已占→编辑。不参与网格交换
+    if(rc && rc.indexOf("r_")===0){
+      if(!rid){ openAdd("seats", {排号:"预留", 列号:rc.split("_")[1]}); }
+      else { openEdit("seats", rid); }
+      return;
+    }
     if(seatSel===null){
       if(!rid){ // 点空位 → 在该位置新增一位同学
         var p=rc.split("_");
@@ -1410,7 +1435,53 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       seatLayout={rows:r,cols:c}; saveSeatLayout(); renderList("seats"); toast("座位布局已更新 ✓");
     } else if(act==="fill"){
       fillSeatsFromRoster();
+    } else if(act==="excel"){
+      exportSeatExcel();
     }
+  }
+  /* 导出座位表为 Excel（.xls，内联表格，便于打印；含讲台旁预留座位） */
+  function exportSeatExcel(){
+    var R=seatLayout.rows, C=seatLayout.cols;
+    var map={};
+    (DATA.seats||[]).forEach(function(r){
+      var rr=parseInt(String(r["排号"]||"").replace(/\D/g,""),10)||0;
+      var cc=parseInt(String(r["列号"]||"").replace(/\D/g,""),10)||0;
+      if(rr&&cc) map[rr+"_"+cc]=r;
+    });
+    var reserved={};
+    (DATA.seats||[]).forEach(function(r){ if(r["排号"]==="预留"){ reserved[String(r["列号"])]=r; } });
+    var clsName=(DATA.cls&&DATA.cls.班级名称)||"班级";
+    var rowsHtml="";
+    var r1=reserved["1"], r2=reserved["2"];
+    rowsHtml+='<tr><td class="lbl">预留</td><td colspan="'+C+'">'+(r1?esc(r1["学生姓名"]):"（空）")+'　　'+(r2?esc(r2["学生姓名"]):"（空）")+'</td></tr>';
+    var head='<tr><th>排＼列</th>';
+    for(var c=1;c<=C;c++) head+='<th>'+c+'</th>';
+    head+='</tr>';
+    for(var r=1;r<=R;r++){
+      var tr='<tr><th>'+r+'</th>';
+      for(var c=1;c<=C;c++){
+        var rec=map[r+"_"+c];
+        tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
+      }
+      tr+='</tr>';
+      rowsHtml+=tr;
+    }
+    var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+      +'<head><meta charset="utf-8"><style>'
+      +'table{border-collapse:collapse;margin-top:8px}td,th{border:1px solid #888;padding:6px 12px;text-align:center;font-size:12px;min-width:54px}'
+      +'th{background:#FFF0F6;font-weight:700}.lbl{background:#FDE2EC;font-weight:700;white-space:nowrap}.ttl{font-size:17px;font-weight:800;margin:0}'
+      +'</style></head><body>'
+      +'<h3 class="ttl">'+esc(clsName)+' 座位表（'+todayStr()+'）</h3>'
+      +'<table>'+head+rowsHtml+'</table>'
+      +'<p style="font-size:11px;color:#888;margin-top:6px">讲台旁两个为预留座位；本表可直接打印。</p>'
+      +'</body></html>';
+    var blob=new Blob(["\uFEFF"+doc],{type:"application/vnd.ms-excel;charset=utf-8"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a");
+    a.href=url; a.download=(clsName||"班级")+"_座位表_"+todayStr()+".xls";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+    toast("座位表已导出为 Excel ✓");
   }
   /* 按学生档案顺序一键排座（清空旧座位后重新排布） */
   function fillSeatsFromRoster(){
@@ -1419,7 +1490,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!confirm("按名单排座将清空当前座位并依学生档案顺序重新排布，确定？")) return;
     setStatus("syncing");
     var lay=seatLayout, C=lay.cols;
-    var delJobs=(DATA.seats||[]).map(function(r){ return apiDelete("seats", r._id).catch(function(){}); });
+    // 预留座位（排号=预留）不属于网格，按名单排座时保留、不被清空或覆盖
+    var delJobs=(DATA.seats||[]).filter(function(r){ return r["排号"]!=="预留"; }).map(function(r){ return apiDelete("seats", r._id).catch(function(){}); });
     Promise.all(delJobs).then(function(){
       DATA.seats=[];
       var addJobs=st.map(function(s,i){
@@ -1435,6 +1507,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }).catch(function(e){ console.error(e); setStatus("offline"); toast("排座失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
   }
   function swapSeats(a,b){
+    if(a.rc.indexOf("r_")===0 || b.rc.indexOf("r_")===0) return; // 预留座位不参与网格交换
     var pa=a.rc.split("_"), pb=b.rc.split("_");
     var aR=pa[0], aC=pa[1], bR=pb[0], bC=pb[1];
     var recA=DATA.seats.filter(function(x){return x._id===a.rid;})[0];
@@ -1445,9 +1518,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     recA["排号"]=bR+"排"; recA["列号"]=bC+"列";
     if(recB){ recB["排号"]=aR+"排"; recB["列号"]=aC+"列"; }
     renderList("seats");
-    // 异步写入云端
-    var ups=[apiUpdate("seats", a.rid, {排号:recA["排号"], 列号:recA["列号"]})];
-    if(recB){ ups.push(apiUpdate("seats", b.rid, {排号:recB["排号"], 列号:recB["列号"]})); }
+    // 异步写入云端：apiUpdate 以 {data:props} 整体覆盖该行，必须带上全部字段，否则会清空姓名/学号
+    function seatPayload(rec){ return {排号:rec["排号"], 列号:rec["列号"], 学生姓名:rec["学生姓名"]||"", 学号:rec["学号"]||""}; }
+    var ups=[apiUpdate("seats", a.rid, seatPayload(recA))];
+    if(recB){ ups.push(apiUpdate("seats", b.rid, seatPayload(recB))); }
     Promise.all(ups).then(function(){ setStatus("ok"); toast("已换座并保存 ✓"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
   }
