@@ -182,6 +182,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     border:1px solid var(--line);cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink-soft);
     background:#fff;border-radius:999px;padding:8px 13px;
   }
+  .btn-ocr{
+    border:1px solid var(--coral);cursor:pointer;font-weight:700;font-size:12.5px;color:var(--pink-d);
+    background:#FFF3F7;border-radius:999px;padding:8px 13px;transition:.15s;
+  }
+  .btn-ocr:hover{background:#FFE3EE}
+  .btn-ocr:active{transform:scale(.97)}
+  .ocr-list{margin:4px 0 8px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .ocr-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #F2ECF0;font-size:14px}
+  .ocr-row:last-child{border-bottom:none}
+  .ocr-row.late{background:#FFF1F1}
+  .ocr-no{font-weight:800;min-width:36px}
+  .ocr-nm{color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ocr-st{font-weight:800}
+  .ocr-row.late .ocr-st{color:#e23c3c}
+  .ocr-out{font-size:13.5px;background:#FFF6FA;border:1px dashed var(--coral);border-radius:12px;padding:10px 12px;margin-top:4px;line-height:1.6}
+  .ocr-out b{color:var(--pink-d)}
   .btn-exp,.btn-imp{
     border:1px solid var(--line);cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink-soft);
     background:#fff;border-radius:999px;padding:8px 13px;transition:.15s;
@@ -489,6 +505,37 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <div class="actions">
       <button class="btn-cancel" id="impCancel">取消</button>
       <button class="btn-save" id="impDo" disabled>确认导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 考勤识别弹窗 -->
+<div class="mask" id="ocrMask">
+  <div class="sheet">
+    <h3>📷 识别考勤表</h3>
+    <button class="x" id="ocrClose">×</button>
+    <p class="imp-tip">上传班级考勤表照片，AI 识别 <b>✓=出勤 / ✗=迟到</b>。<br>识别后核对「迟到号数」，确认即自动登记考勤记录并扣分。Key 仅保存在本机浏览器。</p>
+    <div class="field">
+      <label>通义千问 API Key <span class="req">*</span></label>
+      <input type="text" id="ocrKey" placeholder="sk-...">
+    </div>
+    <div class="field">
+      <label>考勤日期</label>
+      <input type="date" id="ocrDate">
+    </div>
+    <div class="field">
+      <label>迟到扣分值（减分）</label>
+      <input type="number" id="ocrDeduct" value="1">
+    </div>
+    <div class="field">
+      <label>考勤表照片</label>
+      <input type="file" id="ocrFile" accept="image/*">
+    </div>
+    <button class="imp-pick" id="ocrRecognize">🔍 开始识别</button>
+    <div id="ocrPreview" class="imp-preview"></div>
+    <div class="actions">
+      <button class="btn-cancel" id="ocrCancel">取消</button>
+      <button class="btn-save" id="ocrDo" disabled>确认并保存</button>
     </div>
   </div>
 </div>
@@ -901,12 +948,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function renderModule(key){
     var m=MODULES[key];
     var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':'座位网格')+'</button>' : '';
+    var ocrBtn = key==="attendance" ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别考勤表</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
       +'<span class="count" id="count-'+key+'">共 0 '+m.unit+'</span>'
       +'<span class="spacer"></span>'
       + gridBtn
+      + ocrBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
       +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
       +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
@@ -1407,6 +1456,122 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }).catch(function(e){ console.error(e); setStatus("offline"); toast("清空失败"); });
   }
 
+  /* ---------- 考勤表图片识别（通义千问 VL） ---------- */
+  var ocrState={ rows:[], date:"", deduct:1 };
+
+  function openOCR(){
+    document.getElementById("ocrKey").value = localStorage.getItem("wb_cls_dashscope_key")||"";
+    document.getElementById("ocrDate").value = todayStr();
+    document.getElementById("ocrDeduct").value = "1";
+    document.getElementById("ocrFile").value = "";
+    document.getElementById("ocrPreview").innerHTML = '<div class="imp-empty">上传考勤表照片后点「开始识别」。</div>';
+    document.getElementById("ocrDo").disabled = true;
+    document.getElementById("ocrMask").classList.add("show");
+  }
+  function closeOCR(){ document.getElementById("ocrMask").classList.remove("show"); }
+
+  function qwenVLRecognize(imageB64, apiKey){
+    var url="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+    var prompt="你是一名助教，负责识别班级考勤表图片。图中有一个学生名单，每个学生有「号数」，旁边有标记：\n"
+      +"· 「✓」或「√」或对勾表示准时到（出勤）\n"
+      +"· 「✗」或「×」或叉号表示迟到\n"
+      +"请逐行识别，返回 JSON 数组，每个元素为 {\"号数\":\"字符串\",\"状态\":\"出勤\" 或 \"迟到\"}。\n"
+      +"只输出 JSON 数组本身，不要任何额外说明或代码块包裹。无法判断的行状态填\"出勤\"。";
+    var body={ model:"qwen-vl-max-latest", temperature:0.1,
+      messages:[{role:"user",content:[
+        {type:"text",text:prompt},
+        {type:"image_url",image_url:{url:imageB64}}
+      ]}]};
+    return fetch(url,{ method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+      body:JSON.stringify(body)
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,json:j}; }); })
+     .then(function(res){
+       if(!res.ok) throw new Error("API错误："+(res.json&&res.json.error&&(res.json.error.message||JSON.stringify(res.json.error))||JSON.stringify(res.json)));
+       var content=res.json&&res.json.choices&&res.json.choices&&res.json.choices[0]&&res.json.choices[0].message&&res.json.choices[0].message.content;
+       return parseOCRContent(content);
+     });
+  }
+  function parseOCRContent(text){
+    if(!text) return [];
+    var s=String(text).trim().replace(/^```(?:json)?/i,"").replace(/```$/,"").trim();
+    try { return normOCRArr(JSON.parse(s)); } catch(e){}
+    var i=s.indexOf("["), j=s.lastIndexOf("]");
+    if(i>=0&&j>i){ try{ return normOCRArr(JSON.parse(s.slice(i,j+1))); }catch(e){} }
+    var i2=s.indexOf("{"), j2=s.lastIndexOf("}");
+    if(i2>=0&&j2>i2){ try{ var o=JSON.parse(s.slice(i2,j2+1)); return normOCRArr(Array.isArray(o)?o:[o]); }catch(e){} }
+    return [];
+  }
+  function normOCRArr(a){
+    if(!Array.isArray(a)) return [];
+    return a.map(function(it){
+      if(!it||typeof it!=="object") return null;
+      var no = it["号数"]!=null?it["号数"]:(it.no!=null?it.no:(it.hao!=null?it.hao:(it["学号"]!=null?it["学号"]:"")));
+      var st = it["状态"]!=null?it["状态"]:(it.status!=null?it.status:(it["mark"]!=null?it["mark"]:""));
+      return { 号数:String(no).trim(), 状态:(String(st).indexOf("迟")>=0?"迟到":"出勤") };
+    }).filter(Boolean);
+  }
+  function studentNameByNo(no){
+    var map={};
+    (DATA["students"]||[]).forEach(function(r){ if(r["学号"]!=null) map[String(r["学号"]).trim()]=r["学生姓名"]||""; });
+    return map[String(no).trim()] || map[String(Number(no))] || "";
+  }
+  function ocrRecognize(){
+    var key=(document.getElementById("ocrKey").value||"").trim();
+    if(!key){ toast("请先填写通义千问 API Key"); return; }
+    localStorage.setItem("wb_cls_dashscope_key", key);
+    var f=document.getElementById("ocrFile").files[0];
+    if(!f){ toast("请选择考勤表照片"); return; }
+    ocrState.date = document.getElementById("ocrDate").value || todayStr();
+    ocrState.deduct = Number(document.getElementById("ocrDeduct").value)||1;
+    setStatus("syncing"); toast("识别中…");
+    var reader=new FileReader();
+    reader.onload=function(){
+      qwenVLRecognize(reader.result, key).then(function(rows){
+        ocrState.rows=rows; renderOCRResult(rows); setStatus("ok");
+      }).catch(function(e){
+        console.error(e); setStatus("offline");
+        document.getElementById("ocrPreview").innerHTML='<div class="imp-empty">识别失败：'+esc(e&&e.message||e)+'<br>若提示跨域(CORS)限制，建议改用 Supabase Edge 中转方案。</div>';
+      });
+    };
+    reader.readAsDataURL(f);
+  }
+  function renderOCRResult(rows){
+    var box=document.getElementById("ocrPreview");
+    if(!rows.length){ box.innerHTML='<div class="imp-empty">未识别到有效条目，请检查图片清晰度或重试。</div>'; document.getElementById("ocrDo").disabled=true; return; }
+    var late=rows.filter(function(x){return x.状态==="迟到";});
+    var html='<div class="imp-stats">共识别 <b>'+rows.length+'</b> 人，其中 <b style="color:#e23c3c">迟到 '+late.length+'</b> 人。</div>';
+    html+='<div class="ocr-list">';
+    rows.forEach(function(x){
+      var isLate=x.状态==="迟到", no=String(x.号数).trim(), nm=studentNameByNo(no)||"（未匹配学生）";
+      html+='<div class="ocr-row'+(isLate?' late':'')+'"><span class="ocr-no">'+esc(no)+'</span><span class="ocr-nm">'+esc(nm)+'</span><span class="ocr-st">'+(isLate?'✗ 迟到':'✓ 出勤')+'</span></div>';
+    });
+    html+='</div>';
+    if(late.length) html+='<div class="ocr-out">当日迟到号数：<b>'+late.map(function(x){return x.号数;}).join("、")+'</b></div>';
+    box.innerHTML=html;
+    document.getElementById("ocrDo").disabled=!late.length;
+  }
+  function applyOCR(){
+    var late=ocrState.rows.filter(function(x){return x.状态==="迟到";});
+    if(!late.length){ toast("没有迟到记录，无需保存"); return; }
+    setStatus("syncing");
+    var chain=Promise.resolve();
+    late.forEach(function(x){
+      var no=String(x.号数).trim(), name=studentNameByNo(no)||no;
+      var att={日期:ocrState.date, 学生姓名:name, 学号:no, 状态:"迟到", 事由:"考勤表识别"};
+      var pt={日期:ocrState.date, 学生姓名:name, 学号:no, 类型:"减分", 分值:Number(ocrState.deduct)||1, 原因:"迟到"};
+      chain=chain.then(function(){ return apiAdd("attendance", att); })
+                 .then(function(){ return apiAdd("points", pt); });
+    });
+    chain.then(function(){
+      var haos=late.map(function(x){return x.号数;}).join("、");
+      toast("已登记迟到 "+late.length+" 人并扣分 ✓");
+      closeOCR();
+      return refreshAll();
+    }).then(function(){ setStatus("ok"); })
+     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+
   /* ---------- 班级 / 年段 可编辑 ---------- */
   function loadClass(){
     CLS_YEAR = localStorage.getItem("wb_cls_year") || "初一";
@@ -1447,6 +1612,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
+    var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
@@ -1475,6 +1641,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("impPick").addEventListener("click",function(){ document.getElementById("impFile").click(); });
   document.getElementById("impFile").addEventListener("change",handleImpFile);
   document.getElementById("impDo").addEventListener("click",confirmImport);
+  document.getElementById("ocrClose").addEventListener("click",closeOCR);
+  document.getElementById("ocrCancel").addEventListener("click",closeOCR);
+  document.getElementById("ocrMask").addEventListener("click",function(e){ if(e.target===this) closeOCR(); });
+  document.getElementById("ocrRecognize").addEventListener("click",ocrRecognize);
+  document.getElementById("ocrDo").addEventListener("click",applyOCR);
 
   /* 移动端抽屉 */
   document.getElementById("ham").addEventListener("click",openDrawer);
