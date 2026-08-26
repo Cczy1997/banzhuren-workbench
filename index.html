@@ -855,7 +855,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"星期",type:"select",options:["周一","周二","周三","周四","周五","周六","周日"]},
         {name:"值日组",type:"text",ph:"如：第一组"},
         {name:"学生姓名",type:"text",ph:"参与学生，逗号分隔"},
-        {name:"内容",type:"select",options:["扫地","拖地","擦黑板","倒垃圾","摆桌椅","窗台","其他"]},
+        {name:"内容",type:"select",options:[
+          "室内·黑板（含讲台整理）",
+          "室内·室内地板",
+          "室内·走廊（含窗户擦拭）",
+          "室内·倒垃圾（含整理室内卫生区）",
+          "室外·室外卫生区（一片，难度较高）"
+        ]},
         {name:"备注",type:"text",ph:"选填"}
       ]
     },
