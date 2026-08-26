@@ -188,6 +188,50 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   .btn-ocr:hover{background:#FFE3EE}
   .btn-ocr:active{transform:scale(.97)}
+  /* 荣誉榜 · 商城入口 */
+  .honor-h-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .honor-h-row .honor-h{margin:0}
+  .btn-mall{
+    margin-left:auto;border:1px solid var(--coral);cursor:pointer;font-weight:800;font-size:13px;color:var(--pink-d);
+    background:#FFF3F7;border-radius:999px;padding:7px 14px;transition:.15s;
+  }
+  .btn-mall:hover{background:#FFE3EE}
+  .btn-mall:active{transform:scale(.97)}
+  /* 积分商城 */
+  .mall-mode{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff}
+  .mm-btn{border:none;background:#fff;cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink-soft);padding:7px 13px}
+  .mm-btn.on{background:linear-gradient(135deg,var(--pink),var(--pink-d));color:#fff}
+  .mall-hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:#FFF6FA;border:1px solid var(--line);border-radius:14px;padding:10px 13px;margin:0 0 14px}
+  .mall-hint b{color:var(--pink-d)}
+  .mall-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .prize{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 8px rgba(140,120,130,.06)}
+  .prize-img{height:96px;border-radius:12px;background-size:cover;background-position:center;background-color:#F4EEF2}
+  .prize-name{font-weight:800;font-size:15px;color:var(--ink)}
+  .prize-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+  .prize-price{font-weight:800;color:var(--mint-d);font-size:15px}
+  .prize-diff{font-size:13px;color:#B07800}
+  .prize-diffn{color:var(--ink-soft);font-weight:600}
+  .prize-quota{font-size:12px;color:var(--ink-soft)}
+  .prize-acts{display:flex;gap:8px;margin-top:2px}
+  .prize-redeem{border:none;cursor:pointer;font-weight:800;font-size:13.5px;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint-d));border-radius:999px;padding:8px 14px;box-shadow:0 4px 12px rgba(79,200,174,.28)}
+  .prize-redeem:disabled{background:#E7E0E5;color:#fff;box-shadow:none;cursor:not-allowed}
+  .prize-redeem:active:not(:disabled){transform:scale(.97)}
+  /* AI 小助手 */
+  .ai-key{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;flex-wrap:wrap}
+  .ai-key input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit}
+  .ai-chat{flex:1;min-height:240px;max-height:46vh;overflow-y:auto;background:#FAF5F8;border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .ai-msg{display:flex}
+  .ai-msg.me{justify-content:flex-end}
+  .ai-bubble{max-width:82%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .ai-msg.bot .ai-bubble{background:#fff;border:1px solid var(--line);color:var(--ink);border-bottom-left-radius:4px}
+  .ai-msg.me .ai-bubble{background:linear-gradient(135deg,var(--pink),var(--pink-d));color:#fff;border-bottom-right-radius:4px}
+  .ai-empty{font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:auto;text-align:center;padding:20px}
+  .ai-input-row{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+  .ai-input-row textarea{flex:1;min-height:46px;max-height:120px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px}
+  /* 兑换弹窗 */
+  .redeem-prize{font-size:14px;font-weight:700;color:var(--ink);background:#FFF6FA;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px}
+  .redeem-prize b{color:var(--pink-d)}
+  .redeem-sel{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fff}
   .ocr-list{margin:4px 0 8px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .ocr-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #F2ECF0;font-size:14px}
   .ocr-row:last-child{border-bottom:none}
@@ -540,6 +584,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   </div>
 </div>
 
+<!-- 积分商城 · 兑换弹窗 -->
+<div class="mask" id="redeemMask">
+  <div class="sheet">
+    <h3 id="redeemTitle">兑换奖品</h3>
+    <button class="x" id="redeemClose">×</button>
+    <div id="redeemBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- 登录 / 注册 -->
@@ -751,23 +804,38 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"下周计划",type:"text",multiline:true,ph:"下周工作安排（选填）"},
         {name:"配图",type:"file",accept:".jpg,.jpeg,.png,.gif,.webp",label:"周报配图（可多选）"}
       ]
+    },
+    mall:{
+      title:"🛒 积分商城", cat:"aff", unit:"件", main:"名称",
+      fields:[
+        {name:"名称",type:"text",required:true,ph:"如：免作业券 / 文具盲盒"},
+        {name:"描述",type:"text",multiline:true,ph:"奖品说明（选填）"},
+        {name:"图片",type:"file",accept:".jpg,.jpeg,.png,.gif,.webp",label:"奖品图片（选填）"},
+        {name:"难度",type:"select",options:["1","2","3","4","5","6","7","8","9","10"],ph:"1~10，越高越难获得"},
+        {name:"兑换上限",type:"number",ph:"该奖品最多可兑换次数，如 20"}
+      ]
+    },
+    ai:{
+      title:"🤖 AI 小助手", cat:"ai", unit:"", main:"", fields:[]
     }
   };
 
   var ORDER = {
     stu:["students","committee","parents"],
-    aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard"],
+    aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard","mall"],
     mor:["talk","comm","comment"],
-    mtg:["meeting","weekly"]
+    mtg:["meeting","weekly"],
+    ai:["ai"]
   };
   var CAT_META = {
     overview:{icon:"🏠",label:"总览"},
     stu:{icon:"🧑‍🎓",label:"学生管理"},
     aff:{icon:"🗂️",label:"班级事务"},
     mor:{icon:"💗",label:"德育心理"},
-    mtg:{icon:"📅",label:"班会与周报"}
+    mtg:{icon:"📅",label:"班会与周报"},
+    ai:{icon:"🤖",label:"AI 小助手"}
   };
-  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment","meeting","weekly"];
+  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment","meeting","weekly","mall"];
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
@@ -894,6 +962,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     html += secHTML("aff",CAT_META.aff,ORDER.aff);
     html += secHTML("mor",CAT_META.mor,ORDER.mor);
     html += secHTML("mtg",CAT_META.mtg,ORDER.mtg);
+    html += secHTML("ai",CAT_META.ai,ORDER.ai);
     nav.innerHTML=html;
   }
   function secHTML(cat, meta, keys){
@@ -929,6 +998,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var box=document.getElementById("content");
     if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadToday(); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
+    if(state.mod==="mall"){ box.innerHTML=renderMall(); return; }
+    if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
     if(ORDER[state.cat].indexOf(state.mod)<0) state.mod=ORDER[state.cat][0];
     try { box.innerHTML=renderModule(state.mod); }
     catch(e){ box.innerHTML='<div class="empty">「'+(MODULES[state.mod]?esc(MODULES[state.mod].title):esc(state.mod))+'」界面渲染失败：'+(esc(e&&e.message||e))+'</div>'; console.error(e); return; }
@@ -1150,7 +1221,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       .filter(function(x){return x.v!==0;}).sort(function(a,b){return b.v-a.v;}).slice(0,2);
     var medal=["🥇","🥈","🥉"];
     var html='<div class="honor">'
-      +'<h2 class="honor-h">🏆 荣誉榜</h2>'
+      +'<div class="honor-h-row"><h2 class="honor-h">🏆 荣誉榜</h2><button class="btn-mall" data-mall="1">🛒 积分商城</button></div>'
       +'<div class="honor-sub">个人积分 TOP3</div><div class="honor-list">';
     if(!ind.length){
       html+='<div class="empty">暂无积分记录，去「加减分管理」记一笔吧～</div>';
@@ -1174,6 +1245,114 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     html+='</div></div>';
     return html;
+  }
+
+  /* ---------- 积分商城 ---------- */
+  var mallMode="manage";      // manage=教师管理模式(可见难度) / redeem=兑换(学生)视图(隐藏难度)
+  var redeemPrizeId=null;
+  function studentPoints(name){
+    var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; var x=Number(r["分值"])||0; if(r["类型"]==="减分") x=-x; v+=x; }); return v;
+  }
+  function classAvgPoints(){
+    var names=(DATA.students||[]).map(function(s){return s["姓名"];}).filter(Boolean);
+    if(!names.length) return 0;
+    var sum=0; names.forEach(function(n){ sum+=studentPoints(n); });
+    return sum/names.length;
+  }
+  function priceOf(diff){
+    var avg=classAvgPoints(); var base=avg>0?avg:50;
+    return Math.max(1, Math.round(base*Number(diff)/5));
+  }
+  function renderMall(){
+    var rows=DATA.mall||[], avg=classAvgPoints();
+    var head='<div class="phead">'
+      +'<h3>🛒 积分商城</h3>'
+      +'<span class="count" id="count-mall">共 '+rows.length+' 件</span>'
+      +'<span class="spacer"></span>'
+      +'<div class="mall-mode">'
+      +'<button class="mm-btn'+(mallMode==="manage"?" on":"")+'" data-mallmode="manage">管理模式</button>'
+      +'<button class="mm-btn'+(mallMode==="redeem"?" on":"")+'" data-mallmode="redeem">兑换模式</button>'
+      +'</div>'
+      +'<button class="btn-add" data-add="mall">+ 添加奖品</button>'
+      +'</div>';
+    var hint='<div class="mall-hint">💡 定价 = 班级人均积分 × 难度 ÷ 5（当前人均 <b>'+Math.round(avg)+'</b> 分；人均为 0 时按 50 计）。<b>难度仅「管理模式」可见</b>，兑换视图对学生隐藏。</div>';
+    var body;
+    if(!rows.length){
+      body='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有奖品，点右上角「+ 添加奖品」上架吧～</div></div>';
+    } else {
+      body='<div class="mall-grid">'+rows.map(function(p){ return prizeCard(p, avg); }).join("")+'</div>';
+    }
+    return head+hint+body;
+  }
+  function prizeCard(p){
+    var diff=Number(p["难度"])||1, price=priceOf(diff);
+    var cap=Number(p["兑换上限"])||0, done=Number(p["已兑换"])||0, remain=cap-done;
+    var imgs=Array.isArray(p["图片"])?p["图片"]:[];
+    var firstImg=imgs.filter(function(u){ return /\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i.test(u); })[0];
+    var img= firstImg ? '<div class="prize-img" style="background-image:url(\''+esc(firstImg)+'\')"></div>' : '';
+    var stars=""; for(var i=0;i<diff;i++) stars+="⭐";
+    var manageExtra = mallMode==="manage"
+      ? '<div class="prize-diff">难度 '+stars+' <span class="prize-diffn">('+diff+'/10)</span></div>' : '';
+    var actions;
+    if(mallMode==="manage"){
+      actions='<div class="prize-acts">'
+        +'<button class="mini edit" data-act="edit" data-mod="mall" data-id="'+p._id+'">编辑</button>'
+        +'<button class="mini del" data-act="del" data-mod="mall" data-id="'+p._id+'">删除</button>'
+        +'</div>';
+    } else {
+      actions='<button class="prize-redeem" data-redeem="'+p._id+'"'+(remain<=0?" disabled":"")+'>🎁 兑换'+(remain<=0?'（已兑完）':'')+'</button>';
+    }
+    return '<div class="prize">'
+      + img
+      +'<div class="prize-name">'+esc(p["名称"]||"未命名奖品")+'</div>'
+      + (p["描述"]?'<div class="prize-desc">'+esc(p["描述"])+'</div>':'')
+      +'<div class="prize-price">💎 '+price+' 积分</div>'
+      + manageExtra
+      +'<div class="prize-quota">已兑换 '+done+' / 上限 '+cap+'（剩 '+Math.max(0,remain)+'）</div>'
+      + actions
+      +'</div>';
+  }
+  function openRedeem(id){
+    var p=(DATA.mall||[]).filter(function(x){return x._id===id;})[0]; if(!p) return;
+    var price=priceOf(Number(p["难度"])||1), cap=Number(p["兑换上限"])||0, done=Number(p["已兑换"])||0;
+    if(cap-done<=0){ toast("该奖品已兑换完"); return; }
+    var elig=(DATA.students||[]).map(function(s){ var n=s["姓名"], v=studentPoints(n); return {n:n,v:v}; })
+                .filter(function(x){ return x.v>price; }).sort(function(a,b){return b.v-a.v;});
+    redeemPrizeId=id;
+    var html='<div class="redeem-prize">🎁 '+esc(p["名称"]||"")+'　·　需 <b>'+price+'</b> 积分（需同学积分 &gt; 商品价格）</div>';
+    if(!elig.length){
+      html+='<div class="imp-empty">暂无可兑换的同学（积分需大于 '+price+'）。可先去「加减分管理」给同学加分～</div>';
+    } else {
+      html+='<div class="field"><label>选择兑换同学</label><select id="redeemStudent" class="redeem-sel">'
+        + elig.map(function(x){ return '<option value="'+esc(x.n)+'">'+esc(x.n)+'（当前 '+x.v+' 分）</option>'; }).join("")
+        +'</select></div>';
+    }
+    html+='<div class="actions"><button class="btn-cancel" id="redeemCancel">取消</button>'
+      +'<button class="btn-save" id="redeemDo"'+(elig.length?'':' disabled')+'>确认兑换并扣分</button></div>';
+    document.getElementById("redeemBody").innerHTML=html;
+    document.getElementById("redeemTitle").textContent="兑换："+stripEmoji(p["名称"]||"");
+    document.getElementById("redeemMask").classList.add("show");
+  }
+  function closeRedeem(){ document.getElementById("redeemMask").classList.remove("show"); redeemPrizeId=null; }
+  function applyRedeem(){
+    if(!redeemPrizeId) return;
+    var p=(DATA.mall||[]).filter(function(x){return x._id===redeemPrizeId;})[0]; if(!p) return;
+    var price=priceOf(Number(p["难度"])||1);
+    var sel=document.getElementById("redeemStudent");
+    if(!sel){ toast("没有可兑换的同学"); return; }
+    var name=sel.value; if(!name){ toast("请选择同学"); return; }
+    if(!(studentPoints(name)>price)){ toast("该同学积分不足（需 &gt; "+price+"）"); return; }
+    var cap=Number(p["兑换上限"])||0, done=Number(p["已兑换"])||0;
+    if(cap-done<=0){ toast("该奖品已兑换完"); return; }
+    var st=(DATA.students||[]).filter(function(s){return s["姓名"]===name;})[0];
+    var no=st?st["学号"]:"";
+    setStatus("syncing");
+    var newData={}; Object.keys(p).forEach(function(k){ if(k!=="_id") newData[k]=p[k]; }); newData["已兑换"]=done+1;
+    var pt={日期:todayStr(), 学生姓名:name, 学号:no, 类型:"减分", 分值:price, 原因:"兑换："+(p["名称"]||"奖品")};
+    Promise.all([ apiUpdate("mall", p._id, newData), apiAdd("points", pt) ])
+      .then(function(){ closeRedeem(); toast("兑换成功，已扣 "+price+" 分 ✓"); return refreshAll(); })
+      .then(function(){ setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("兑换失败，请重试"); });
   }
 
   /* ---------- 今日要处理 ---------- */
@@ -1416,7 +1595,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
     setStatus("syncing");
     chain.then(function(){
-      var p = current.id ? apiUpdate(key, current.id, props) : apiAdd(key, props);
+      // 编辑时合并已有字段，避免整体替换 data 列清空「已兑换」等自动维护字段
+      var propsFull = props;
+      if(current.id){
+        var rec=(DATA[key]||[]).filter(function(r){return r._id===current.id;})[0];
+        if(rec){ propsFull={}; Object.keys(rec).forEach(function(k){ if(k!=="_id") propsFull[k]=rec[k]; }); Object.keys(props).forEach(function(k){ propsFull[k]=props[k]; }); }
+      }
+      var p = current.id ? apiUpdate(key, current.id, propsFull) : apiAdd(key, props);
       return p;
     }).then(function(){
       closeForm();
@@ -1597,6 +1782,78 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     applyClass(); closeCfg(); toast("已更新班级信息 ✓");
   }
 
+  /* ---------- AI 小助手 ---------- */
+  var aiMsgs=[];
+  try { var _am=JSON.parse(localStorage.getItem("wb_cls_ai_msgs")||"[]"); if(Array.isArray(_am)) aiMsgs=_am; } catch(e){}
+  function aiPersist(){ try{ localStorage.setItem("wb_cls_ai_msgs", JSON.stringify(aiMsgs.slice(-24))); }catch(e){} }
+  function classSummary(){
+    var st=DATA.students||[];
+    var top=(DATA.students||[]).map(function(s){return {n:s["姓名"],v:studentPoints(s["姓名"])};})
+              .filter(function(x){return x.n;}).sort(function(a,b){return b.v-a.v;}).slice(0,3)
+              .map(function(x){return x.n+"("+x.v+")";}).join("、");
+    var todo=(DATA.affairs||[]).filter(function(r){return r["状态"]!=="已完成";}).length;
+    return "你是班主任的 AI 教学管理小助手。当前班级："+CLS_YEAR+CLS_CLASS
+      +"；学生 "+st.length+" 人；班级人均积分约 "+Math.round(classAvgPoints())+" 分；积分 TOP3："+(top||"暂无")
+      +"；未完成班务 "+todo+" 项。请用简洁、贴近一线班主任的口吻回答，可给出可操作建议；不要每句都重复班级概况。";
+  }
+  function renderAIChat(){
+    var key=localStorage.getItem("wb_cls_dashscope_key")||"";
+    var msgs=aiMsgs.map(function(m){
+      return '<div class="ai-msg '+(m.role==="user"?"me":"bot")+'"><div class="ai-bubble">'+esc(m.content)+'</div></div>';
+    }).join("");
+    if(!msgs) msgs='<div class="ai-empty">👋 我是你的班级 AI 小助手。可以问我：「帮我写一段给进步生的评语」「这周班会怎么安排」「怎么激励积分靠后的同学」…</div>';
+    return ''
+      +'<div class="phead"><h3>🤖 AI 小助手</h3><span class="hint">基于通义千问 · 已注入班级概况</span></div>'
+      +'<div class="ai-key">通义千问 Key：<input type="text" id="aiKey" placeholder="sk-...（与考勤识别共用，仅存本机）" value="'+esc(key)+'"><button class="mini" id="aiKeySave">保存</button></div>'
+      +'<div class="ai-chat" id="aiChat">'+msgs+'</div>'
+      +'<div class="ai-input-row">'
+      +'<textarea id="aiInput" placeholder="输入你的问题，Enter 发送 / Shift+Enter 换行"></textarea>'
+      +'<button class="btn-add" id="aiSend">发送</button>'
+      +'<button class="mini" id="aiClear">清空</button>'
+      +'</div>';
+  }
+  function bindAI(){
+    var send=document.getElementById("aiSend"), input=document.getElementById("aiInput"),
+        key=document.getElementById("aiKey"), keySave=document.getElementById("aiKeySave"),
+        clear=document.getElementById("aiClear");
+    if(!send) return;
+    function doSend(){
+      var text=(input.value||"").trim(); if(!text) return;
+      var k=(key.value||"").trim(); if(!k){ toast("请先填写通义千问 Key（与考勤识别共用）"); return; }
+      localStorage.setItem("wb_cls_dashscope_key", k);
+      aiMsgs.push({role:"user",content:text}); input.value=""; renderAIChatInto(); setStatus("syncing"); toast("思考中…");
+      qwenChat(text, k).then(function(reply){
+        aiMsgs.push({role:"assistant",content:reply}); aiPersist(); setStatus("ok"); renderAIChatInto();
+      }).catch(function(e){ console.error(e); setStatus("offline"); aiMsgs.push({role:"assistant",content:"⚠️ 调用失败："+(e&&e.message||e)}); renderAIChatInto(); });
+    }
+    send.onclick=doSend;
+    if(input) input.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); doSend(); } });
+    if(keySave) keySave.onclick=function(){ localStorage.setItem("wb_cls_dashscope_key",(key.value||"").trim()); toast("Key 已保存 ✓"); };
+    if(clear) clear.onclick=function(){ if(!confirm("确定清空对话记录吗？")) return; aiMsgs=[]; aiPersist(); renderAIChatInto(); };
+  }
+  function renderAIChatInto(){
+    var box=document.getElementById("aiChat"); if(!box) return;
+    var msgs=aiMsgs.map(function(m){
+      return '<div class="ai-msg '+(m.role==="user"?"me":"bot")+'"><div class="ai-bubble">'+esc(m.content)+'</div></div>';
+    }).join("");
+    box.innerHTML = msgs || '<div class="ai-empty">👋 我是你的班级 AI 小助手。可以问我：「帮我写一段给进步生的评语」「这周班会怎么安排」「怎么激励积分靠后的同学」…</div>';
+    box.scrollTop=box.scrollHeight;
+  }
+  function qwenChat(text, apiKey){
+    var url="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+    var messages=[ {role:"system",content:classSummary()} ]
+      .concat(aiMsgs.map(function(m){return {role:m.role,content:m.content};}), [{role:"user",content:text}]);
+    return fetch(url,{ method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+      body:JSON.stringify({ model:"qwen-plus", temperature:0.8, messages:messages })
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,json:j}; }); })
+     .then(function(res){
+       if(!res.ok) throw new Error("API错误："+(res.json&&res.json.error&&(res.json.error.message||JSON.stringify(res.json.error))||JSON.stringify(res.json)));
+       var c=res.json&&res.json.choices&&res.json.choices[0]&&res.json.choices[0].message&&res.json.choices[0].message.content;
+       return c||"（无回复）";
+     });
+  }
+
   /* ---------- 示例数据 ---------- */
 
   /* ---------- 事件 ---------- */
@@ -1613,6 +1870,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
+    var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
+    var mm=e.target.closest("[data-mallmode]"); if(mm){ mallMode=mm.getAttribute("data-mallmode"); render(); return; }
+    var rd=e.target.closest("[data-redeem]"); if(rd){ openRedeem(rd.getAttribute("data-redeem")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
@@ -1646,6 +1906,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("ocrMask").addEventListener("click",function(e){ if(e.target===this) closeOCR(); });
   document.getElementById("ocrRecognize").addEventListener("click",ocrRecognize);
   document.getElementById("ocrDo").addEventListener("click",applyOCR);
+
+  /* 积分商城 · 兑换弹窗（在容器上委派，避免 redeemBody 重渲染丢失监听） */
+  document.getElementById("redeemMask").addEventListener("click",function(e){
+    if(e.target.closest("#redeemClose")||e.target.closest("#redeemCancel")) closeRedeem();
+    else if(e.target.closest("#redeemDo")) applyRedeem();
+    else if(e.target===this) closeRedeem();
+  });
 
   /* 移动端抽屉 */
   document.getElementById("ham").addEventListener("click",openDrawer);
