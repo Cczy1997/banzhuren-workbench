@@ -849,8 +849,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(state.cat==="overview"){ box.innerHTML=renderOverview(); bindOverview(); loadToday(); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(ORDER[state.cat].indexOf(state.mod)<0) state.mod=ORDER[state.cat][0];
-    box.innerHTML=renderModule(state.mod);
-    renderList(state.mod);
+    try { box.innerHTML=renderModule(state.mod); }
+    catch(e){ box.innerHTML='<div class="empty">「'+(MODULES[state.mod]?esc(MODULES[state.mod].title):esc(state.mod))+'」界面渲染失败：'+(esc(e&&e.message||e))+'</div>'; console.error(e); return; }
+    try { renderList(state.mod); }
+    catch(e){ console.error("renderList fail:", state.mod, e); box.insertAdjacentHTML("beforeend",'<div class="empty">列表渲染出错：'+(esc(e&&e.message||e))+'</div>'); }
   }
 
   function syncMobileTitle(){
@@ -1369,7 +1371,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(cat!=="overview") state.open[cat]=true;
     render();
   }
-  function switchMod(mod){ state.mod=mod; render(); }
+  function switchMod(mod){
+    // 关键修复：点击侧边栏子模块链接时，必须同步把栏目切到该模块所属栏目，
+    // 否则 state.cat 停留在旧栏目，render() 会按旧栏目渲染（甚至走 overview 分支直接 return），
+    // 表现为「点击栏目无法跳转 / 跳错地方」。
+    for(var c in ORDER){ if(ORDER[c].indexOf(mod)>=0){ state.cat=c; break; } }
+    state.mod=mod;
+    if(state.cat!=="overview") state.open[state.cat]=true;
+    render();
+  }
 
   /* ---------- 导入 / 导出 ---------- */
   var impKey=null, impData=null;
