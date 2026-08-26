@@ -537,6 +537,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .db-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 2px}
   .db-rf{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:12px;border:1px solid var(--line);font-size:14px;font-weight:700;color:var(--ink)}
   .db-rf.done{color:var(--pink-d);justify-content:center}
+  .db-grid-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:8px}
+  .db-grid-bar>b{font-size:13.5px;color:var(--ink-soft)}
+  .db-grid-hint{font-size:12px;color:var(--ink-soft);flex:1}
+  .db-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:13px}
+  .db-table th.db-th{background:#FBF2F7;color:var(--pink-d);font-weight:800;padding:9px 8px;text-align:center;border-bottom:1.5px solid var(--line);font-size:12.5px;vertical-align:middle}
+  .db-table th.db-rh{background:#FBF2F7;color:var(--ink);text-align:center;min-width:58px}
+  .db-table td.db-td{padding:5px;border-top:1px solid #f3e6ec;border-left:1px solid #f3e6ec}
+  .db-table tbody tr td:first-child,.db-table tbody th.db-rh{border-left:none}
+  .db-cell{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:9px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff;min-width:0}
+  .db-cell:focus{outline:none;border-color:var(--pink);background:#FFF9FB}
   .btn-ok{background:#1f9d5b;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
   .btn-ok:hover{background:#178a4e}
   .btn-bad{background:#e0584f;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -1527,6 +1537,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var DUTYROT_LS="wb_cls_dutyrot";
   var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null };
   var redflagAskedThisWeek=false;
+  // 值日表维度：行=星期，列=分工（与 duty 模块「内容」选项保持一致，便于按分工回填学生名单）
+  var DUTY_DAYS=["周一","周二","周三","周四","周五","周六","周日"];
+  var DUTY_TASKS=["室内·黑板（含讲台整理）","室内·地板","室内·走廊（含窗户擦拭）","室内·倒垃圾（含整理室内卫生区）","室外·卫生区（一片，难度较高）"];
   function loadDutyRot(){
     try{
       var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
@@ -1552,38 +1565,74 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var cfgHtml='<div class="db-cfg"><b>轮值设置</b>：<input class="db-cfg-in" id="dutyGroupsInput" placeholder="如：第一组,第二组,第三组" value="'+esc(groups.join(","))+'">'
       +'<button class="btn-mini" data-dutycfg="save">保存</button>'
       +'<button class="btn-mini" data-dutycfg="reset">从记录提取</button></div>';
-    if(!groups.length){
-      return '<div class="duty-board"><div class="db-title">📋 每周值日看板</div>'+cfgHtml
-        +'<div class="empty">请先在上方设置值日小组顺序（或点「从记录提取」自动读取值日安排中的小组），系统将依次轮值；每周一早上会询问是否获得流动红旗以决定是否切换下一组。</div></div>';
-    }
-    var tl=groups.map(function(g,i){
-      var tag = i===dutyRot.cursor ? " 🟢" : (i<dutyRot.cursor ? " ✔" : "");
-      return '<span class="db-chip'+(i===dutyRot.cursor?' cur':'')+'">'+(i+1)+'. '+esc(g)+tag+'</span>';
-    }).join('<span class="db-arrow">→</span>');
-    var wk=(DATA.duty||[]).filter(function(r){ return r["值日组"]===cur; });
-    var byDay={}; ["周一","周二","周三","周四","周五","周六","周日"].forEach(function(d){ byDay[d]=[]; });
-    wk.forEach(function(r){ var d=r["星期"]||"其他"; (byDay[d]=byDay[d]||[]).push(r); });
-    var assign="";
-    Object.keys(byDay).forEach(function(d){
-      if(!byDay[d].length) return;
-      assign+='<div class="db-day"><b>'+d+'</b>'+byDay[d].map(function(r){ return '<span class="db-task">'+esc(r["学生姓名"]||"")+'：'+esc(r["内容"]||"")+'</span>'; }).join("")+'</div>';
-    });
-    if(!assign) assign='<div class="db-empty">本周（'+esc(cur)+'）暂未录入具体值日分工，请在下方「值日安排」中添加「值日组='+esc(cur)+'」的记录。</div>';
+    var tl = groups.length
+      ? groups.map(function(g,i){
+          var tag = i===dutyRot.cursor ? " 🟢" : (i<dutyRot.cursor ? " ✔" : "");
+          return '<span class="db-chip'+(i===dutyRot.cursor?' cur':'')+'">'+(i+1)+'. '+esc(g)+tag+'</span>';
+        }).join('<span class="db-arrow">→</span>')
+      : '<span class="db-empty">未设置轮值小组，值日表可照常填写（保存时「值日组」留空）。</span>';
+    // 已录入的本组值日记录：以 星期+内容 为键
+    var map={};
+    (DATA.duty||[]).forEach(function(r){ if(cur && r["值日组"]!==cur) return; var k=r["星期"]+"|"+r["内容"]; if(!map[k]) map[k]=r; });
+    var head='<th class="db-th db-rh">星期 ＼ 分工</th>'+DUTY_TASKS.map(function(t){ return '<th class="db-th">'+esc(t)+'</th>'; }).join("");
+    var rows=DUTY_DAYS.map(function(d,di){
+      var tds='<th class="db-rh">'+d+'</th>';
+      DUTY_TASKS.forEach(function(t,ti){
+        var rec=map[d+"|"+t];
+        var val=rec?(rec["学生姓名"]||""):"";
+        tds+='<td class="db-td"><input class="db-cell" id="dutycell-'+di+'-'+ti+'" value="'+esc(val)+'" placeholder="学生姓名"></td>';
+      });
+      return '<tr>'+tds+'</tr>';
+    }).join("");
+    var grid='<table class="db-table"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table>';
     var wkNow=isoWeek().key, rfHtml;
-    if(dutyRot.checkedWeek===wkNow){
-      rfHtml='<div class="db-rf done">✅ 本周流动红旗已记录</div>';
-    } else {
-      rfHtml='<div class="db-rf"><span>上周「'+esc(cur)+'」是否获得流动红旗？</span>'
-        +'<button class="btn-ok" data-redflag="won">✅ 获得（切换下一组 + 全员+5分）</button>'
-        +'<button class="btn-bad" data-redflag="lost">❌ 未获得（继续值日 + 全员-5分）</button></div>';
-    }
+    if(groups.length){
+      if(dutyRot.checkedWeek===wkNow){
+        rfHtml='<div class="db-rf done">✅ 本周流动红旗已记录</div>';
+      } else {
+        rfHtml='<div class="db-rf"><span>上周「'+esc(cur)+'」是否获得流动红旗？</span>'
+          +'<button class="btn-ok" data-redflag="won">✅ 获得（切换下一组 + 全员+5分）</button>'
+          +'<button class="btn-bad" data-redflag="lost">❌ 未获得（继续值日 + 全员-5分）</button></div>';
+      }
+    } else { rfHtml=""; }
     return '<div class="duty-board">'
-      +'<div class="db-title">📋 每周值日看板 · 本周：<span class="db-cur">'+esc(cur)+'</span>（已值日 '+dutyRot.servedWeeks+' 周）</div>'
+      +'<div class="db-title">📋 每周值日看板'+(groups.length?' · 本周：<span class="db-cur">'+esc(cur)+'</span>（已值日 '+dutyRot.servedWeeks+' 周）':'')+'</div>'
       +cfgHtml
       +'<div class="db-timeline">'+tl+'</div>'
-      +'<div class="db-assign"><b>本周值日分工</b>'+assign+'</div>'
+      +'<div class="db-grid-bar"><b>📝 值日表（分工 × 星期）</b><span class="db-grid-hint">按单元格填入学生名单，保存后写入「值日安排」</span>'
+        +'<button class="btn-mini" data-dutygrid="save">保存值日表</button></div>'
+      +grid
       +rfHtml
       +'</div>';
+  }
+  // 把值日表网格写回 DATA.duty（按 星期+内容 upsert；当前轮值组变化时只编辑该组分工）
+  function saveDutyGrid(){
+    var cur=currentDutyGroup();
+    var jobs=[];
+    var exist={};
+    (DATA.duty||[]).forEach(function(r){ if(cur && r["值日组"]!==cur) return; var k=r["星期"]+"|"+r["内容"]; if(!exist[k]) exist[k]=r; });
+    DUTY_DAYS.forEach(function(d,di){
+      DUTY_TASKS.forEach(function(t,ti){
+        var input=document.getElementById("dutycell-"+di+"-"+ti);
+        var val=input?(input.value||"").trim():"";
+        var key=d+"|"+t;
+        var rec=exist[key];
+        if(val){
+          if(rec && rec._id){
+            rec["学生姓名"]=val;
+            jobs.push(apiUpdate("duty",rec._id,{ 学生姓名:val }).then(function(o){ if(o&&o.data) Object.assign(rec,o.data); }));
+          } else {
+            var nrec={ 星期:d, 值日组:cur, 学生姓名:val, 内容:t, 备注:"" };
+            jobs.push(apiAdd("duty",nrec).then(function(o){ o["星期"]=d;o["值日组"]=cur;o["学生姓名"]=val;o["内容"]=t; DATA.duty.push(o); }));
+          }
+        } else if(rec && rec._id){
+          (function(rr){ jobs.push(apiDelete("duty",rr._id).then(function(){ var i=DATA.duty.indexOf(rr); if(i>=0) DATA.duty.splice(i,1); })); })(rec);
+        }
+      });
+    });
+    Promise.all(jobs).then(function(){
+      toast("值日表已保存 ✓"); renderList("duty"); render();
+    }).catch(function(e){ toast("保存失败："+(e&&e.message||e)); });
   }
   function askRedFlag(){
     var cur=currentDutyGroup();
@@ -3033,6 +3082,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var gai=e.target.closest("[data-gradeai]"); if(gai){ onGradeAI(gai.getAttribute("data-gradeai")); return; }
     var rf=e.target.closest("[data-redflag]"); if(rf){ resolveRedFlag(rf.getAttribute("data-redflag")==="won"); return; }
     var dcfg=e.target.closest("[data-dutycfg]"); if(dcfg){ onDutyCfg(dcfg.getAttribute("data-dutycfg")); return; }
+    var dgrid=e.target.closest("[data-dutygrid]"); if(dgrid){ saveDutyGrid(dgrid.getAttribute("data-dutygrid")); return; }
     var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
     var mm=e.target.closest("[data-mallmode]"); if(mm){ mallMode=mm.getAttribute("data-mallmode"); render(); return; }
     var rd=e.target.closest("[data-redeem]"); if(rd){ openRedeem(rd.getAttribute("data-redeem")); return; }
