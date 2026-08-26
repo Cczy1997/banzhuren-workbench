@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>初一(1)班 · 班主任小台</title>
 <!-- Supabase 客户端：完整 inline 进 HTML（不依赖任何独立 .js 文件，绕过 GitHub Pages / 浏览器全部缓存层）-->
 <script>
@@ -3508,10 +3511,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   window.addEventListener("unhandledrejection", function(ev){ try{ showFatal(ev.reason); }catch(_){} });
 
   if(db){
+    var authProbeDone=false;
+    var authProbeTimer=setTimeout(function(){
+      if(authProbeDone) return; authProbeDone=true;
+      // 8 秒还没拿到 session：可能是网络/会话脏数据/Supabase 域不可达，直接退到登录页，避免无限"正在加载"
+      showAuth("认证服务响应超时（可能是网络受限或会话损坏）。点击登录即可恢复；如反复出现请尝试 Ctrl/Cmd+Shift+R 强制刷新。");
+    }, 8000);
     db.auth.getSession().then(function(res){
+      if(authProbeDone) return; authProbeDone=true; clearTimeout(authProbeTimer);
       var sess = res.data && res.data.session;
       if(sess){ onSignedIn(sess.user); } else { showAuth(); }
-    }).catch(function(){ showAuth(); });
+    }).catch(function(){
+      if(authProbeDone) return; authProbeDone=true; clearTimeout(authProbeTimer);
+      showAuth("认证失败（可能是网络问题或会话已过期）。请重新登录。");
+    });
     db.auth.onAuthStateChange(function(evt, sess){
       if(evt==="SIGNED_IN" && sess) curUid=sess.user.id;
       if(evt==="SIGNED_OUT") curUid=null;
