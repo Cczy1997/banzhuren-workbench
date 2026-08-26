@@ -613,6 +613,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
   .logout-btn:active{background:#FFF0F6}
+  /* 防白屏：加载态 + 全局错误边界 */
+  .boot-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46vh;color:var(--ink-soft);font-size:15px;font-weight:700}
+  .spinner{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .fatal-err{position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:12px;background:#FFF1F1;border:1px solid #F3C0C0;color:#B3261E;box-shadow:0 4px 14px rgba(190,40,40,.12)}
+  .fatal-err.hide{display:none}
+  .fe-h{font-size:14px;font-weight:800;margin-bottom:6px}
+  .fe-m{font-size:13px;line-height:1.55;word-break:break-word;white-space:pre-wrap}
+  .fe-s{margin-top:8px;font-size:12px}
+  .fe-s summary{cursor:pointer;color:#9a3b35;font-weight:700}
+  .fe-s pre{margin:6px 0 0;max-height:180px;overflow:auto;background:#fff;color:#7a2b27;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-word;font-size:11.5px}
+  .fe-actions{margin-top:10px;display:flex;gap:10px}
+  .fe-actions button{border:none;background:#fff;color:#B3261E;font-weight:800;padding:7px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 </style>
 </head>
 <body>
@@ -649,8 +662,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>
     <div class="wrap">
       <div class="sync-banner hide" id="syncBanner"></div>
-      <!-- 内容区（动态渲染） -->
-      <div id="content"></div>
+      <div class="fatal-err hide" id="fatalErr"></div>
+      <!-- 内容区（动态渲染）初始显示加载态，避免刷新期被误判为空白 -->
+      <div id="content"><div class="boot-loading"><span class="spinner"></span>正在加载工作台数据…</div></div>
     </div>
   </main>
 </div>
@@ -1213,17 +1227,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function apiAdd(key, props){
     return db.from(tbl(key)).insert({ user_id: curUid, data: props }).select('id, data').then(function(res){
       if(res.error) throw res.error;
-      var r=res.data[0]; var o={_id:r.id}; if(r.data) Object.keys(r.data).forEach(function(k){o[k]=r.data[k];}); return o;
+      var rows = res.data || [];
+      var r = rows[0];
+      if(!r) return { _id: null };
+      var o={_id:r.id}; if(r.data) Object.keys(r.data).forEach(function(k){o[k]=r.data[k];}); return o;
     });
   }
   function apiUpdate(key, rid, props){
     return db.from(tbl(key)).update({ data: props }).eq('id', rid).then(function(res){
-      if(res.error) throw res.error; return res.data;
+      if(res.error) throw res.error;
+      var rows = res.data || [];
+      return rows[0] ? rows[0] : { id: rid };
     });
   }
   function apiDelete(key, rid){
     return db.from(tbl(key)).delete().eq('id', rid).then(function(res){
-      if(res.error) throw res.error; return res.data;
+      if(res.error) throw res.error; return res.data || [];
     });
   }
 
@@ -2411,7 +2430,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
-      render(); loadToday();
+      try { render(); loadToday(); }
+      catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
       if(failed.length===ALLKEYS.length){
         syncBanner("err","数据全部加载失败（可能为网络波动），点此重试");
@@ -3339,6 +3359,26 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       console.error(e); setStatus("offline"); syncBanner("err","加载失败，点此重试");
     });
   }
+
+  /* 防白屏：全局错误边界——任何未捕获异常都显示到页面顶部，而非纯白屏；便于诊断与反馈 */
+  function showFatal(e){
+    var box=document.getElementById("fatalErr");
+    if(!box){ box=document.createElement("div"); box.id="fatalErr"; box.className="fatal-err"; var wrap=document.querySelector(".wrap"); (wrap||document.body).insertBefore(box, (wrap?wrap.firstChild:null)); }
+    box.className="fatal-err";
+    var raw = e && (e.error || e.reason || e) || e;
+    var msg = (e && (e.message || (e.reason && (e.reason.message||e.reason)) || e.reason)) || (e && e.message) || String(e);
+    var stack = (raw && raw.stack) || (e && e.reason && e.reason.stack) || "";
+    var when = new Date().toLocaleString("zh-CN");
+    box.innerHTML='<div class="fe-h">⚠️ 页面运行出错（已捕获，顶部其它功能一般仍可正常使用）</div>'
+      +'<div class="fe-m">'+esc(msg)+'</div>'
+      +'<div class="fe-m" style="opacity:.7;margin-top:4px">时间：'+esc(when)+'</div>'
+      + (stack ? '<details class="fe-s"><summary>技术详情（可复制反馈）</summary><pre>'+esc(stack)+'</pre></details>' : '')
+      + '<div class="fe-actions"><button id="feRetry">重试加载</button><button id="feCopy">复制错误</button></div>';
+    var rb=document.getElementById("feRetry"); if(rb) rb.onclick=function(){ box.classList.add("hide"); try{ refreshAll().then(function(){ render(); }); }catch(_){} };
+    var cb=document.getElementById("feCopy"); if(cb) cb.onclick=function(){ try{ if(navigator.clipboard) navigator.clipboard.writeText(msg+"\n"+stack); toast("错误已复制，可发给我定位"); }catch(_){} };
+  }
+  window.addEventListener("error", function(ev){ try{ showFatal(ev.error || ev.message); }catch(_){} });
+  window.addEventListener("unhandledrejection", function(ev){ try{ showFatal(ev.reason); }catch(_){} });
 
   if(db){
     db.auth.getSession().then(function(res){
