@@ -3471,21 +3471,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function bootLoad(){
     setStatus("syncing");
-    var settled = false;
-    // 兜底：即便所有查询都卡死（Supabase 连接挂起/域名不通），也必须在有限时间内渲染页面 + 给可重试横幅，
-    // 绝不能无限停留「正在加载工作台数据…」
-    var guard = setTimeout(function(){
-      if(settled) return; settled = true;
-      try { render(); loadToday(); } catch(e){ console.error(e); }
-      try { checkMondayRedFlag(); } catch(_){}
-      setStatus("offline");
-      syncBanner("warn", [], "部分数据加载较慢或超时，已先显示已加载内容；点「重试全部」可重新拉取。");
-    }, 18000);
     refreshAll().then(function(failed){
-      if(settled) return; settled = true; clearTimeout(guard);
       setStatus((failed && failed.length===ALLKEYS.length) ? "offline" : "ok");
     }).catch(function(e){
-      if(settled) return; settled = true; clearTimeout(guard);
       console.error(e); setStatus("offline"); syncBanner("err","加载失败，点此重试");
     });
   }
@@ -3510,28 +3498,41 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   window.addEventListener("error", function(ev){ try{ showFatal(ev.error || ev.message); }catch(_){} });
   window.addEventListener("unhandledrejection", function(ev){ try{ showFatal(ev.reason); }catch(_){} });
 
-  if(db){
-    var authProbeDone=false;
-    var authProbeTimer=setTimeout(function(){
-      if(authProbeDone) return; authProbeDone=true;
-      // 8 秒还没拿到 session：可能是网络/会话脏数据/Supabase 域不可达，直接退到登录页，避免无限"正在加载"
-      showAuth("认证服务响应超时（可能是网络受限或会话损坏）。点击登录即可恢复；如反复出现请尝试 Ctrl/Cmd+Shift+R 强制刷新。");
+  // 启动：先渲染可用界面（登录/连接），绝不阻塞在「加载中」；再异步取会话，有则直接进应用
+  function boot(){
+    showAuth();                 // 立即可见的界面，避免任何「一直加载工作台数据」
+    window.__appBooted = true;  // 通知外部看门狗：首屏已渲染
+    if(!db) return;            // 无后端：停留在登录提示
+    var done=false;
+    var t=setTimeout(function(){
+      if(done) return; done=true;
+      showAuth("连接认证服务较慢或失败，请点击登录；如反复出现请强制刷新（Ctrl/Cmd+Shift+R）。");
     }, 8000);
     db.auth.getSession().then(function(res){
-      if(authProbeDone) return; authProbeDone=true; clearTimeout(authProbeTimer);
+      if(done) return; done=true; clearTimeout(t);
       var sess = res.data && res.data.session;
-      if(sess){ onSignedIn(sess.user); } else { showAuth(); }
+      if(sess) onSignedIn(sess.user);   // 有会话直接进应用；无会话保持登录界面
     }).catch(function(){
-      if(authProbeDone) return; authProbeDone=true; clearTimeout(authProbeTimer);
-      showAuth("认证失败（可能是网络问题或会话已过期）。请重新登录。");
+      if(done) return; done=true; clearTimeout(t);
+      showAuth("认证失败，请重新登录。");
     });
-    db.auth.onAuthStateChange(function(evt, sess){
-      if(evt==="SIGNED_IN" && sess) curUid=sess.user.id;
-      if(evt==="SIGNED_OUT") curUid=null;
-    });
-  } else {
-    showAuth();
   }
+  boot();
+
   // 调试/自动化验证用：暴露内部状态与函数（不影响业务）
   window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll };
 })();
+  </script>
+  <script>
+    // 独立看门狗：即便主脚本崩溃（语法错误 / Supabase 客户端加载失败），也绝不无限「正在加载工作台数据」
+    setTimeout(function(){
+      try{
+        var c=document.getElementById('content');
+        if(c && !window.__appBooted && /正在加载工作台数据/.test(c.textContent||'')){
+          c.innerHTML='<div class="empty-state">页面加载较慢或失败。<br><button type="button" onclick="location.reload()">重新加载</button></div>';
+        }
+      }catch(e){}
+    }, 12000);
+  </script>
+</body>
+</html>
