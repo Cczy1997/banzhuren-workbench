@@ -422,6 +422,42 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .btn-save{color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d));box-shadow:0 4px 12px rgba(255,107,157,.3)}
   .btn-cancel{color:var(--ink-soft);background:#F6F0F4}
 
+  /* 一生一档 · 学生档案 */
+  .pn{cursor:pointer;color:var(--pink-d);border-bottom:1.5px dotted var(--pink)}
+  .pn:active{opacity:.7}
+  .hn[data-profile]{cursor:pointer}
+  .hn[data-profile]:hover{color:var(--pink-d)}
+  .pf-head{display:flex;align-items:center;gap:13px;padding:6px 2px 14px;border-bottom:1px solid var(--line);margin-bottom:12px}
+  .pf-av{width:50px;height:50px;flex:0 0 auto;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d))}
+  .pf-id{flex:1;min-width:0}
+  .pf-name{font-size:19px;font-weight:800}
+  .pf-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+  .pf-tag{display:inline-flex;align-items:center;gap:4px;background:#FFF3F7;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--ink)}
+  .pf-tag i{font-style:normal;color:var(--ink-soft);font-weight:600}
+  .pf-pts{display:flex;gap:10px;flex:0 0 auto}
+  .pf-pt{display:flex;flex-direction:column;align-items:center;background:#F7FBF9;border:1px solid var(--line);border-radius:14px;padding:7px 12px;min-width:74px}
+  .pf-pt b{font-size:18px;font-weight:800}
+  .pf-pt b.pos{color:#2fa37e}
+  .pf-pt b.neg{color:#e23c3c}
+  .pf-pt span{font-size:11px;color:var(--ink-soft);margin-top:2px}
+  .pf-note{background:#FFF8EC;border:1px solid #FBE9C8;border-radius:14px;padding:9px 12px;font-size:13.5px;color:#8a6d3b;margin-bottom:12px}
+  .pf-ai-bar{margin-bottom:10px}
+  .pf-ai{background:#F6F4FF;border:1px solid #E6E0FB;border-radius:16px;padding:13px 14px;margin-bottom:14px}
+  .pf-ai-busy{font-size:13.5px;color:var(--lav);font-weight:700}
+  .pf-ai-h{font-size:14px;font-weight:800;color:#6a4fb0;margin-bottom:7px}
+  .pf-ai-body{font-size:14px;line-height:1.65;white-space:pre-wrap;color:var(--ink)}
+  .pf-sec{margin-bottom:14px}
+  .pf-sec-h{font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:7px;display:flex;align-items:center;gap:7px}
+  .pf-cnt{font-size:11px;font-weight:700;color:var(--ink-soft);background:#F3ECF1;border-radius:999px;padding:1px 8px}
+  .pf-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 2px}
+  .pf-rows{display:flex;flex-direction:column;gap:6px}
+  .pf-row{display:flex;flex-wrap:wrap;gap:6px 12px;background:#FFFDFE;border:1px solid var(--line);border-radius:12px;padding:8px 11px;font-size:13px}
+  .pf-k{color:var(--ink-soft);font-weight:600}
+  .pf-v{color:var(--ink);font-weight:600}
+  .pf-v.pos{color:#2fa37e}
+  .pf-v.neg{color:#e23c3c}
+
+
   /* toast */
   .toast{
     position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
@@ -632,6 +668,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   </div>
 </div>
 
+<!-- 一生一档 · 学生档案 -->
+<div class="mask" id="profileMask">
+  <div class="sheet" style="max-width:680px">
+    <h3 id="profileTitle">学生档案</h3>
+    <button class="x" id="profileClose">×</button>
+    <div id="profileBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- 登录 / 注册 -->
@@ -773,6 +818,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"学号",type:"text",ph:"01"},
         {name:"类型",type:"select",options:["加分","减分"]},
         {name:"分值",type:"number",ph:"1"},
+        {name:"时间",type:"text",ph:"如：08:30（自动记录当前时间）"},
         {name:"原因",type:"text",ph:"加分 / 减分原因"},
         {name:"备注",type:"text",ph:"选填"}
       ]
@@ -907,6 +953,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
   function pad(n){ return n<10?"0"+n:""+n; }
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function nowHMS(){ var d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds()); }
   function dayDiff(a,b){ var da=new Date(a+"T00:00:00"), db=new Date(b+"T00:00:00"); return Math.round((db-da)/86400000); }
   function fmtDate(s){ if(!s) return ""; s=String(s).slice(0,10); var p=s.split("-"); if(p.length<3) return s; return (+p[1])+"月"+(+p[2])+"日"; }
   function stripEmoji(t){ return t.replace(/^[^一-龥]+ /,''); }
@@ -1112,6 +1159,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   function cardHTML(key, r){
     var id=r._id, m=MODULES[key], main=r[m.main]||"（未填写）";
+    var mainHTML = (key==="students")
+      ? '<span class="pn" data-profile="'+esc(main)+'">'+esc(main)+'</span>'
+      : esc(main);
     var badge="";
     if(key==="affairs" && r["状态"]!=="已完成"){
       badge = (r["优先级"]?extraPill("affairs","优先级",r["优先级"]):"") + (r["状态"]?extraPill("affairs","状态",r["状态"]):"");
@@ -1149,7 +1199,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     acts+='<button class="mini del" data-act="del" data-mod="'+key+'" data-id="'+id+'">删除</button>';
 
     return '<div class="card" >'
-      +'<div class="card-main">'+esc(main)+' '+badge+'</div>'
+      +'<div class="card-main">'+mainHTML+' '+badge+'</div>'
       +subs
       +'<div class="card-actions">'+acts+'</div>'
       +'</div>';
@@ -1271,7 +1321,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     } else {
       ind.forEach(function(x,i){
         html+='<div class="hrow"><span class="medal">'+medal[i]+'</span>'
-          +'<span class="hn">'+esc(x.n)+'</span>'
+          +'<span class="hn" data-profile="'+esc(x.n)+'">'+esc(x.n)+'</span>'
           +'<span class="hv '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
           + (x.t!==x.c?'<span class="hv hv-cur">（'+fmtPts(x.c)+'）</span>':'')
           +'</div>';
@@ -1294,6 +1344,104 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return html;
   }
   function fmtPts(v){ return (v>0?"+":"")+v; }
+
+  /* ---------- 一生一档 · 学生档案 ---------- */
+  var profileName="";
+  var PF_SECTIONS=[
+    {key:"points",title:"➕➖ 加减分记录",nameField:"学生姓名",fields:["日期","时间","类型","分值","原因","备注"],sort:"日期",desc:true},
+    {key:"grades",title:"📊 成绩",nameField:"学生姓名",fields:["考试","科目","分数","班级排名","备注"],sort:"考试"},
+    {key:"attendance",title:"🕒 考勤",nameField:"学生姓名",fields:["日期","状态","事由","备注"],sort:"日期",desc:true},
+    {key:"comment",title:"✍️ 评语",nameField:"学生姓名",fields:["学期","日期","评语"],sort:"日期"},
+    {key:"talk",title:"💬 谈话谈心",nameField:"学生姓名",fields:["日期","类型","主题","内容","跟进"],sort:"日期",desc:true},
+    {key:"comm",title:"💌 家校沟通",nameField:"学生",fields:["日期","家长","方式","事由","结果","跟进"],sort:"日期",desc:true},
+    {key:"honor",title:"🌟 荣誉处分",nameField:"学生姓名",fields:["日期","类别","名称","说明"],sort:"日期",desc:true}
+  ];
+  function openStudentProfile(name){
+    name=String(name||"").trim(); if(!name) return;
+    profileName=name;
+    var st=(DATA.students||[]).filter(function(s){return s["姓名"]===name;})[0];
+    var body=document.getElementById("profileBody");
+    document.getElementById("profileTitle").textContent="🗂️ "+name+" · 一生一档";
+    var info=[];
+    if(st){
+      if(st["性别"]) info.push(["性别",st["性别"]]);
+      if(st["学号"]) info.push(["学号",st["学号"]]);
+      if(st["座位号"]) info.push(["座位号",st["座位号"]]);
+      if(st["学习小组"]) info.push(["学习小组",st["学习小组"]]);
+      if(st["综合表现"]) info.push(["综合表现",st["综合表现"]]);
+      if(st["关注标签"]){ var tg=Array.isArray(st["关注标签"])?st["关注标签"]:[st["关注标签"]]; info.push(["关注标签",tg.join("、")]); }
+    }
+    var total=studentTotal(name), cur=studentPoints(name);
+    var html='<div class="pf-head">'
+      +'<div class="pf-av">'+esc(name.slice(0,1)||"?")+'</div>'
+      +'<div class="pf-id"><div class="pf-name">'+esc(name)+'</div>'
+      + (info.length?'<div class="pf-tags">'+info.map(function(p){return '<span class="pf-tag"><i>'+esc(p[0])+'</i>'+esc(p[1])+'</span>';}).join("")+'</div>':'')
+      +'</div>'
+      +'<div class="pf-pts"><div class="pf-pt"><b class="'+(total>=0?'pos':'neg')+'">'+fmtPts(total)+'</b><span>累计积分</span></div>'
+      +'<div class="pf-pt"><b class="'+(cur>=0?'pos':'neg')+'">'+fmtPts(cur)+'</b><span>可用积分</span></div></div>'
+      +'</div>';
+    if(st && st["备注"]) html+='<div class="pf-note">📝 '+esc(st["备注"])+'</div>';
+    html+='<div class="pf-ai-bar"><button class="btn-add" id="profileAIBtn">🤖 AI 分析 & 给方向</button></div>';
+    html+='<div id="profileAI" class="pf-ai" style="display:none"></div>';
+    PF_SECTIONS.forEach(function(sec){
+      var rows=(DATA[sec.key]||[]).filter(function(r){ return (r[sec.nameField]||"")===name; });
+      rows.sort(function(a,b){
+        var va=String(a[sec.sort]||""), vb=String(b[sec.sort]||"");
+        if(va<vb) return sec.desc?1:-1; if(va>vb) return sec.desc?-1:1;
+        var ta=String(a["时间"]||""), tb=String(b["时间"]||"");
+        if(ta<tb) return sec.desc?1:-1; if(ta>tb) return sec.desc?-1:1;
+        return 0;
+      });
+      html+='<div class="pf-sec"><div class="pf-sec-h">'+sec.title+' <span class="pf-cnt">'+(rows.length)+'</span></div>';
+      if(!rows.length){ html+='<div class="pf-empty">暂无记录</div>'; }
+      else {
+        html+='<div class="pf-rows">';
+        rows.forEach(function(r){
+          var cells=sec.fields.map(function(f){
+            var v=r[f]; if(v==null||v==="") return "";
+            if(f==="类型"){ var cls=(v==="加分")?"pos":((v==="减分"||v==="兑换")?"neg":""); return '<span class="pf-k">'+esc(f)+'</span><span class="pf-v '+cls+'">'+esc(v)+'</span>'; }
+            if(f==="类别"){ var c=(v==="荣誉")?"pos":((v==="处分")?"neg":""); return '<span class="pf-k">'+esc(f)+'</span><span class="pf-v '+c+'">'+esc(v)+'</span>'; }
+            return '<span class="pf-k">'+esc(f)+'</span><span class="pf-v">'+esc(v)+'</span>';
+          }).filter(Boolean);
+          html+='<div class="pf-row">'+cells.join("")+'</div>';
+        });
+        html+='</div>';
+      }
+      html+='</div>';
+    });
+    body.innerHTML=html;
+    document.getElementById("profileMask").classList.add("show");
+  }
+  function closeStudentProfile(){ document.getElementById("profileMask").classList.remove("show"); }
+  function analyzeStudent(){
+    var name=profileName; if(!name) return;
+    var key=localStorage.getItem("wb_cls_dashscope_key");
+    if(!key){ toast("请先在「AI 小助手」或「识别考勤表」中填写通义千问 API Key"); return; }
+    var box=document.getElementById("profileAI");
+    var d={ 基本信息:{}, 积分:{累计:studentTotal(name),可用:studentPoints(name)} };
+    var st=(DATA.students||[]).filter(function(s){return s["姓名"]===name;})[0];
+    if(st){ ["性别","学号","学习小组","关注标签","综合表现","备注"].forEach(function(k){ if(st[k]!=null&&st[k]!=="") d.基本信息[k]=st[k]; }); }
+    PF_SECTIONS.forEach(function(sec){
+      var rows=(DATA[sec.key]||[]).filter(function(r){ return (r[sec.nameField]||"")===name; });
+      if(rows.length) d[sec.title]=rows.slice(-25).map(function(r){ var o={}; sec.fields.forEach(function(f){ if(r[f]!=null&&r[f]!=="") o[f]=r[f]; }); return o; });
+    });
+    var prompt='你是一名资深班主任与学情分析师。请基于以下「'+name+'」同学的综合档案进行分析。\n要求：\n'
+      +'1. 先用 2-4 句给出总体结论（涵盖性格、学业、行为、人际等）。\n'
+      +'2. 分点列出「亮点与优势」「需要关注的方面」。\n'
+      +'3. 给出「往后的方向与建议」：班主任可采取的举措、家校协同建议、对学生的鼓励方向，要具体可操作。\n'
+      +'不要编造档案中没有的事实；数据缺失的方面请说明「暂无相关数据」。\n\n=== '+name+' 同学档案（JSON）===\n'+JSON.stringify(d,null,1);
+    box.style.display="block";
+    box.innerHTML='<div class="pf-ai-busy">🤖 正在分析 '+esc(name)+' 同学的表现，请稍候…</div>';
+    var btn=document.getElementById("profileAIBtn");
+    if(btn){ btn.disabled=true; btn.textContent="分析中…"; }
+    qwenChat(prompt, key).then(function(reply){
+      box.innerHTML='<div class="pf-ai-h">🤖 AI 分析 · '+esc(name)+'</div><div class="pf-ai-body">'+esc(reply)+'</div>';
+      if(btn){ btn.disabled=false; btn.textContent="🤖 重新分析"; }
+    }).catch(function(e){
+      box.innerHTML='<div class="pf-ai-busy">⚠️ 分析失败：'+(esc(e&&e.message||e))+'</div>';
+      if(btn){ btn.disabled=false; btn.textContent="🤖 AI 分析 & 给方向"; }
+    });
+  }
 
   /* ---------- 积分商城 ---------- */
   var mallMode="manage";      // manage=教师管理模式(可见难度) / redeem=兑换(学生)视图(隐藏难度)
@@ -1399,7 +1547,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var no=st?st["学号"]:"";
     setStatus("syncing");
     var newData={}; Object.keys(p).forEach(function(k){ if(k!=="_id") newData[k]=p[k]; }); newData["已兑换"]=done+1;
-    var pt={日期:todayStr(), 学生姓名:name, 学号:no, 类型:"兑换", 分值:price, 原因:"兑换："+(p["名称"]||"奖品")};
+    var pt={日期:todayStr(), 学生姓名:name, 学号:no, 类型:"兑换", 分值:price, 时间:nowHMS(), 原因:"兑换："+(p["名称"]||"奖品")};
     Promise.all([ apiUpdate("mall", p._id, newData), apiAdd("points", pt) ])
       .then(function(){ closeRedeem(); toast("兑换成功，已扣 "+price+" 分 ✓"); return refreshAll(); })
       .then(function(){ setStatus("ok"); })
@@ -1705,6 +1853,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!current.mod) return;
     var key=current.mod, props=collectProps(key);
     if(!props[MODULES[key].main]){ toast("请填写"+MODULES[key].main); return; }
+    // 加减分记录自动写入当前时间，便于按「记录时间」查询
+    if(key==="points" && !props["时间"]){ props["时间"]=nowHMS(); }
     // 文件字段：先上传 pending，再与 kept 合并写入
     var fileFields=MODULES[key].fields.filter(function(f){return f.type==="file";});
     var chain=Promise.resolve();
@@ -1868,7 +2018,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var chain=Promise.resolve();
     late.forEach(function(x){
       var no=String(x.号数).trim(), name=studentNameByNo(no)||no;
-      var att={日期:ocrState.date, 学生姓名:name, 学号:no, 状态:"迟到", 事由:"考勤表识别"};
+      var att={日期:ocrState.date, 学生姓名:name, 学号:no, 状态:"迟到", 时间:nowHMS(), 事由:"考勤表识别"};
       var pt={日期:ocrState.date, 学生姓名:name, 学号:no, 类型:"减分", 分值:Number(ocrState.deduct)||1, 原因:"迟到"};
       chain=chain.then(function(){ return apiAdd("attendance", att); })
                  .then(function(){ return apiAdd("points", pt); });
@@ -1995,6 +2145,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
+    var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
     var aiBtn=e.target.closest("[data-ai]"); if(aiBtn){ openWeeklyGen(); return; }
     var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
     var mm=e.target.closest("[data-mallmode]"); if(mm){ mallMode=mm.getAttribute("data-mallmode"); render(); return; }
@@ -2043,6 +2194,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(e.target.closest("#redeemClose")||e.target.closest("#redeemCancel")) closeRedeem();
     else if(e.target.closest("#redeemDo")) applyRedeem();
     else if(e.target===this) closeRedeem();
+  });
+
+  /* 一生一档 · 学生档案 */
+  document.getElementById("profileMask").addEventListener("click",function(e){
+    if(e.target.closest("#profileClose")) closeStudentProfile();
+    else if(e.target.closest("#profileAIBtn")) analyzeStudent();
+    else if(e.target===this) closeStudentProfile();
   });
 
   /* 移动端抽屉 */
