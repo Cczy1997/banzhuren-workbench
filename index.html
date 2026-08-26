@@ -324,6 +324,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .checks{display:flex;flex-wrap:wrap;gap:8px}
   .checks label{display:inline-flex;align-items:center;gap:6px;background:#FFF3F7;border:1.5px solid var(--line);border-radius:999px;padding:7px 13px;font-size:14px;font-weight:600;cursor:pointer;margin:0}
   .checks input{accent-color:var(--pink-d);width:16px;height:16px}
+  .btn-file{display:inline-flex;align-items:center;gap:6px;border:1.5px dashed var(--pink);background:#FFF3F7;color:var(--pink-d);border-radius:14px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-file:hover{background:#FFE9F1}
+  .filelist{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .filelist .fi{display:inline-flex;align-items:center;gap:6px;background:#FFF3F7;border:1px solid var(--line);border-radius:10px;padding:5px 8px;font-size:12.5px;max-width:240px}
+  .filelist .fi .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
+  .filelist .fi .rm{color:var(--danger);cursor:pointer;font-weight:800;border:none;background:none;font-size:15px;line-height:1;padding:0 2px}
+  .filelist .fi.pending{opacity:.7;font-style:italic}
+  .files{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .fimg{width:84px;height:84px;border-radius:12px;overflow:hidden;border:1px solid var(--line);display:inline-block}
+  .fimg img{width:100%;height:100%;object-fit:cover;display:block}
+  .flnk{display:inline-flex;align-items:center;gap:5px;background:#FFF3F7;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px;color:var(--ink);text-decoration:none;font-weight:600}
+  .flnk:hover{border-color:var(--pink)}
   .sheet .actions{display:flex;gap:10px;margin-top:8px}
   .sheet .actions button{flex:1;border:none;cursor:pointer;font-weight:800;font-size:15px;border-radius:14px;padding:13px}
   .btn-save{color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d));box-shadow:0 4px 12px rgba(255,107,157,.3)}
@@ -514,6 +526,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   var curUid = null;                 // 当前登录用户 id（写入每行 user_id）
   function tbl(key){ return "hr_"+key; }   // 模块 key → 表名 hr_<key>
+  var BUCKET="classfiles";                 // 文件存储桶（Supabase Storage）
+  var formFiles={};                        // 表单内文件字段的运行时状态：{字段名:{kept:[url],pending:[File]}}
 
   var MODULES = {
     students:{
@@ -671,21 +685,42 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"日期",type:"date"},
         {name:"评语",type:"text",multiline:true,ph:"写给学生的评语"}
       ]
+    },
+    meeting:{
+      title:"📅 班会内容", cat:"mtg", unit:"次", main:"主题",
+      fields:[
+        {name:"主题",type:"text",required:true,ph:"如：期中考试动员班会"},
+        {name:"日期",type:"date"},
+        {name:"内容说明",type:"text",multiline:true,ph:"班会要点 / 议程（选填）"},
+        {name:"附件",type:"file",accept:".ppt,.pptx,.pdf,.jpg,.jpeg,.png,.gif,.webp",label:"PPT / 图片（可多选）"}
+      ]
+    },
+    weekly:{
+      title:"🗞️ 班级周报", cat:"mtg", unit:"期", main:"标题",
+      fields:[
+        {name:"标题",type:"text",required:true,ph:"如：第 12 周班级周报"},
+        {name:"日期",type:"date"},
+        {name:"本周小结",type:"text",multiline:true,ph:"本周班级整体情况"},
+        {name:"下周计划",type:"text",multiline:true,ph:"下周工作安排（选填）"},
+        {name:"配图",type:"file",accept:".jpg,.jpeg,.png,.gif,.webp",label:"周报配图（可多选）"}
+      ]
     }
   };
 
   var ORDER = {
     stu:["students","committee","parents"],
     aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard"],
-    mor:["talk","comm","comment"]
+    mor:["talk","comm","comment"],
+    mtg:["meeting","weekly"]
   };
   var CAT_META = {
     overview:{icon:"🏠",label:"总览"},
     stu:{icon:"🧑‍🎓",label:"学生管理"},
     aff:{icon:"🗂️",label:"班级事务"},
-    mor:{icon:"💗",label:"德育心理"}
+    mor:{icon:"💗",label:"德育心理"},
+    mtg:{icon:"📅",label:"班会与周报"}
   };
-  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment"];
+  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment","meeting","weekly"];
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
@@ -811,6 +846,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     html += secHTML("stu",CAT_META.stu,ORDER.stu);
     html += secHTML("aff",CAT_META.aff,ORDER.aff);
     html += secHTML("mor",CAT_META.mor,ORDER.mor);
+    html += secHTML("mtg",CAT_META.mtg,ORDER.mtg);
     nav.innerHTML=html;
   }
   function secHTML(cat, meta, keys){
@@ -925,6 +961,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(f.type==="multi_select"){
         var arr=Array.isArray(v)?v:[v];
         return '<div class="row"><span class="lbl">'+esc(f.name)+'</span><span class="chips">'+arr.map(function(t){return '<i class="chip'+(f.name==="关注标签"?" lav":"")+'">'+esc(t)+'</i>';}).join("")+'</span></div>';
+      }
+      if(f.type==="file"){
+        var files=Array.isArray(v)?v:[];
+        if(!files.length) return "";
+        var fl=files.map(function(url){
+          var u=String(url), isImg=/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(u);
+          if(isImg) return '<a class="fimg" href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt=""></a>';
+          var nm=decodeURIComponent(u.split('?')[0].split('/').pop());
+          var ic=/\.pptx?$/i.test(nm)?'📊':(/\.pdf$/i.test(nm)?'📕':/\.docx?$/i.test(nm)?'📄':/\.xlsx?$/i.test(nm)?'📈':'📎');
+          return '<a class="flnk" href="'+esc(u)+'" target="_blank" rel="noopener">'+ic+' '+esc(nm)+'</a>';
+        }).join("");
+        return '<div class="row"><span class="lbl">'+esc(f.name)+'</span><span class="files">'+fl+'</span></div>';
       }
       var p=extraPill(key,f.name,v);
       if(p) return '<div class="row"><span class="lbl">'+esc(f.name)+'</span><span class="chips">'+p+'</span></div>';
@@ -1165,6 +1213,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       } else if(f.multiline){
         var ta=document.createElement("textarea"); ta.setAttribute("data-f",f.name); ta.placeholder=f.ph||""; if(val) ta.value=val;
         wrap.appendChild(ta);
+      } else if(f.type==="file"){
+        var finp=document.createElement("input"); finp.type="file"; finp.multiple=true; finp.setAttribute("data-f",f.name); finp.setAttribute("data-file","1");
+        if(f.accept) finp.accept=f.accept;
+        var flbl=document.createElement("button"); flbl.type="button"; flbl.className="btn-file"; flbl.textContent="📎 "+(f.label||"选择文件（可多选）");
+        flbl.addEventListener("click", function(){ finp.click(); });
+        wrap.appendChild(flbl); wrap.appendChild(finp);
+        var flist=document.createElement("div"); flist.className="filelist"; flist.id="filelist-"+f.name;
+        wrap.appendChild(flist);
+        formFiles[f.name]={ kept:(val&&Array.isArray(val))?val.slice():[], pending:[] };
+        finp.addEventListener("change", function(){
+          for(var i=0;i<finp.files.length;i++) formFiles[f.name].pending.push(finp.files[i]);
+          finp.value=""; renderFileList(f.name, f);
+        });
+        renderFileList(f.name, f);
       } else {
         var inp=document.createElement("input"); inp.type=(f.type==="date")?"date":((f.type==="number")?"number":"text"); inp.setAttribute("data-f",f.name); inp.placeholder=f.ph||""; if(val) inp.value=val;
         wrap.appendChild(inp);
@@ -1203,9 +1265,54 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }catch(e){}
   }
 
+  function renderFileList(name, f){
+    var st=formFiles[name]||{kept:[],pending:[]};
+    var box=document.getElementById("filelist-"+name); if(!box) return;
+    var html="";
+    st.kept.forEach(function(url,i){
+      var u=String(url), nm=decodeURIComponent(u.split('?')[0].split('/').pop());
+      html+='<span class="fi"><span class="nm" title="'+esc(nm)+'">'+esc(nm)+'</span><button type="button" class="rm" data-kf="'+esc(name)+'" data-ki="'+i+'">×</button></span>';
+    });
+    st.pending.forEach(function(file,i){
+      html+='<span class="fi pending"><span class="nm" title="'+esc(file.name)+'">'+esc(file.name)+'</span><button type="button" class="rm" data-pf="'+esc(name)+'" data-pi="'+i+'">×</button></span>';
+    });
+    box.innerHTML=html;
+    Array.prototype.forEach.call(box.querySelectorAll('[data-kf]'), function(b){
+      b.addEventListener('click', function(){
+        var n=b.getAttribute('data-kf'), i=+b.getAttribute('data-ki');
+        formFiles[n].kept.splice(i,1); renderFileList(n, f);
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-pf]'), function(b){
+      b.addEventListener('click', function(){
+        var n=b.getAttribute('data-pf'), i=+b.getAttribute('data-pi');
+        formFiles[n].pending.splice(i,1); renderFileList(n, f);
+      });
+    });
+  }
+  function uploadOne(key, file){
+    return new Promise(function(resolve, reject){
+      if(!db || !db.storage){ reject(new Error("存储未初始化")); return; }
+      var ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+      var path=key+"/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+      db.storage.from(BUCKET).upload(path, file, {upsert:true, cacheControl:"3600"}).then(function(r){
+        if(r.error) return reject(r.error);
+        var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+        resolve(url);
+      }).catch(reject);
+    });
+  }
+  function removeStorageFile(url){
+    try{
+      if(!db||!db.storage) return;
+      var seg=String(url).split(BUCKET+"/")[1]; if(!seg) return;
+      db.storage.from(BUCKET).remove([seg.split('?')[0]]);
+    }catch(e){}
+  }
   function collectProps(key){
     var m=MODULES[key], props={};
     m.fields.forEach(function(f){
+      if(f.type==="file") return;   // 文件字段由 saveForm 单独上传处理
       var el=document.querySelector('#form [data-f="'+f.name+'"]');
       if(!el) return;
       if(f.type==="multi_select"){
@@ -1245,15 +1352,31 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!current.mod) return;
     var key=current.mod, props=collectProps(key);
     if(!props[MODULES[key].main]){ toast("请填写"+MODULES[key].main); return; }
+    // 文件字段：先上传 pending，再与 kept 合并写入
+    var fileFields=MODULES[key].fields.filter(function(f){return f.type==="file";});
+    var chain=Promise.resolve();
+    fileFields.forEach(function(f){
+      var st=formFiles[f.name]||{kept:[],pending:[]};
+      chain=chain.then(function(){
+        if(!st.pending.length){ if(st.kept.length) props[f.name]=st.kept; return; }
+        setStatus("syncing");
+        return Promise.all(st.pending.map(function(file){ return uploadOne(key, file); })).then(function(urls){
+          props[f.name]=st.kept.concat(urls);
+        });
+      });
+    });
     setStatus("syncing");
-    var p = current.id ? apiUpdate(key, current.id, props) : apiAdd(key, props);
-    p.then(function(){
+    chain.then(function(){
+      var p = current.id ? apiUpdate(key, current.id, props) : apiAdd(key, props);
+      return p;
+    }).then(function(){
       closeForm();
       if(!current.id){ localStorage.removeItem("wb_cls_form_"+key); }
+      formFiles={};
       toast("已保存 ✓");
       return refreshAll();
     }).then(function(){ setStatus("ok"); })
-     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败，请重试"); });
+     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败：上传或写入出错"); });
   }
 
   function doDelete(key,id){
