@@ -584,12 +584,32 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     .wrap{padding:14px 14px 36px}
     .ov-mods{grid-template-columns:1fr}
   .phead .btn-clear{display:none}
-  .sync-banner{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .sync-banner{position:sticky;top:0;z-index:20;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;margin:0 0 12px;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.05)}
   .sync-banner.hide{display:none}
   .sync-banner.loading{background:#FFF0F6;color:#E5508B}
   .sync-banner.warn{background:#FFF4E0;color:#B26A00}
   .sync-banner.err{background:#FFE9E9;color:#C0392B}
-  .sync-banner button{border:none;background:#fff;color:inherit;font-weight:800;padding:6px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .sync-banner .sb-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .sync-banner .sb-msg{flex:1;min-width:200px;line-height:1.4}
+  .sync-banner .sb-actions{display:flex;gap:6px;flex-shrink:0}
+  .sync-banner .sb-retry-btn{border:none;background:#fff;color:inherit;font-weight:800;padding:7px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:13px}
+  .sync-banner .sb-retry-btn.mini{padding:6px 10px;font-size:12px}
+  .sync-banner .sb-retry-btn.ghost{background:transparent;box-shadow:none;color:inherit;opacity:.7;text-decoration:underline}
+  .sync-banner .sb-details{margin-top:2px}
+  .sync-banner .sb-details summary{cursor:pointer;font-weight:600;opacity:.85;font-size:12px;padding:2px 0}
+  .sync-banner .sb-list{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .sync-banner .sb-item{background:rgba(255,255,255,.6);border-radius:8px;padding:8px 10px;font-weight:500}
+  .sync-banner .sb-item.sb-schema{background:rgba(255,236,236,.85)}
+  .sync-banner .sb-item.sb-rls{background:rgba(255,243,224,.85)}
+  .sync-banner .sb-item.sb-transient{background:rgba(245,245,245,.6)}
+  .sync-banner .sb-name{font-weight:800;font-size:13px}
+  .sync-banner .sb-tbl{font-weight:500;opacity:.7;font-size:12px;margin-left:4px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .sync-banner .sb-cause{font-weight:500;font-size:12px;opacity:.85;margin-top:2px;word-break:break-all;line-height:1.4;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .sync-banner .sb-hint{font-size:12px;margin-top:4px;font-weight:600;line-height:1.4}
+  .sync-banner .sb-hint code,.sync-banner .sb-callout code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:11px}
+  .sync-banner .sb-callout{margin-top:6px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.7);font-weight:500;font-size:12px;line-height:1.5}
+  .sync-banner .sb-callout-schema{background:rgba(255,225,225,.85);color:#9c2a2a}
+  .sync-banner .sb-callout-rls{background:rgba(255,232,200,.85);color:#8a5800}
 }
 
   /* 登录 / 注册 */
@@ -1201,17 +1221,83 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     return step();
   }
-  function syncBanner(kind, msg){
-    var b=document.getElementById("syncBanner");
+  /* 根据 key 反查其在侧边栏的中文展示名（"考勤""学生""座位安排"等）。找不到时回退原 key，避免未知模块被遮蔽 */
+  function moduleLabelOf(k){
+    try{
+      if(typeof ORDER==="undefined" || !ORDER) return k;
+      for(var i=0;i<ORDER.length;i++){
+        var sec = ORDER[i]; if(!sec || !sec.modules) continue;
+        for(var j=0;j<sec.modules.length;j++){
+          if(sec.modules[j].key===k && MODULES[k] && MODULES[k].name) return MODULES[k].name;
+        }
+      }
+    }catch(_){}
+    return k;
+  }
+  /* 分类错误：true = 表缺失/权限等"结构性"失败（不应再重试，直接交给用户修复）；false = 瞬时网络错误（再重试有意义） */
+  function classifyError(e){
+    var msg = (e && e.message) || (typeof e==="string" ? e : "") || JSON.stringify(e||{});
+    var low = String(msg).toLowerCase();
+    if(/42p01|does not exist|relation|schema cache|no such table|not_found|resource_not_found/.test(low)) return {kind:"schema", msg:String(msg)};
+    if(/42501|permission denied|row-level security|insufficient_privilege/.test(low)) return {kind:"rls", msg:String(msg)};
+    return {kind:"transient", msg:String(msg)};
+  }
+  function errSnippet(s, n){ n = n||80; s = String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
+
+  function syncBanner(kind, failed, msg){
+    var b = document.getElementById("syncBanner");
     if(!b) return;
-    if(!kind){ b.className="sync-banner hide"; b.innerHTML=""; return; }
-    b.className="sync-banner "+kind;
-    b.innerHTML='<span>'+esc(msg)+'</span><button id="syncRetry" type="button">重试</button>';
-    var rb=document.getElementById("syncRetry");
-    if(rb) rb.onclick=function(){
-      b.className="sync-banner loading"; b.innerHTML="<span>正在重新加载…</span>";
-      refreshAll().then(function(failed){ setStatus((failed&&failed.length===ALLKEYS.length)?"offline":"ok"); });
+    failed = failed || [];
+    if(!kind){
+      b.className = "sync-banner hide"; b.innerHTML = ""; return;
+    }
+    var wrap = [];
+    var hasSchema = failed.some(function(f){ return classifyError(f.e).kind==="schema"; });
+    var hasRls = failed.some(function(f){ return classifyError(f.e).kind==="rls"; });
+    wrap.push('<div class="sb-row">');
+    wrap.push('<div class="sb-msg">'+esc(msg||"部分模块加载失败")+'</div>');
+    wrap.push('<div class="sb-actions">');
+    wrap.push('<button class="sb-retry-btn" id="syncRetryAll" type="button">重试全部</button>');
+    if(failed.length){ wrap.push('<button class="sb-retry-btn mini" id="syncRetryFailed" type="button">仅重试这 '+failed.length+' 个</button>'); }
+    wrap.push('<button class="sb-retry-btn ghost" id="syncDismiss" type="button">忽略，继续使用</button>');
+    wrap.push('</div>');
+    wrap.push('</div>');
+    if(failed.length){
+      wrap.push('<details class="sb-details"><summary>查看未加载模块与原因（'+failed.length+'）</summary>');
+      wrap.push('<ul class="sb-list">');
+      failed.forEach(function(f){
+        var c = classifyError(f.e);
+        var label = moduleLabelOf(f.k);
+        wrap.push('<li class="sb-item sb-'+c.kind+'">');
+        wrap.push('<div class="sb-name">'+esc(label)+' <span class="sb-tbl">('+esc('hr_'+f.k)+')</span></div>');
+        wrap.push('<div class="sb-cause">'+esc(errSnippet(c.msg, 140))+'</div>');
+        if(c.kind==="schema") wrap.push('<div class="sb-hint">→ 需要到 Supabase SQL Editor 执行 <code>supabase_schema.sql</code> 建表</div>');
+        else if(c.kind==="rls") wrap.push('<div class="sb-hint">→ 需要在 Supabase → Authentication → Policies 启用 <code>hr_'+esc(f.k)+'</code> 的 RLS 策略</div>');
+        wrap.push('</li>');
+      });
+      wrap.push('</ul></details>');
+    }
+    if(hasSchema){
+      wrap.push('<div class="sb-callout sb-callout-schema">检测到「表不存在」错误。去 <code>Supabase → SQL Editor</code> 粘贴 <code>supabase_schema.sql</code> 全文执行；执行后点「仅重试」即可恢复。</div>');
+    }
+    if(hasRls && !hasSchema){
+      wrap.push('<div class="sb-callout sb-callout-rls">检测到 RLS 权限拒绝。在 Supabase → Authentication → Policies 给相关表加策略，可临时 <code>DISABLE ROW LEVEL SECURITY</code> 排查。</div>');
+    }
+    b.className = "sync-banner "+kind;
+    b.innerHTML = wrap.join("");
+
+    var reb = document.getElementById("syncRetryAll");
+    if(reb) reb.onclick = function(){ refreshAll().then(function(failed2){ setStatus((failed2 && failed2.length===ALLKEYS.length)?"offline":"ok"); }); };
+    var rfb = document.getElementById("syncRetryFailed");
+    if(rfb) rfb.onclick = function(){
+      b.className = "sync-banner loading"; b.innerHTML = '<div class="sb-row"><div class="sb-msg">正在重新加载…</div></div>';
+      loadPass(failed.map(function(f){return f.k;})).then(function(still){
+        if(!still.length){ syncBanner(null, [], ""); setStatus("ok"); return; }
+        syncBanner("warn", still, "仍有 "+still.length+" 个模块加载失败：");
+      });
     };
+    var dmb = document.getElementById("syncDismiss");
+    if(dmb) dmb.onclick = function(){ b.className = "sync-banner hide"; b.innerHTML = ""; };
   }
 
   /* ---------- Supabase 数据层（Postgres + Auth + RLS） ---------- */
@@ -2410,7 +2496,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function loadPass(keys){
     return mapLimit(keys, 5, function(k){
       return apiQuery(k).then(function(res){ DATA[k]=res.results||[]; sortData(k); });
-    }).then(function(res){ return res.filter(function(x){return !x.ok;}).map(function(x){return x.k;}); });
+    }).then(function(res){ return res.filter(function(x){return !x.ok;}).map(function(x){return {k:x.k, e:x.e};}); });
   }
   /* 课表单独容错加载：表不存在/网络异常都不影响主链路与全局提示 */
   function loadSchedulesSafe(){
@@ -2418,11 +2504,29 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return apiQuery("schedule").then(function(res){ DATA.schedule=res.results||[]; loadSchedules(); })
       .catch(function(){ loadSchedules(); });
   }
+  /* 分类错误：true = 表缺失/权限等"结构性"失败（不应再重试，直接交给用户修复）；false = 瞬时网络错误（再重试有意义） */
+  function classifyError(e){
+    var msg = (e && e.message) || (typeof e==="string" ? e : "") || JSON.stringify(e||{});
+    var low = String(msg).toLowerCase();
+    if(/42p01|does not exist|relation|schema cache|no such table|not_found|resource_not_found/.test(low)) return {kind:"schema", msg:String(msg)};
+    if(/42501|permission denied|row-level security|insufficient_privilege/.test(low)) return {kind:"rls", msg:String(msg)};
+    return {kind:"transient", msg:String(msg)};
+  }
+  function errSnippet(s, n){ n = n||80; s = String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
+
   function refreshAll(){
     return loadPass(ALLKEYS).then(function(failed1){
-      // 自动再重试一次失败模块（网络抖动多为瞬时），全部失败则不重试以免卡死
-      if(failed1.length && failed1.length<ALLKEYS.length){
-        return loadPass(failed1).then(function(failed2){ return failed2; });
+      var retryable = failed1.filter(function(f){ return classifyError(f.e).kind==="transient"; }).map(function(f){return f.k;});
+      // 仅重试"瞬时"失败：结构性失败（schema/RLS 缺失）重试无意义，立即呈现给用户
+      if(retryable.length && retryable.length<ALLKEYS.length){
+        return loadPass(retryable).then(function(failed2){
+          // 合并：把本次重试又失败的 key 替换回原对象；已成功的从失败列表中剔除
+          var retryKeys = {};
+          retryable.forEach(function(k){ retryKeys[k]=1; });
+          var still = failed1.filter(function(f){ return !retryKeys[f.k]; });
+          failed2.forEach(function(f){ still.push(f); });
+          return still;
+        });
       }
       return failed1;
     }).then(function(failed){
@@ -2434,11 +2538,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
       if(failed.length===ALLKEYS.length){
-        syncBanner("err","数据全部加载失败（可能为网络波动），点此重试");
+        syncBanner("err", [], "所有模块加载失败（可能为网络/账号问题）。请重试。");
       } else if(failed.length){
-        syncBanner("warn","有 "+failed.length+" 个模块未加载，点此重试");
+        syncBanner("warn", failed, "已加载 "+(ALLKEYS.length-failed.length)+"/"+ALLKEYS.length+" 个模块，以下模块暂时不可用：");
       } else {
-        syncBanner(null);
+        syncBanner(null, [], "");
       }
       return failed;
     });
