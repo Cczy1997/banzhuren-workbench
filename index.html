@@ -162,6 +162,48 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* sub chips (now unused on desktop but kept for safety) */
   .subchips{display:none}
 
+  /* 课表 / 功课表 */
+  .sched-wrap{margin-bottom:16px}
+  .sched{background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);overflow-x:auto}
+  .sched-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .btn-sched{
+    border:1px solid var(--line);cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink);
+    background:#fff;border-radius:999px;padding:7px 13px;transition:.15s;
+  }
+  .btn-sched:hover{background:#FFF6FA}
+  .btn-sched:active{transform:scale(.97)}
+  .btn-sched.btn-ghost{color:var(--ink-soft)}
+  .sched-tip{font-size:12px;color:var(--pink-d);margin-left:4px}
+  .sched-wk{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .sched-wk b{color:var(--ink)}
+  .sched-over-tag{font-size:11px;font-weight:700;color:var(--pink-d);background:#FFF0F6;border-radius:999px;padding:1px 8px}
+  .sched-mode-tag{font-size:11px;font-weight:700;color:var(--ink-soft);background:#F2F4F7;border-radius:999px;padding:1px 8px}
+  .sched-mode-tag.week{color:#B26A00;background:#FFF4DD}
+  .sched-cfg{margin:8px 0 12px;padding:12px;background:#FAFBFC;border:1px solid var(--line);border-radius:12px}
+  .scfg-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .scfg-row>label{font-size:13px;font-weight:700;color:var(--ink);min-width:64px}
+  .scfg-row input[type=number]{width:72px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+  .scfg-days{display:flex;gap:8px;flex-wrap:wrap}
+  .scfg-day{font-size:12.5px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:3px}
+  .scfg-actions{margin-top:4px}
+  .sched-grid{display:flex;flex-direction:column;gap:4px;min-width:560px}
+  .sched-row{display:flex;gap:4px}
+  .scell{
+    flex:1;min-width:64px;min-height:38px;padding:6px 7px;font-size:12.5px;line-height:1.35;
+    border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;text-align:center;position:relative;word-break:break-word;
+  }
+  .sc-corner,.sc-dayhead,.sc-period{background:#FBF6F9;color:var(--ink-soft);font-weight:700}
+  .sc-dayhead{color:var(--pink-d)}
+  .sc-period{min-width:54px;flex:0 0 54px}
+  .sc-corner{flex:0 0 64px;min-width:64px}
+  .scell.sc-over{background:#FFF4E9;border-color:#FFD9B0}
+  .scell.sc-edit{outline:2px solid var(--mint);cursor:text;background:#FFFEFB}
+  .scell .sc-ovtag{
+    position:absolute;top:-7px;right:-6px;font-size:9px;font-weight:800;color:#fff;
+    background:var(--pink-d);border-radius:999px;padding:1px 5px;line-height:1.4;
+  }
+
   /* panel */
   .phead{display:flex;align-items:center;gap:10px;margin:4px 2px 12px;flex-wrap:wrap}
   .phead h3{margin:0;font-size:16px;font-weight:800}
@@ -367,6 +409,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .seatcell.girl{border-color:#fbcfe0;background:#fff0f6}
   .seatcell.girl .seatname{color:#c2255c}
   .seatcell.unk .seatname{color:var(--ink)}
+  .seat-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 10px;padding:10px 12px;background:#FAFBFC;border:1px solid var(--line);border-radius:12px}
+  .seat-ctrl .sc-label{font-weight:800;font-size:13px;color:var(--ink)}
+  .seat-ctrl .sc-in{width:54px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center}
+  .seat-ctrl .sc-x{color:var(--ink-soft);font-weight:700}
+  .seat-ctrl .sc-hint{font-size:12px;color:var(--ink-soft);margin-left:auto}
+  .seat-ctrl .sc-hint b{color:var(--pink-d)}
+  .seat-scroll{overflow-x:auto;padding-bottom:6px}
+  .seat-tip{font-size:12.5px;color:var(--ink-soft);margin:2px 0 10px}
+  .seat-tip b{color:var(--pink-d)}
 
   /* honor 荣誉榜 */
   .honor{margin-top:24px;background:#fff;border-radius:18px;padding:18px;box-shadow:0 4px 16px rgba(0,0,0,.05)}
@@ -782,8 +833,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     seats:{
       title:"🪑 座位安排", cat:"aff", unit:"个", main:"学生姓名", grid:true,
       fields:[
-        {name:"排号",type:"select",options:["1排","2排","3排","4排","5排","6排","7排","8排","9排"]},
-        {name:"列号",type:"select",options:["1列","2列","3列","4列","5列","6列","7列","8列","9列"]},
+        {name:"排号",type:"select",options:["1排","2排","3排","4排","5排","6排","7排","8排","9排","10排","11排","12排"]},
+        {name:"列号",type:"select",options:["1列","2列","3列","4列","5列","6列","7列","8列","9列","10列","11列","12列","13列","14列"]},
         {name:"学生姓名",type:"text",required:true,ph:"学生姓名"},
         {name:"学号",type:"text",ph:"01"}
       ]
@@ -902,6 +953,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     },
     ai:{
       title:"🤖 AI 小助手", cat:"ai", unit:"", main:"", fields:[]
+    },
+    sched_hwk:{
+      title:"📚 个人功课表", cat:"mine", unit:"", main:"", fields:[]
     }
   };
 
@@ -910,6 +964,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard","mall"],
     mor:["talk","comm","comment"],
     mtg:["meeting","weekly"],
+    mine:["sched_hwk"],
     ai:["ai"]
   };
   var CAT_META = {
@@ -918,6 +973,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     aff:{icon:"🗂️",label:"班级事务"},
     mor:{icon:"💗",label:"德育心理"},
     mtg:{icon:"📅",label:"班会与周报"},
+    mine:{icon:"📚",label:"我的功课"},
     ai:{icon:"🤖",label:"AI 小助手"}
   };
   var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment","meeting","weekly","mall"];
@@ -946,7 +1002,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   Object.keys(ORDER).forEach(function(cat){
     (ORDER[cat]||[]).forEach(function(k){ if(!DATA.hasOwnProperty(k)) DATA[k]=[]; });
   });
-  var state = { cat:"overview", mod:"students", grid:{}, open:{} };
+  var state = { cat:"overview", mod:"students", grid:{seats:true}, open:{} };
+  /* 座位布局：行×列（默认 8×7=56，可容纳 55 人），本地持久化 */
+  var SEAT_LS_KEY = "wb_cls_seat_layout";
+  function loadSeatLayout(){
+    try{ var s=JSON.parse(localStorage.getItem(SEAT_LS_KEY)||"{}"); if(s&&s.rows&&s.cols) return {rows:Math.min(12,Math.max(1,s.rows)),cols:Math.min(14,Math.max(1,s.cols))}; }catch(e){}
+    return {rows:8, cols:7};
+  }
+  var seatLayout = loadSeatLayout();
+  function saveSeatLayout(){ try{ localStorage.setItem(SEAT_LS_KEY, JSON.stringify(seatLayout)); }catch(e){} }
   var current = { mod:null, id:null };
   var CLS_YEAR = "初一", CLS_CLASS = "(1)班";
 
@@ -955,6 +1019,71 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
   function nowHMS(){ var d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds()); }
   function dayDiff(a,b){ var da=new Date(a+"T00:00:00"), db=new Date(b+"T00:00:00"); return Math.round((db-da)/86400000); }
+  function fmtISO(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  /* 当前 ISO 周：key="YYYY-Www"，并返回周一/周日日期 */
+  function isoWeek(date){
+    var d=new Date(date); if(isNaN(d)) d=new Date();
+    var dow=(d.getDay()+6)%7; // 0=周一
+    var mon=new Date(d); mon.setHours(0,0,0,0); mon.setDate(d.getDate()-dow);
+    var sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    var yr=mon.getFullYear();
+    var jan1=new Date(yr,0,1);
+    var week=Math.ceil((((mon-jan1)/86400000)+jan1.getDay()+1)/7);
+    return { key: yr+"-W"+pad(week), monday: fmtISO(mon), sunday: fmtISO(sun) };
+  }
+
+  /* 课表 / 功课表：基础课表 + 按周调课 */
+  var SCHED = { base:{}, over:{}, ok:false };
+  var schedMode = {};   // sid -> "base" | "week"
+  var schedEdit = {};   // sid -> bool 是否处于编辑态
+  var SCHED_DEFAULT = { periods:8, days:["周一","周二","周三","周四","周五"] };
+  function schedCfg(sid){ var b=SCHED.base[sid]; return b ? {periods:b.periods||8, days:(b.days&&b.days.length)?b.days:SCHED_DEFAULT.days} : SCHED_DEFAULT; }
+  function schedWeekKey(sid){ return isoWeek(new Date()).key; }
+  function schedOverGrid(sid){
+    var wk=schedWeekKey(sid); var o=(SCHED.over[sid]||{})[wk]; return (o&&o.grid)||{};
+  }
+  function loadSchedules(){
+    SCHED.base={}; SCHED.over={};
+    (DATA.schedule||[]).forEach(function(r){
+      if(r.kind==="base"){ SCHED.base[r.sid]=r; }
+      else if(r.kind==="override"){ (SCHED.over[r.sid]=SCHED.over[r.sid]||{})[r.week]=r; }
+    });
+    SCHED.ok=true;
+  }
+  function schedCell(sid, day, period){
+    var key=day+"|"+period;
+    var over=schedOverGrid(sid);
+    if(key in over) return over[key];
+    var b=SCHED.base[sid]; return (b&&b.grid)?(b.grid[key]||""):"";
+  }
+  function saveScheduleBase(sid){
+    var b=SCHED.base[sid]; if(!b) return Promise.resolve();
+    var payload={kind:"base",sid:sid,periods:b.periods,days:b.days,grid:b.grid||{}};
+    if(b._id){ return apiUpdate("schedule",b._id,payload); }
+    return apiAdd("schedule",payload).then(function(o){ b._id=o._id; });
+  }
+  function saveScheduleOverride(sid, week, grid){
+    var o=(SCHED.over[sid]||{})[week];
+    var payload={kind:"override",sid:sid,week:week,grid:grid||{}};
+    if(o&&o._id){ return apiUpdate("schedule",o._id,payload); }
+    return apiAdd("schedule",payload).then(function(ro){ (SCHED.over[sid]=SCHED.over[sid]||{})[week]=ro; ro.kind="override"; ro.sid=sid; ro.week=week; ro.grid=grid||{}; });
+  }
+  function deleteScheduleOverride(sid, week){
+    var o=(SCHED.over[sid]||{})[week];
+    if(!o||!o._id) return Promise.resolve();
+    return apiDelete("schedule",o._id).then(function(){ delete (SCHED.over[sid]||{})[week]; });
+  }
+  /* 清理上一自然周之前的调课记录（保留当周），避免无限堆积 */
+  function pruneOldOverrides(){
+    var wk=schedWeekKey();
+    var jobs=[];
+    Object.keys(SCHED.over).forEach(function(sid){
+      Object.keys(SCHED.over[sid]).forEach(function(w){
+        if(w<wk){ jobs.push(deleteScheduleOverride(sid,w)); }
+      });
+    });
+    return Promise.all(jobs);
+  }
   function fmtDate(s){ if(!s) return ""; s=String(s).slice(0,10); var p=s.split("-"); if(p.length<3) return s; return (+p[1])+"月"+(+p[2])+"日"; }
   function stripEmoji(t){ return t.replace(/^[^一-龥]+ /,''); }
 
@@ -1048,6 +1177,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     html += secHTML("aff",CAT_META.aff,ORDER.aff);
     html += secHTML("mor",CAT_META.mor,ORDER.mor);
     html += secHTML("mtg",CAT_META.mtg,ORDER.mtg);
+    html += secHTML("mine",CAT_META.mine,ORDER.mine);
     html += secHTML("ai",CAT_META.ai,ORDER.ai);
     nav.innerHTML=html;
   }
@@ -1082,7 +1212,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     renderSidebar();
     syncMobileTitle();
     var box=document.getElementById("content");
-    if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadToday(); return; }
+    if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadToday(); renderScheduleInto("class","overviewSched"); return; }
+    if(state.mod==="sched_hwk"){ box.innerHTML='<div class="phead"><h3>📚 个人功课表</h3><span class="hint">按星期×节次记录每节课要布置的功课 / 个人教学安排；支持本周调课，下周自动还原</span></div>'+renderScheduleHTML("hwk"); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(state.mod==="mall"){ box.innerHTML=renderMall(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
@@ -1128,12 +1259,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!box) return;
     var cnt=document.getElementById("count-"+key);
     if(cnt) cnt.textContent="共 "+rows.length+" "+m.unit;
-    if(!rows.length){
-      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
-      return;
-    }
+    // 网格视图优先：即使暂无数据也直接画出座位表（含空位），无需先录入
     if(m.grid && state.grid[key]){
       box.innerHTML=renderSeatGrid(key);
+      return;
+    }
+    if(!rows.length){
+      box.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
     }
     box.innerHTML = rows.map(function(r){ return cardHTML(key,r); }).join("");
@@ -1207,30 +1339,35 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   function renderSeatGrid(key){
     var rows=DATA[key];
-    var map={}, maxR=0, maxC=0;
+    var map={};
     rows.forEach(function(r){
       var rr=parseInt((r["排号"]||"0").replace(/\D/g,""),10)||0;
       var cc=parseInt((r["列号"]||"0").replace(/\D/g,""),10)||0;
-      if(rr>maxR)maxR=rr; if(cc>maxC)maxC=cc;
       if(rr&&cc) map[rr+"_"+cc]=r;
     });
-    var tip='<div class="seat-tip">💡 点选一个座位高亮，再点另一个座位即可<b>交换位置</b>，系统自动实时保存；点到空位可把学生移过去。</div>';
-    if(!maxR||!maxC){
-      return tip+'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有座位数据，点「+ 添加」录入排/列与学生吧～</div></div>';
-    }
+    var R=seatLayout.rows, C=seatLayout.cols;
+    var ctrl='<div class="seat-ctrl">'
+      +'<span class="sc-label">布局</span>'
+      +'<input class="sc-in" type="number" min="1" max="12" value="'+R+'" data-seatin="rows"> 排'
+      +'<span class="sc-x">×</span>'
+      +'<input class="sc-in" type="number" min="1" max="14" value="'+C+'" data-seatin="cols"> 列'
+      +'<button class="btn-grid" data-seat="applylayout">应用布局</button>'
+      +'<button class="btn-grid" data-seat="fill">👥 按名单排座</button>'
+      +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学</span>'
+      +'</div>';
+    var tip='<div class="seat-tip">💡 座位表直接展示如下，可随时调整：先点一位同学高亮，再点另一位即可<b>交换位置</b>（自动保存）；点空白处可把同学移过去或新增。</div>';
     // 按姓名查出性别（来自学生档案），男生蓝、女生粉
     var GENDER={};
     DATA.students.forEach(function(s){ var n=s["姓名"]; if(n) GENDER[n]=s["性别"]; });
-    var html=tip+'<div class="podium">📚 讲 台</div>';
-    html+='<div class="seatgrid" style="grid-template-columns:34px repeat('+maxC+',1fr)">';
-    // 列坐标表头
+    var html=ctrl+tip+'<div class="podium">📚 讲 台</div>';
+    html+='<div class="seat-scroll"><div class="seatgrid" style="grid-template-columns:34px repeat('+C+',1fr)">';
     html+='<div class="seat-h corner"></div>';
-    for(var c=1;c<=maxC;c++){ html+='<div class="seat-h">'+c+'列</div>'; }
-    for(var r=1;r<=maxR;r++){
-      html+='<div class="seat-h rowh">'+r+'排</div>';
-      for(var c=1;c<=maxC;c++){
+    for(var c=1;c<=C;c++){ html+='<div class="seat-h">'+c+'</div>'; }
+    for(var r=1;r<=R;r++){
+      html+='<div class="seat-h rowh">'+r+'</div>';
+      for(var c=1;c<=C;c++){
         var rc=r+"_"+c, rec=map[rc];
-        if(!rec){ html+='<div class="seatcell empty" data-rc="'+rc+'"></div>'; continue; }
+        if(!rec){ html+='<div class="seatcell empty" data-rc="'+rc+'" data-rid=""></div>'; continue; }
         var rid=rec._id||"", g=GENDER[rec["学生姓名"]];
         var cls = g==="男" ? "boy" : (g==="女" ? "girl" : "unk");
         html+='<div class="seatcell '+cls+'" data-rc="'+rc+'" data-rid="'+esc(rid)+'">'
@@ -1239,7 +1376,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           +'</div>';
       }
     }
-    html+='</div>';
+    html+='</div></div>';
     return html;
   }
   /* ---------- 座位自由交换（点击两次交换，实时保存云端） ---------- */
@@ -1249,16 +1386,53 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rc=cell.getAttribute("data-rc");
     var rid=cell.getAttribute("data-rid");
     if(seatSel===null){
-      if(!rid){ return; }            // 先点空位无意义
+      if(!rid){ // 点空位 → 在该位置新增一位同学
+        var p=rc.split("_");
+        openAdd("seats", {排号:p[0]+"排", 列号:p[1]+"列"});
+        return;
+      }
       seatSel={rc:rc, rid:rid};
       clearSeatSel(); cell.classList.add("sel");
-      toast("已选中，再点另一个座位交换～");
+      toast("已选中，再点另一位同学交换～");
       return;
     }
     if(seatSel.rc===rc){ clearSeatSel(); seatSel=null; return; }  // 点自己=取消
     var a=seatSel, b={rc:rc, rid:rid};
     clearSeatSel(); seatSel=null;
     swapSeats(a,b);
+  }
+  /* 座位工具栏：应用布局 / 按名单排座 */
+  function onSeatTool(act){
+    if(act==="applylayout"){
+      var ri=document.querySelector('[data-seatin="rows"]'), ci=document.querySelector('[data-seatin="cols"]');
+      if(!ri||!ci) return;
+      var r=Math.min(12,Math.max(1,parseInt(ri.value,10)||8)), c=Math.min(14,Math.max(1,parseInt(ci.value,10)||7));
+      seatLayout={rows:r,cols:c}; saveSeatLayout(); renderList("seats"); toast("座位布局已更新 ✓");
+    } else if(act==="fill"){
+      fillSeatsFromRoster();
+    }
+  }
+  /* 按学生档案顺序一键排座（清空旧座位后重新排布） */
+  function fillSeatsFromRoster(){
+    var st=DATA.students||[];
+    if(!st.length){ toast("请先在「学生档案」录入学生名单"); return; }
+    if(!confirm("按名单排座将清空当前座位并依学生档案顺序重新排布，确定？")) return;
+    setStatus("syncing");
+    var lay=seatLayout, C=lay.cols;
+    var delJobs=(DATA.seats||[]).map(function(r){ return apiDelete("seats", r._id).catch(function(){}); });
+    Promise.all(delJobs).then(function(){
+      DATA.seats=[];
+      var addJobs=st.map(function(s,i){
+        var r=Math.floor(i/C)+1, c=(i%C)+1;
+        var name=s["姓名"]||"", no=s["学号"]||"";
+        return apiAdd("seats",{排号:r+"排",列号:c+"列",学生姓名:name,学号:no}).then(function(o){
+          o["排号"]=r+"排"; o["列号"]=c+"列"; o["学生姓名"]=name; o["学号"]=no; DATA.seats.push(o);
+        });
+      });
+      return Promise.all(addJobs);
+    }).then(function(){
+      setStatus("ok"); toast("已按名单排座 "+st.length+" 人 ✓"); renderList("seats");
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("排座失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
   }
   function swapSeats(a,b){
     var pa=a.rc.split("_"), pb=b.rc.split("_");
@@ -1278,9 +1452,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
   }
 
-  /* ---------- 总览：当天待办任务 + 荣誉榜 ---------- */
+  /* ---------- 总览：班级课表 + 当天待办任务 + 荣誉榜 ---------- */
   function renderOverview(){
-    return '<div class="today">'
+    return '<div class="sched-wrap">'
+      +'<div class="phead"><h3>🗓️ 班级课表</h3><span class="hint">点击单元格即可编辑；切到「本周调课」模式的改动仅当周生效，下周自动还原</span></div>'
+      +'<div id="overviewSched"></div>'
+      +'</div>'
+      +'<div class="today">'
       +'<h2>'
       +'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B9D" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v9l6 3"/><circle cx="12" cy="12" r="9"/></svg>'
       +'当天待办任务'
@@ -1344,6 +1522,126 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return html;
   }
   function fmtPts(v){ return (v>0?"+":"")+v; }
+
+  /* ---------- 课表 / 功课表：网格渲染 + 本周调课 ---------- */
+  function renderScheduleInto(sid, cid){
+    var c=document.getElementById(cid); if(!c) return;
+    c.innerHTML=renderScheduleHTML(sid);
+  }
+  function renderScheduleHTML(sid){
+    var cfg=schedCfg(sid);
+    var periods=cfg.periods, days=cfg.days;
+    var wk=isoWeek(new Date());
+    var overRec=(SCHED.over[sid]||{})[wk.key];
+    var overGrid=(overRec&&overRec.grid)||{};
+    var baseGrid=(SCHED.base[sid]&&SCHED.base[sid].grid)||{};
+    var mode=schedMode[sid]||"base";
+    var edit=!!schedEdit[sid];
+
+    var tools='<div class="sched-bar">'
+      +'<button class="btn-sched" data-sched="edit">'+(edit?"✅ 完成":"✏️ 编辑")+'</button>'
+      + (edit?'<button class="btn-sched" data-sched="mode">'+(mode==="base"?"📌 基础课表":"🔧 本周调课")+'</button>':'')
+      + (overRec?'<button class="btn-sched btn-ghost" data-sched="restore">↩ 恢复本周原课表</button>':'')
+      +'<button class="btn-sched btn-ghost" data-sched="cfg">⚙ 设置</button>'
+      + (edit&&mode==="week"?'<span class="sched-tip">本周期课仅当周生效，下周自动还原</span>':'')
+      +'</div>';
+
+    var wkInfo='<div class="sched-wk">当前周：<b>'+wk.key+'</b>（'+wk.monday+' ~ '+wk.sunday+'）'
+      + (overRec?' <span class="sched-over-tag">本周有调课</span>':'')
+      + (edit?' <span class="sched-mode-tag '+(mode==="week"?"week":"")+'">'+(mode==="base"?"编辑中·基础课表（长期）":"编辑中·本周调课（临时）")+'</span>':'')
+      +'</div>';
+
+    var allDays=["周一","周二","周三","周四","周五","周六","周日"];
+    var cfgPanel='<div class="sched-cfg" style="display:none">'
+      +'<div class="scfg-row"><label>节次数量</label><input type="number" min="1" max="12" value="'+periods+'" data-cfg="periods"></div>'
+      +'<div class="scfg-row"><label>显示星期</label><div class="scfg-days">'
+      + allDays.map(function(d){ return '<label class="scfg-day"><input type="checkbox" data-cfg-day="'+d+'" '+(days.indexOf(d)>=0?"checked":"")+'>'+d+'</label>'; }).join("")
+      +'</div></div>'
+      +'<div class="scfg-actions"><button class="btn-sched" data-sched="cfgsave">保存设置</button></div>'
+      +'</div>';
+
+    var table='<div class="sched-grid">'
+      +'<div class="sched-row sched-head"><div class="scell sc-corner">节次＼星期</div>'
+      + days.map(function(d){ return '<div class="scell sc-dayhead">'+esc(d)+'</div>'; }).join("")
+      +'</div>';
+    for(var p=1;p<=periods;p++){
+      var row='<div class="sched-row"><div class="scell sc-period">第'+p+'节</div>';
+      days.forEach(function(d){
+        var key=d+"|"+p;
+        var dispVal = (edit && mode==="base") ? (baseGrid[key]||"") : schedCell(sid,d,p);
+        var showBadge = (key in overGrid) && !(edit && mode==="base");
+        var cls="scell"+( (key in overGrid)?" sc-over":"")+(edit?" sc-edit":"");
+        var tag = showBadge?'<span class="sc-ovtag">调</span>':"";
+        row+='<div class="'+cls+'" data-day="'+esc(d)+'" data-period="'+p+'"'+(edit?' contenteditable="true"':"")+'>'+esc(dispVal)+tag+'</div>';
+      });
+      row+='</div>';
+      table+=row;
+    }
+    table+='</div>';
+
+    return '<div class="sched" data-sid="'+sid+'">'+tools+wkInfo+cfgPanel+table+'</div>';
+  }
+  function paintCell(sid, day, period){
+    var cell=document.querySelector('.sched[data-sid="'+sid+'"] .scell[data-day="'+day+'"][data-period="'+period+'"]');
+    if(!cell) return;
+    var key=day+"|"+period;
+    var mode=schedMode[sid]||"base";
+    var edit=!!schedEdit[sid];
+    var overGrid=schedOverGrid(sid);
+    var showBadge=(key in overGrid)&&!(edit&&mode==="base");
+    cell.classList.toggle("sc-over", (key in overGrid));
+    var tag=cell.querySelector(".sc-ovtag");
+    if(showBadge){ if(!tag){ tag=document.createElement("span"); tag.className="sc-ovtag"; tag.textContent="调"; cell.appendChild(tag); } }
+    else if(tag){ tag.remove(); }
+  }
+  function commitCell(sid, day, period, raw){
+    var val=String(raw==null?"":raw).replace(/\s+$/,"").replace(/^\s+/,"");
+    var key=day+"|"+period;
+    var mode=schedMode[sid]||"base";
+    var base=SCHED.base[sid];
+    if(!base){ base={sid:sid,periods:schedCfg(sid).periods,days:schedCfg(sid).days,grid:{}}; SCHED.base[sid]=base; }
+    base.grid=base.grid||{};
+    if(mode==="base"){
+      if(val==="") delete base.grid[key]; else base.grid[key]=val;
+      saveScheduleBase(sid);
+    } else {
+      var wk=schedWeekKey(sid);
+      var over=(SCHED.over[sid]||{})[wk];
+      var overGrid=(over&&over.grid)||{};
+      if(val===(base.grid[key]||"")){ delete overGrid[key]; }
+      else { overGrid[key]=val; }
+      if(Object.keys(overGrid).length===0){
+        deleteScheduleOverride(sid,wk);
+      } else {
+        saveScheduleOverride(sid,wk,overGrid);
+      }
+    }
+    paintCell(sid,day,period);
+  }
+  function rerenderSchedule(sid){
+    var el=document.querySelector('.sched[data-sid="'+sid+'"]');
+    if(!el) return;
+    el.outerHTML=renderScheduleHTML(sid);
+  }
+  function onSchedAction(sd){
+    var sched=sd.closest(".sched"); if(!sched) return;
+    var sid=sched.getAttribute("data-sid");
+    var act=sd.getAttribute("data-sched");
+    if(act==="edit"){ schedEdit[sid]=!schedEdit[sid]; rerenderSchedule(sid); }
+    else if(act==="mode"){ schedMode[sid]=(schedMode[sid]==="week"?"base":"week"); rerenderSchedule(sid); }
+    else if(act==="restore"){ var wk=schedWeekKey(sid); deleteScheduleOverride(sid,wk).then(function(){ rerenderSchedule(sid); toast("已恢复本周原课表"); }); }
+    else if(act==="cfg"){ var p=sched.querySelector(".sched-cfg"); if(p) p.style.display=(p.style.display==="none"?"block":"none"); }
+    else if(act==="cfgsave"){
+      var pi=sched.querySelector('[data-cfg="periods"]');
+      var np=Math.max(1,Math.min(12, parseInt(pi&&pi.value||"8",10)||8));
+      var ndays=[]; [].forEach.call(sched.querySelectorAll('[data-cfg-day]'), function(cb){ if(cb.checked) ndays.push(cb.getAttribute("data-cfg-day")); });
+      if(!ndays.length) ndays=SCHED_DEFAULT.days.slice();
+      var base=SCHED.base[sid];
+      if(!base){ base={sid:sid,periods:np,days:ndays,grid:{}}; SCHED.base[sid]=base; }
+      else { base.periods=np; base.days=ndays; }
+      saveScheduleBase(sid).then(function(){ rerenderSchedule(sid); toast("课表设置已保存"); });
+    }
+  }
 
   /* ---------- 一生一档 · 学生档案 ---------- */
   var profileName="";
@@ -1665,12 +1963,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'</div>';
   }
 
-  function refreshAll(){
-    return mapLimit(ALLKEYS, 5, function(k){
+  /* 单轮加载：返回失败模块 key 列表（每个 key 内部已自带重试） */
+  function loadPass(keys){
+    return mapLimit(keys, 5, function(k){
       return apiQuery(k).then(function(res){ DATA[k]=res.results||[]; sortData(k); });
-    }).then(function(res){
+    }).then(function(res){ return res.filter(function(x){return !x.ok;}).map(function(x){return x.k;}); });
+  }
+  /* 课表单独容错加载：表不存在/网络异常都不影响主链路与全局提示 */
+  function loadSchedulesSafe(){
+    DATA.schedule = DATA.schedule || [];
+    return apiQuery("schedule").then(function(res){ DATA.schedule=res.results||[]; loadSchedules(); })
+      .catch(function(){ loadSchedules(); });
+  }
+  function refreshAll(){
+    return loadPass(ALLKEYS).then(function(failed1){
+      // 自动再重试一次失败模块（网络抖动多为瞬时），全部失败则不重试以免卡死
+      if(failed1.length && failed1.length<ALLKEYS.length){
+        return loadPass(failed1).then(function(failed2){ return failed2; });
+      }
+      return failed1;
+    }).then(function(failed){
+      return loadSchedulesSafe().then(function(){ return failed; });
+    }).then(function(failed){
+      pruneOldOverrides().catch(function(){});
       render(); loadToday();
-      var failed=res.filter(function(x){return !x.ok;}).map(function(x){return x.k;});
       if(failed.length===ALLKEYS.length){
         syncBanner("err","数据全部加载失败（可能为网络波动），点此重试");
       } else if(failed.length){
@@ -1833,10 +2149,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return props;
   }
 
-  function openAdd(key){
+  function openAdd(key, preset){
     current={mod:key, id:null};
     document.getElementById("formTitle").textContent="添加 · "+stripEmoji(MODULES[key].title);
     buildForm(key,null); restoreForm(key);
+    if(preset){ Object.keys(preset).forEach(function(f){ var el=document.querySelector('#form [data-f="'+f+'"]'); if(el) el.value=preset[f]; }); }
     document.getElementById("mask").classList.add("show");
   }
   function openEdit(key,id){
@@ -2139,6 +2456,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   });
   document.getElementById("content").addEventListener("click",function(e){
     var g=e.target.closest(".ov-mod"); if(g){ return; }
+    var sd=e.target.closest("[data-sched]"); if(sd){ onSchedAction(sd); return; }
+    var seatBtn=e.target.closest("[data-seat]"); if(seatBtn){ onSeatTool(seatBtn.getAttribute("data-seat")); return; }
     var cell=e.target.closest(".seatcell"); if(cell){ onSeatClick(cell); return; }
     var grid=e.target.closest("[data-grid]"); if(grid){ var k=grid.getAttribute("data-grid"); state.grid[k]=!state.grid[k]; renderList(k); return; }
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
@@ -2163,6 +2482,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("formCancel").addEventListener("click",closeForm);
   document.getElementById("formSave").addEventListener("click",saveForm);
   document.getElementById("mask").addEventListener("click",function(e){ if(e.target===this) closeForm(); });
+
+  /* 课表单元格：失焦提交 + 回车提交 */
+  document.getElementById("content").addEventListener("focusout",function(e){
+    var cell=e.target.closest && e.target.closest(".scell");
+    if(!cell || cell.getAttribute("contenteditable")!=="true") return;
+    var sched=cell.closest(".sched"); if(!sched) return;
+    var sid=sched.getAttribute("data-sid");
+    commitCell(sid, cell.getAttribute("data-day"), cell.getAttribute("data-period"), cell.textContent);
+  });
+  document.getElementById("content").addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ var c=e.target.closest && e.target.closest(".scell"); if(c){ e.preventDefault(); c.blur(); } }
+  });
 
   /* 班级信息弹窗 */
   document.getElementById("brand").addEventListener("click",openCfg);
