@@ -422,6 +422,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .podium-row{display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0 16px}
   .seatcell.flank{width:100px;min-width:100px}
   .seatcell.flank.empty{background:#FAFAFA;border-style:dashed;border-color:#ececec}
+  /* 小组模式：组间走廊 */
+  .seat-aisle-h{display:flex;align-items:center;justify-content:center;font-size:11px;color:#b09aad;writing-mode:vertical-rl;letter-spacing:2px;background:repeating-linear-gradient(0deg,#faf6f9,#faf6f9 6px,#f1e9ef 6px,#f1e9ef 12px)}
+  .seat-aisle{min-height:40px;background:repeating-linear-gradient(0deg,#faf6f9,#faf6f9 8px,#f1e9ef 8px,#f1e9ef 16px)}
+  .sc-sel{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;color:var(--ink)}
   .btn-grid.btn-xls{background:#E7F7EF;color:#1f8a5b;border-color:#bfe7d2}
   .btn-grid.btn-xls:hover{background:#D6F2E6}
 
@@ -1012,8 +1016,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 座位布局：行×列（默认 8×7=56，可容纳 55 人），本地持久化 */
   var SEAT_LS_KEY = "wb_cls_seat_layout";
   function loadSeatLayout(){
-    try{ var s=JSON.parse(localStorage.getItem(SEAT_LS_KEY)||"{}"); if(s&&s.rows&&s.cols) return {rows:Math.min(12,Math.max(1,s.rows)),cols:Math.min(14,Math.max(1,s.cols))}; }catch(e){}
-    return {rows:8, cols:7};
+    try{
+      var s=JSON.parse(localStorage.getItem(SEAT_LS_KEY)||"{}");
+      if(s && (s.rows||s.mode)){
+        return {
+          mode: s.mode==="group" ? "group" : "grid",
+          rows: Math.min(12,Math.max(1,s.rows||8)),
+          cols: Math.min(14,Math.max(1,s.cols||7)),
+          groups: Math.min(8,Math.max(1,s.groups||4)),
+          colsPerGroup: Math.min(6,Math.max(1,s.colsPerGroup||2)),
+          rowsPerGroup: Math.min(12,Math.max(1,s.rowsPerGroup||7))
+        };
+      }
+    }catch(e){}
+    return {mode:"grid", rows:8, cols:7, groups:4, colsPerGroup:2, rowsPerGroup:7};
   }
   var seatLayout = loadSeatLayout();
   function saveSeatLayout(){ try{ localStorage.setItem(SEAT_LS_KEY, JSON.stringify(seatLayout)); }catch(e){} }
@@ -1351,16 +1367,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var cc=parseInt((r["列号"]||"0").replace(/\D/g,""),10)||0;
       if(rr&&cc) map[rr+"_"+cc]=r;
     });
-    var R=seatLayout.rows, C=seatLayout.cols;
+    var isGroup = seatLayout.mode==="group";
+    var R, C, G=1, CPG=1;
+    if(isGroup){ G=seatLayout.groups; CPG=seatLayout.colsPerGroup; R=seatLayout.rowsPerGroup; C=G*CPG; }
+    else { R=seatLayout.rows; C=seatLayout.cols; }
+    // 布局控制条（网格 / 小组 两种模式）
     var ctrl='<div class="seat-ctrl">'
       +'<span class="sc-label">布局</span>'
-      +'<input class="sc-in" type="number" min="1" max="12" value="'+R+'" data-seatin="rows"> 排'
-      +'<span class="sc-x">×</span>'
-      +'<input class="sc-in" type="number" min="1" max="14" value="'+C+'" data-seatin="cols"> 列'
-      +'<button class="btn-grid" data-seat="applylayout">应用布局</button>'
+      +'<select class="sc-sel" data-seatmode>'
+        +'<option value="grid"'+(isGroup?'':' selected')+'>网格</option>'
+        +'<option value="group"'+(isGroup?' selected':'')+'>小组</option>'
+      +'</select>';
+    if(isGroup){
+      ctrl+='小组数 <input class="sc-in" type="number" min="1" max="8" value="'+G+'" data-seatin="groups">'
+        +'每小组列数 <input class="sc-in" type="number" min="1" max="6" value="'+CPG+'" data-seatin="colsPerGroup">'
+        +'长度(行) <input class="sc-in" type="number" min="1" max="12" value="'+R+'" data-seatin="rowsPerGroup">';
+    } else {
+      ctrl+='<input class="sc-in" type="number" min="1" max="12" value="'+R+'" data-seatin="rows"> 排'
+        +'<span class="sc-x">×</span>'
+        +'<input class="sc-in" type="number" min="1" max="14" value="'+C+'" data-seatin="cols"> 列';
+    }
+    ctrl+='<button class="btn-grid" data-seat="applylayout">应用布局</button>'
       +'<button class="btn-grid" data-seat="fill">👥 按名单排座</button>'
       +'<button class="btn-grid btn-xls" data-seat="excel">📊 导出座位表(Excel)</button>'
-      +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学；讲台两侧座位点开可单独安排</span>'
+      +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学；讲台两侧座位点开可单独安排'+(isGroup?'；组间为<b>走廊</b>':'')+'</span>'
       +'</div>';
     var tip='<div class="seat-tip">💡 座位表直接展示如下，可随时调整：先点一位同学高亮，再点另一位即可<b>交换位置</b>（自动保存）；点空白处可把同学移过去或新增。</div>';
     // 讲台左右两侧的两个座位（始终展示，独立于网格布局，按名单排座不会清空/覆盖；不参与网格交换）
@@ -1377,21 +1407,47 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     // 按姓名查出性别（来自学生档案），男生蓝、女生粉
     var GENDER={};
     DATA.students.forEach(function(s){ var n=s["姓名"]; if(n) GENDER[n]=s["性别"]; });
+    function seatCellHtml(rc, rec){
+      if(!rec){ return '<div class="seatcell empty" data-rc="'+rc+'" data-rid=""></div>'; }
+      var rid=rec._id||"", g=GENDER[rec["学生姓名"]];
+      var cls = g==="男" ? "boy" : (g==="女" ? "girl" : "unk");
+      return '<div class="seatcell '+cls+'" data-rc="'+rc+'" data-rid="'+esc(rid)+'">'
+        +'<div class="seatname">'+esc(rec["学生姓名"]||"")+'</div>'
+        +'<div class="seatno">'+esc(rec["学号"]||"")+'</div>'
+        +'</div>';
+    }
     var html=ctrl+tip+podiumRow;
-    html+='<div class="seat-scroll"><div class="seatgrid" style="grid-template-columns:34px repeat('+C+',1fr)">';
+    // 列模板：小组模式在每组之间插入窄走廊列
+    var tmpl="34px";
+    if(isGroup){
+      for(var gi=0; gi<G; gi++){
+        for(var k=0;k<CPG;k++) tmpl+=" 1fr";
+        if(gi<G-1) tmpl+=" 22px";
+      }
+    } else {
+      tmpl+=" repeat("+C+",1fr)";
+    }
+    html+='<div class="seat-scroll"><div class="seatgrid" style="grid-template-columns:'+tmpl+'">';
     html+='<div class="seat-h corner"></div>';
-    for(var c=1;c<=C;c++){ html+='<div class="seat-h">'+c+'</div>'; }
+    if(isGroup){
+      for(var gi=0; gi<G; gi++){
+        var gStart=gi*CPG+1;
+        for(var k=0;k<CPG;k++){ html+='<div class="seat-h">'+(gStart+k)+'</div>'; }
+        if(gi<G-1) html+='<div class="seat-aisle-h">走廊</div>';
+      }
+    } else {
+      for(var c=1;c<=C;c++){ html+='<div class="seat-h">'+c+'</div>'; }
+    }
     for(var r=1;r<=R;r++){
       html+='<div class="seat-h rowh">'+r+'</div>';
-      for(var c=1;c<=C;c++){
-        var rc=r+"_"+c, rec=map[rc];
-        if(!rec){ html+='<div class="seatcell empty" data-rc="'+rc+'" data-rid=""></div>'; continue; }
-        var rid=rec._id||"", g=GENDER[rec["学生姓名"]];
-        var cls = g==="男" ? "boy" : (g==="女" ? "girl" : "unk");
-        html+='<div class="seatcell '+cls+'" data-rc="'+rc+'" data-rid="'+esc(rid)+'">'
-          +'<div class="seatname">'+esc(rec["学生姓名"]||"")+'</div>'
-          +'<div class="seatno">'+esc(rec["学号"]||"")+'</div>'
-          +'</div>';
+      if(isGroup){
+        for(var gi=0; gi<G; gi++){
+          var gStart=gi*CPG+1;
+          for(var k=0;k<CPG;k++){ html+=seatCellHtml(r+"_"+(gStart+k), map[r+"_"+(gStart+k)]); }
+          if(gi<G-1) html+='<div class="seat-aisle"></div>';
+        }
+      } else {
+        for(var c=1;c<=C;c++){ html+=seatCellHtml(r+"_"+c, map[r+"_"+c]); }
       }
     }
     html+='</div></div>';
@@ -1426,12 +1482,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     swapSeats(a,b);
   }
   /* 座位工具栏：应用布局 / 按名单排座 */
+  function qval(sel,def){ var el=document.querySelector(sel); return el?el.value:def; }
   function onSeatTool(act){
     if(act==="applylayout"){
-      var ri=document.querySelector('[data-seatin="rows"]'), ci=document.querySelector('[data-seatin="cols"]');
-      if(!ri||!ci) return;
-      var r=Math.min(12,Math.max(1,parseInt(ri.value,10)||8)), c=Math.min(14,Math.max(1,parseInt(ci.value,10)||7));
-      seatLayout={rows:r,cols:c}; saveSeatLayout(); renderList("seats"); toast("座位布局已更新 ✓");
+      var modeSel=document.querySelector('[data-seatmode]');
+      var mode=modeSel?modeSel.value:"grid";
+      if(mode==="group"){
+        var g=Math.min(8,Math.max(1,parseInt(qval('[data-seatin="groups"]',4),10)||4));
+        var cpg=Math.min(6,Math.max(1,parseInt(qval('[data-seatin="colsPerGroup"]',2),10)||2));
+        var rpg=Math.min(12,Math.max(1,parseInt(qval('[data-seatin="rowsPerGroup"]',7),10)||7));
+        seatLayout={mode:"group", groups:g, colsPerGroup:cpg, rowsPerGroup:rpg};
+      } else {
+        var ri=document.querySelector('[data-seatin="rows"]'), ci=document.querySelector('[data-seatin="cols"]');
+        if(!ri||!ci) return;
+        var r=Math.min(12,Math.max(1,parseInt(ri.value,10)||8)), c=Math.min(14,Math.max(1,parseInt(ci.value,10)||7));
+        seatLayout={mode:"grid", rows:r, cols:c};
+      }
+      saveSeatLayout(); renderList("seats"); toast("座位布局已更新 ✓");
     } else if(act==="fill"){
       fillSeatsFromRoster();
     } else if(act==="excel"){
@@ -1440,7 +1507,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 导出座位表为 Excel（.xls，内联表格，便于打印；含讲台左右两侧座位） */
   function exportSeatExcel(){
-    var R=seatLayout.rows, C=seatLayout.cols;
+    var isGroup=seatLayout.mode==="group";
+    var R = isGroup ? seatLayout.rowsPerGroup : seatLayout.rows;
+    var C = isGroup ? seatLayout.groups*seatLayout.colsPerGroup : seatLayout.cols;
+    var G = isGroup ? seatLayout.groups : 1;
+    var CPG = isGroup ? seatLayout.colsPerGroup : C;
     var map={};
     (DATA.seats||[]).forEach(function(r){
       var rr=parseInt(String(r["排号"]||"").replace(/\D/g,""),10)||0;
@@ -1454,13 +1525,32 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var r1=flank["1"], r2=flank["2"];
     rowsHtml+='<tr><td class="lbl">讲台左</td><td>'+(r1?esc(r1["学生姓名"]):"（空）")+'</td><td class="lbl">讲台右</td><td>'+(r2?esc(r2["学生姓名"]):"（空）")+'</td><td colspan="'+Math.max(1,C-2)+'"></td></tr>';
     var head='<tr><th>排＼列</th>';
-    for(var c=1;c<=C;c++) head+='<th>'+c+'</th>';
+    if(isGroup){
+      for(var gi=0;gi<G;gi++){
+        var gStart=gi*CPG+1;
+        for(var k=0;k<CPG;k++) head+='<th>'+(gStart+k)+'</th>';
+        if(gi<G-1) head+='<th class="aisle">走廊</th>';
+      }
+    } else {
+      for(var c=1;c<=C;c++) head+='<th>'+c+'</th>';
+    }
     head+='</tr>';
     for(var r=1;r<=R;r++){
       var tr='<tr><th>'+r+'</th>';
-      for(var c=1;c<=C;c++){
-        var rec=map[r+"_"+c];
-        tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
+      if(isGroup){
+        for(var gi=0;gi<G;gi++){
+          var gStart=gi*CPG+1;
+          for(var k=0;k<CPG;k++){
+            var rec=map[r+"_"+(gStart+k)];
+            tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
+          }
+          if(gi<G-1) tr+='<td class="aisle"></td>';
+        }
+      } else {
+        for(var c=1;c<=C;c++){
+          var rec=map[r+"_"+c];
+          tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
+        }
       }
       tr+='</tr>';
       rowsHtml+=tr;
@@ -1468,11 +1558,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
       +'<head><meta charset="utf-8"><style>'
       +'table{border-collapse:collapse;margin-top:8px}td,th{border:1px solid #888;padding:6px 12px;text-align:center;font-size:12px;min-width:54px}'
-      +'th{background:#FFF0F6;font-weight:700}.lbl{background:#FDE2EC;font-weight:700;white-space:nowrap}.ttl{font-size:17px;font-weight:800;margin:0}'
+      +'th{background:#FFF0F6;font-weight:700}.lbl{background:#FDE2EC;font-weight:700;white-space:nowrap}.ttl{font-size:17px;font-weight:800;margin:0}.aisle{background:#F3F3F3;color:#999;font-size:11px}'
       +'</style></head><body>'
       +'<h3 class="ttl">'+esc(clsName)+' 座位表（'+todayStr()+'）</h3>'
       +'<table>'+head+rowsHtml+'</table>'
-      +'<p style="font-size:11px;color:#888;margin-top:6px">讲台左右两侧为单独安排的座位；本表可直接打印。</p>'
+      +'<p style="font-size:11px;color:#888;margin-top:6px">讲台左右两侧为单独安排的座位；'+(isGroup?'组与组之间为走廊；':'')+'本表可直接打印。</p>'
       +'</body></html>';
     var blob=new Blob(["\uFEFF"+doc],{type:"application/vnd.ms-excel;charset=utf-8"});
     var url=URL.createObjectURL(blob);
@@ -1488,18 +1578,39 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!st.length){ toast("请先在「学生档案」录入学生名单"); return; }
     if(!confirm("按名单排座将清空当前座位并依学生档案顺序重新排布，确定？")) return;
     setStatus("syncing");
-    var lay=seatLayout, C=lay.cols;
+    var isGroup=seatLayout.mode==="group";
+    var R = isGroup ? seatLayout.rowsPerGroup : seatLayout.rows;
+    var C = isGroup ? seatLayout.groups*seatLayout.colsPerGroup : seatLayout.cols;
+    var G = isGroup ? seatLayout.groups : 1;
+    var CPG = isGroup ? seatLayout.colsPerGroup : C;
+    function addOne(r,c,s){
+      var name=s["姓名"]||"", no=s["学号"]||"";
+      return apiAdd("seats",{排号:r+"排",列号:c+"列",学生姓名:name,学号:no}).then(function(o){
+        o["排号"]=r+"排"; o["列号"]=c+"列"; o["学生姓名"]=name; o["学号"]=no; DATA.seats.push(o);
+      });
+    }
     // 讲台两侧座位（排号=讲台）不属于网格，按名单排座时保留、不被清空或覆盖
     var delJobs=(DATA.seats||[]).filter(function(r){ return r["排号"]!=="讲台"; }).map(function(r){ return apiDelete("seats", r._id).catch(function(){}); });
     Promise.all(delJobs).then(function(){
       DATA.seats=[];
-      var addJobs=st.map(function(s,i){
-        var r=Math.floor(i/C)+1, c=(i%C)+1;
-        var name=s["姓名"]||"", no=s["学号"]||"";
-        return apiAdd("seats",{排号:r+"排",列号:c+"列",学生姓名:name,学号:no}).then(function(o){
-          o["排号"]=r+"排"; o["列号"]=c+"列"; o["学生姓名"]=name; o["学号"]=no; DATA.seats.push(o);
+      var addJobs=[];
+      if(isGroup){
+        // 小组优先：按小组依次填满，使同组学生相邻
+        var idx=0;
+        for(var gi=0; gi<G && idx<st.length; gi++){
+          var gStart=gi*CPG+1;
+          for(var r=1; r<=R && idx<st.length; r++){
+            for(var k=0; k<CPG && idx<st.length; k++){
+              addJobs.push(addOne(r, gStart+k, st[idx++]));
+            }
+          }
+        }
+      } else {
+        st.forEach(function(s,i){
+          var r=Math.floor(i/C)+1, c=(i%C)+1;
+          addJobs.push(addOne(r,c,s));
         });
-      });
+      }
       return Promise.all(addJobs);
     }).then(function(){
       setStatus("ok"); toast("已按名单排座 "+st.length+" 人 ✓"); renderList("seats");
@@ -2563,6 +2674,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var sched=cell.closest(".sched"); if(!sched) return;
     var sid=sched.getAttribute("data-sid");
     commitCell(sid, cell.getAttribute("data-day"), cell.getAttribute("data-period"), cell.textContent);
+  });
+  /* 座位布局「网格/小组」切换：即时重渲染控制条 */
+  document.getElementById("content").addEventListener("change",function(e){
+    var modeSel=e.target.closest && e.target.closest("[data-seatmode]");
+    if(modeSel){ seatLayout.mode = (modeSel.value==="group"?"group":"grid"); saveSeatLayout(); renderList("seats"); return; }
   });
   document.getElementById("content").addEventListener("keydown",function(e){
     if(e.key==="Enter"){ var c=e.target.closest && e.target.closest(".scell"); if(c){ e.preventDefault(); c.blur(); } }
