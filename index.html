@@ -1194,6 +1194,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* ---------- 网络韧性：自动重试 + 并发限制 + 失败可恢复 ---------- */
+  /* 给任意 Promise 加超时：Supabase 在某些网络/RLS 场景下会"永远 pending"，必须主动判失败，否则整页卡在「正在加载」 */
+  function withTimeout(p, ms, label){
+    ms = ms || 9000;
+    return new Promise(function(resolve, reject){
+      var t = setTimeout(function(){ reject(new Error((label||"请求")+" 超时（"+ms+"ms 未响应）")); }, ms);
+      Promise.resolve(p).then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
+    });
+  }
   function retry(fn, times){
     times = times || 3;
     var delays = [500, 1200, 2400];
@@ -1303,7 +1311,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* ---------- Supabase 数据层（Postgres + Auth + RLS） ---------- */
   function apiQuery(key){
     function go(){
-      return db.from(tbl(key)).select('id, data').order('created_at',{ascending:true}).then(function(res){
+      return withTimeout(
+        db.from(tbl(key)).select('id, data').order('created_at',{ascending:true}),
+        8000, "表 "+key+" 查询"
+      ).then(function(res){
         if(res.error) throw res.error;
         return { results: (res.data||[]).map(function(r){ var o={_id:r.id}; if(r.data) Object.keys(r.data).forEach(function(k){o[k]=r.data[k];}); return o; }) };
       });
@@ -3457,9 +3468,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function bootLoad(){
     setStatus("syncing");
+    var settled = false;
+    // 兜底：即便所有查询都卡死（Supabase 连接挂起/域名不通），也必须在有限时间内渲染页面 + 给可重试横幅，
+    // 绝不能无限停留「正在加载工作台数据…」
+    var guard = setTimeout(function(){
+      if(settled) return; settled = true;
+      try { render(); loadToday(); } catch(e){ console.error(e); }
+      try { checkMondayRedFlag(); } catch(_){}
+      setStatus("offline");
+      syncBanner("warn", [], "部分数据加载较慢或超时，已先显示已加载内容；点「重试全部」可重新拉取。");
+    }, 18000);
     refreshAll().then(function(failed){
+      if(settled) return; settled = true; clearTimeout(guard);
       setStatus((failed && failed.length===ALLKEYS.length) ? "offline" : "ok");
     }).catch(function(e){
+      if(settled) return; settled = true; clearTimeout(guard);
       console.error(e); setStatus("offline"); syncBanner("err","加载失败，点此重试");
     });
   }
