@@ -720,7 +720,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
   function dayDiff(a,b){ var da=new Date(a+"T00:00:00"), db=new Date(b+"T00:00:00"); return Math.round((db-da)/86400000); }
   function fmtDate(s){ if(!s) return ""; s=String(s).slice(0,10); var p=s.split("-"); if(p.length<3) return s; return (+p[1])+"月"+(+p[2])+"日"; }
-  function catOf(key){ return MODULES[key] ? MODULES[key].cat : "aff"; }
   function stripEmoji(t){ return t.replace(/^[^一-龥]+ /,''); }
 
   function setStatus(s){
@@ -776,7 +775,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* ---------- Supabase 数据层（Postgres + Auth + RLS） ---------- */
-  function bindAttr(key){ return ''; }
   function apiQuery(key){
     function go(){
       return db.from(tbl(key)).select('id, data').order('created_at',{ascending:true}).then(function(res){
@@ -846,7 +844,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     renderSidebar();
     syncMobileTitle();
     var box=document.getElementById("content");
-    if(state.cat==="overview"){ box.innerHTML=renderOverview(); bindOverview(); loadToday(); return; }
+    if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadToday(); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(ORDER[state.cat].indexOf(state.mod)<0) state.mod=ORDER[state.cat][0];
     try { box.innerHTML=renderModule(state.mod); }
@@ -870,7 +868,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
-      +'<span class="count" id="count-'+key+'" '+bindAttr(key)+'>共 0 '+m.unit+'</span>'
+      +'<span class="count" id="count-'+key+'">共 0 '+m.unit+'</span>'
       +'<span class="spacer"></span>'
       + gridBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
@@ -941,7 +939,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     acts+='<button class="mini edit" data-act="edit" data-mod="'+key+'" data-id="'+id+'">编辑</button>';
     acts+='<button class="mini del" data-act="del" data-mod="'+key+'" data-id="'+id+'">删除</button>';
 
-    return '<div class="card" '+bindAttr(key)+'>'
+    return '<div class="card" >'
       +'<div class="card-main">'+esc(main)+' '+badge+'</div>'
       +subs
       +'<div class="card-actions">'+acts+'</div>'
@@ -1032,7 +1030,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div id="todayList"></div>'
       +'</div>';
   }
-  function bindOverview(){ /* 总览为静态渲染，无需额外绑定 */ }
 
   /* ---------- 荣誉榜：个人积分TOP3 + 小组积分TOP2 ---------- */
   function renderHonor(){
@@ -1313,8 +1310,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* ---------- 示例数据 ---------- */
-  function shiftDate(days){ var d=new Date(); d.setDate(d.getDate()+days); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-  function seed(key){ return Promise.resolve(); }
 
   /* ---------- 事件 ---------- */
   document.getElementById("nav").addEventListener("click",function(e){
@@ -1365,12 +1360,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function openDrawer(){ document.getElementById("sidebar").classList.add("open"); document.getElementById("scrim").classList.add("show"); }
   function closeDrawer(){ document.getElementById("sidebar").classList.remove("open"); document.getElementById("scrim").classList.remove("show"); }
 
-  function switchCat(cat){
-    state.cat=cat;
-    if(cat!=="overview" && ORDER[cat].indexOf(state.mod)<0) state.mod=ORDER[cat][0];
-    if(cat!=="overview") state.open[cat]=true;
-    render();
-  }
   function switchMod(mod){
     // 关键修复：点击侧边栏子模块链接时，必须同步把栏目切到该模块所属栏目，
     // 否则 state.cat 停留在旧栏目，render() 会按旧栏目渲染（甚至走 overview 分支直接 return），
