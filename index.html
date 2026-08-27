@@ -1120,7 +1120,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var f=s[0], dir=(s[1]==="desc")?-1:1;
     DATA[key].sort(function(a,b){
       var va=String(a[f]==null?"":a[f]), vb=String(b[f]==null?"":b[f]);
-      if(va<vb) return -1*dir; if(va>vb) return 1*dir; return 0;
+      var na=parseFloat(va), nb=parseFloat(vb);
+      /* 号数/学号等纯数字字段按数值排序，避免「10」排在「2」前面 */
+      if(!isNaN(na)&&!isNaN(nb)&&/^-?\d/.test(va)&&/^-?\d/.test(vb)){ return (na-nb)*dir; }
+      return va.localeCompare(vb,"zh-Hans-CN")*dir;
     });
   }
 
@@ -3883,7 +3886,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     "事由说明":"事由","原因说明":"原因","加减原因":"原因",
     "考试名称":"考试","测验":"考试",
     "班级排名次":"班级排名","班排":"班级排名","rank":"班级排名",
-    "学号座号":"学号","编号":"学号",
+    "学号座号":"学号","编号":"学号","序号":"学号","号数":"学号","班号":"学号",
     "座位":"座位号","座号":"座位号",
     "关注":"关注标签","标签":"关注标签",
     "表现":"综合表现","综合":"综合表现",
@@ -3933,6 +3936,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!v) return null;
     if(f.type==="multi_select") return [v];
     if(f.type==="number"){ var n=Number(v); if(isNaN(n)) return null; return n; }
+    /* 文本字段：把「1.0」「3.00」这类整数化小数规整为「1」「3」，更适合号数/学号 */
+    if(/^-?\d+(\.0+)?$/.test(v)) return v.replace(/\.0+$/,"");
     return v;
   }
   function openImport(key){
@@ -4019,10 +4024,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(/\.(png|jpe?g|gif|webp|heic|bmp|heif|avif)$/.test(n) || (file.type&&file.type.indexOf("image/")===0)) return "img";
     return "csv";
   }
+  /* 自动定位表头行：扫描前若干行，选「命中字段关键字最多」的那一行当表头。
+     解决很多成绩表/花名册第 1 行是标题（如「英语」「三年16班」）、真正表头在第 3 行的问题。 */
+  function detectHeaderRow(aoa){
+    var allFields=detectHeaderRow._cache;
+    if(!allFields){ allFields=[]; for(var k in MODULES){ (MODULES[k].fields||[]).forEach(function(f){ allFields.push(f); }); } detectHeaderRow._cache=allFields; }
+    function sc(row){ if(!row) return 0; var s=0; for(var i=0;i<row.length;i++){ var v=(row[i]==null?"":String(row[i])).trim(); if(!v) continue; if(findField(allFields,v)) s++; } return s; }
+    var lim=Math.min(aoa.length,20), best=-1, bestIdx=0;
+    for(var r=0;r<lim;r++){ var c=sc(aoa[r]); if(c>=2 && c>best){ best=c; bestIdx=r; } }
+    if(best<0){ for(var r2=0;r2<lim;r2++){ var c2=sc(aoa[r2]); if(c2>=1 && c2>best){ best=c2; bestIdx=r2; } } }
+    return best<0?0:bestIdx;
+  }
+  function detectHeaderRowScore(aoa,r){ if(!aoa[r]) return 0; var allFields=detectHeaderRow._cache; if(!allFields){ allFields=[]; for(var k in MODULES){ (MODULES[k].fields||[]).forEach(function(f){ allFields.push(f); }); } detectHeaderRow._cache=allFields; } var s=0; for(var i=0;i<aoa[r].length;i++){ var v=(aoa[r][i]==null?"":String(aoa[r][i])).trim(); if(!v) continue; if(findField(allFields,v)) s++; } return s; }
   function aoa2hr(aoa){
     if(!aoa||!aoa.length) return {headers:[],rows:[]};
-    var headers=aoa[0].map(function(h,i){ return (h==null||h==="")?("列"+(i+1)):String(h).trim(); });
-    var rows=aoa.slice(1).filter(function(r){ return r && r.some(function(c){return c!=null&&String(c).trim()!=="";}); })
+    var hi=detectHeaderRow(aoa);
+    var headers=aoa[hi].map(function(h,i){ return (h==null||h==="")?("列"+(i+1)):String(h).trim(); });
+    var rows=aoa.slice(hi+1).filter(function(r){ return r && r.some(function(c){return c!=null&&String(c).trim()!=="";}); })
       .map(function(r){ var o={}; headers.forEach(function(h,i){ o[h]=(r[i]==null?"":String(r[i])); }); return o; });
     return {headers:headers, rows:rows};
   }
@@ -4077,14 +4095,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function lines2hr(lines){
     if(!lines.length) return {headers:[],rows:[]};
     function splitCols(l){ if(l.indexOf("\t")>=0) return l.split("\t"); var m=l.split(/\s{2,}/); return m.length>1?m:[l]; }
-    var first=splitCols(lines[0]);
-    if(first.length>1){
-      var headers=first.map(function(h,i){return h.trim()||("列"+(i+1));});
-      var rows=lines.slice(1).map(function(l){ var c=splitCols(l); var o={}; headers.forEach(function(h,i){ o[h]=(c[i]==null?"":c[i].trim()); }); return o; });
-      rows=rows.filter(function(o){ return Object.keys(o).some(function(k){return o[k]!=="";}); });
-      return {headers:headers, rows:rows};
+    var aoa=lines.map(function(l){ return splitCols(l); });
+    var hi=detectHeaderRow(aoa);
+    /* 没有任何字段命中：保持原纯文本/首行表头行为，不误判 */
+    if(hi===0 && detectHeaderRowScore(aoa,0)===0){
+      var first=aoa[0];
+      if(first.length>1){
+        var headers=first.map(function(h,i){return h.trim()||("列"+(i+1));});
+        var rows=aoa.slice(1).map(function(r){ var o={}; headers.forEach(function(h,i){ o[h]=(r[i]==null?"":r[i].trim()); }); return o; });
+        rows=rows.filter(function(o){ return Object.keys(o).some(function(k){return o[k]!=="";}); });
+        return {headers:headers, rows:rows};
+      }
+      return {headers:["内容"], rows:lines.map(function(l){return {"内容":l};})};
     }
-    return {headers:["内容"], rows:lines.map(function(l){return {"内容":l};})};
+    var headers=aoa[hi].map(function(h,i){ return (h==null||h==="")?("列"+(i+1)):String(h).trim(); });
+    var rows=aoa.slice(hi+1).filter(function(r){ return r && r.some(function(c){return c!=null&&String(c).trim()!=="";}); })
+      .map(function(r){ var o={}; headers.forEach(function(h,i){ o[h]=(r[i]==null?"":String(r[i])); }); return o; });
+    return {headers:headers, rows:rows};
   }
   function parsePDF(file){
     return loadScript(LIB.pdf).then(function(){
@@ -4121,13 +4148,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     parsed=parsed||{headers:[],rows:[]};
     if(!parsed.headers.length){ document.getElementById("impPreview").innerHTML='<div class="imp-empty">未能识别到表头，请确认文件第一行是列名（CSV/Excel 首行、Word/PDF 表格首行）。</div>'; document.getElementById("impDo").disabled=true; return; }
     var map=buildMapping(impKey, parsed.headers);
+    var mainField=MODULES[impKey].main;
     var fieldNames=Object.keys(map);
     if(!fieldNames.length){
       document.getElementById("impPreview").innerHTML='<div class="imp-empty">未能将任何列匹配到本模块的字段。请检查表头是否包含如「姓名 / 分数 / 事由」等关键字。</div>';
       document.getElementById("impDo").disabled=true;
       return;
     }
-    var valid=parsed.rows.filter(function(r){ return fieldNames.some(function(fn){ return (r[map[fn]]||"").trim()!==""; }); });
+    var valid=parsed.rows.filter(function(r){
+      if(!fieldNames.some(function(fn){ return (r[map[fn]]||"").trim()!==""; })) return false;
+      var mv=r[map[mainField]];
+      if(mv==null||String(mv).trim()==="") return false;
+      /* 学生档案：姓名须含中/英文字符，过滤汇总行/纯数字（如「0」）等垃圾行 */
+      if(impKey==="students" && !/[\u4e00-\u9fa5A-Za-z]/.test(String(mv))) return false;
+      return true;
+    });
     impData={headers:parsed.headers, rows:valid, map:map};
     var mapHtml=fieldNames.map(function(fn){ return '<span class="mp"><b>'+esc(fn)+'</b> ← '+esc(map[fn])+'</span>'; }).join("");
     var headHtml=parsed.headers.map(function(h){ var hit=fieldNames.some(function(fn){return map[fn]===h;}); return '<span class="hp'+(hit?" hit":"")+'">'+esc(h)+'</span>'; }).join("");
@@ -4219,7 +4254,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function confirmImport(){
     if(!impKey||!impData||!impData.rows.length) return;
-    var key=impKey, fields=MODULES[key].fields, map=impData.map;
+    var key=impKey, fields=MODULES[key].fields, map=impData.map, mainF=MODULES[key].main;
     setStatus("syncing");
     var chain=Promise.resolve(), n=0;
     impData.rows.forEach(function(r){
@@ -4229,6 +4264,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         var v=wrapVal(f, r[h]); if(v) props[f.name]=v;
       });
       if(Object.keys(props).length===0) return;
+      var mainV=props[mainF];
+      if(mainV==null || String(mainV).trim()==="") return;
+      /* 学生档案：姓名须含中/英文字符，过滤掉汇总行/纯数字（如「0」）等垃圾行 */
+      if(key==="students" && !/[\u4e00-\u9fa5A-Za-z]/.test(String(mainV))) return;
       chain=chain.then(function(){ return apiAdd(key, props).then(function(){ n++; }); });
     });
     chain.then(function(){ closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
