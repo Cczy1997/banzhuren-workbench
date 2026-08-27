@@ -242,11 +242,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     margin-left:auto;border:1px solid var(--coral);cursor:pointer;font-weight:800;font-size:13px;color:var(--pink-d);
     background:#FFF3F7;border-radius:999px;padding:7px 14px;transition:.15s;
   }
-  /* 周报 · AI 生成入口 */
-    border:1px solid #8b5cf6;cursor:pointer;font-weight:700;font-size:12.5px;color:#6d28d9;
-    background:#F5F0FF;border-radius:999px;padding:8px 13px;transition:.15s;
-  }
-  /* 周报 AI 弹窗 */
+  /* 班会类型徽标 / 周报正文 */
+  .meet-kind{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .meet-kind.micro{background:#EAF1FF;color:#3b6fe0}
+  .meet-kind.reg{background:#FFF0E6;color:#d97706}
+  .meet-ta2{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13.5px;font-family:inherit;line-height:1.7;color:var(--ink);background:#fff;min-height:120px;resize:vertical;margin-bottom:6px}
+  .meet-ta2:focus{outline:none;border-color:var(--pink);background:#F7FAFF}
   /* 积分商城 */
   /* AI 小助手 */
   .ai-key{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;flex-wrap:wrap}
@@ -514,6 +515,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .db-ico{width:18px;height:18px;vertical-align:-3px;margin-right:3px}
   .db-cell{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:9px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff;min-width:0}
   .db-cell:focus{outline:none;border-color:var(--pink);background:#F7FAFF}
+  /* 值日分工：可编辑行（名称 / 室内外 / 人数 / 删除） */
+  .db-th-wrap{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+  .db-tname{width:130px;box-sizing:border-box;border:1.5px solid var(--line);border-radius:8px;padding:5px 7px;font-size:13px;font-weight:700;font-family:inherit;color:var(--ink);background:#fff}
+  .db-tname:focus{outline:none;border-color:var(--pink)}
+  .db-tarea,.db-tmin{box-sizing:border-box;border:1.5px solid var(--line);border-radius:8px;padding:4px 5px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink)}
+  .db-ppl{display:flex;flex-direction:column;gap:4px}
+  .db-block{margin-top:14px;border:1px solid var(--line);border-radius:14px;padding:10px 11px;background:#FBFCFF}
+  .db-block-h{font-size:14px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .db-block-n{font-size:11px;font-weight:700;color:var(--ink-soft);background:#eef2fb;border-radius:999px;padding:1px 8px}
+  .db-block-empty{font-size:12.5px;color:var(--ink-soft);font-style:italic;padding:4px 0 10px}
+  .db-add-wrap{margin-top:8px}
+  .db-add{background:#FFF6FA;border:1.5px dashed var(--pink);color:var(--pink-d);font-weight:700}
   .btn-ok{background:#1f9d5b;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
   .btn-ok:hover{background:#178a4e}
   .btn-bad{background:#e0584f;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -893,13 +906,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"星期",type:"select",options:["周一","周二","周三","周四","周五","周六","周日"]},
         {name:"值日组",type:"text",ph:"如：第一组"},
         {name:"学生姓名",type:"text",ph:"参与学生，逗号分隔"},
-        {name:"内容",type:"select",options:[
-          "室内·黑板（含讲台整理）",
-          "室内·室内地板",
-          "室内·走廊（含窗户擦拭）",
-          "室内·倒垃圾（含整理室内卫生区）",
-          "室外·室外卫生区（一片，难度较高）"
-        ]},
+        {name:"内容",type:"text",ph:"分工内容（建议与值日看板中的分工名称一致）"},
         {name:"备注",type:"text",ph:"选填"}
       ]
     },
@@ -983,7 +990,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       title:"📚 个人功课表", cat:"mine", unit:"", main:"", fields:[]
     },
     meeting:{
-      title:"📣 微班会", cat:"meet", unit:"次", main:"主题", fields:[]
+      title:"📣 班会", cat:"meet", unit:"次", main:"主题", fields:[]
+    },
+    weekly:{
+      title:"🗞️ 班级周报", cat:"meet", unit:"份", main:"标题", fields:[]
     }
   };
 
@@ -992,7 +1002,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard"],
     mor:["talk","comm","comment"],
     mine:["sched_hwk"],
-    meet:["meeting"],
+    meet:["meeting","weekly"],
     ai:["ai"]
   };
   var CAT_META = {
@@ -1001,7 +1011,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     aff:{icon:"🗂️",label:"班级事务"},
     mor:{icon:"💗",label:"德育心理"},
     mine:{icon:"📚",label:"我的功课"},
-    meet:{icon:"📣",label:"班会"},
+    meet:{icon:"📣",label:"班会与周报"},
     ai:{icon:"🤖",label:"AI 小助手"}
   };
   var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment"];
@@ -1284,6 +1294,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
     if(state.mod==="meeting"){ box.innerHTML=renderMeeting(); renderMeetingInto(); return; }
+    if(state.mod==="weekly"){ box.innerHTML=renderWeekly(); renderWeeklyInto(); return; }
     if(ORDER[state.cat].indexOf(state.mod)<0) state.mod=ORDER[state.cat][0];
     try { box.innerHTML=renderModule(state.mod); }
     catch(e){ box.innerHTML='<div class="empty">「'+(MODULES[state.mod]?esc(MODULES[state.mod].title):esc(state.mod))+'」界面渲染失败：'+(esc(e&&e.message||e))+'</div>'; console.error(e); return; }
@@ -1412,10 +1423,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var DUTYROT_LS="wb_cls_dutyrot";
   var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null };
   var redflagAskedThisWeek=false;
-  // 值日表维度：列=值日组（按轮值顺序），行=分工（与 duty 模块「内容」选项严格一致）
-  var DUTY_TASKS=["室内·黑板（含讲台整理）","室内·地板","室内·走廊（含窗户擦拭）","室内·倒垃圾（含整理室内卫生区）","室外·卫生区（一片，难度较高）"];
-  // 需 2 人及以上完成的分工（室外卫生区难度高、倒垃圾含整理室内卫生区）
-  var DUTY_TEAM={"室外·卫生区（一片，难度较高）":1,"室内·倒垃圾（含整理室内卫生区）":1};
+  // 值日分工：可在页面调整「名称 / 室内外分区 / 默认人数」。对象数组持久化到 localStorage，首次用默认种子。
+  var DUTY_TASKS_LS="wb_cls_dutytasks";
+  var DUTY_TASKS=[
+    {name:"黑板（含讲台整理）",area:"室内",min:1},
+    {name:"地板",area:"室内",min:2},
+    {name:"走廊（含窗户擦拭）",area:"室内",min:1},
+    {name:"倒垃圾（含整理室内卫生区）",area:"室内",min:1},
+    {name:"卫生区（一片，难度较高）",area:"室外",min:2}
+  ];
+  function loadDutyTasks(){
+    try{
+      var s=JSON.parse(localStorage.getItem(DUTY_TASKS_LS)||"null");
+      if(Array.isArray(s)&&s.length){
+        DUTY_TASKS=s.map(function(t){ return {
+          name:String(t.name||"分工"),
+          area:(t.area==="室外"?"室外":"室内"),
+          min:Math.max(1,Math.min(6,parseInt(t.min)||1))
+        }; });
+      }
+    }catch(e){}
+  }
+  function saveDutyTasks(){ try{ localStorage.setItem(DUTY_TASKS_LS, JSON.stringify(DUTY_TASKS)); }catch(e){} }
   function loadDutyRot(){
     try{
       var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
@@ -1439,6 +1468,33 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   // 史迪奇风小图标（内联 SVG，零外部依赖）
   var STITCH_EAR='<svg class="db-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19C3.5 13 4 6 6.5 4 8 7 9.5 12 11.5 15M18 19c2.5-6 2-13-0.5-15-1.5 3-3 8-5 11" fill="none" stroke="var(--stitch-d)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var STITCH_PAW='<svg class="db-ico" viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--stitch-l)"><circle cx="7" cy="9" r="2"/><circle cx="12" cy="6.5" r="2"/><circle cx="17" cy="9" r="2"/><ellipse cx="12" cy="16" rx="4.6" ry="3.8"/></g></svg>';
+  // 渲染单个分工行：可编辑名称 + 室内外切换 + 人数选择 + 删除；每个轮值组一列，按人数渲染对应数量的姓名输入框
+  function dutyTaskRow(t, ti, cols, map){
+    var areaSel='<select class="db-tarea" data-dutytask="area" data-ti="'+ti+'">'
+      +'<option value="室内"'+(t.area==="室内"?" selected":"")+'>室内</option>'
+      +'<option value="室外"'+(t.area==="室外"?" selected":"")+'>室外</option></select>';
+    var minSel='<select class="db-tmin" data-dutytask="min" data-ti="'+ti+'">'
+      +[1,2,3,4,5,6].map(function(n){ return '<option value="'+n+'"'+(t.min===n?' selected':'')+'>'+n+' 人</option>'; }).join("")+'</select>';
+    var head='<th class="db-rh"><span class="db-th-wrap">'
+      +'<input class="db-tname" data-dutytask="name" data-ti="'+ti+'" value="'+esc(t.name)+'" placeholder="分工名称">'
+      +areaSel+minSel
+      +'<button class="lnk lnk-del" data-dutytask="del" data-ti="'+ti+'">删除</button>'
+      +'</span></th>';
+    var tds=head;
+    cols.forEach(function(g,gi){
+      var rec=map[g+"|"+t.name];
+      var names=rec?(String(rec["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(function(s){return s;})):[];
+      var curCls=(cols.length&&gi===dutyRot.cursor)?' db-td-cur':'';
+      var cell='<td class="db-td'+curCls+'"><div class="db-ppl">';
+      for(var p=0;p<t.min;p++){
+        var v=names[p]||"";
+        cell+='<input class="db-cell" id="dutycell-'+gi+'-'+ti+'-'+p+'" value="'+esc(v)+'" placeholder="'+(p===0?"学生姓名":"")+'">';
+      }
+      cell+='</div></td>';
+      tds+=cell;
+    });
+    return '<tr>'+tds+'</tr>';
+  }
   function renderDutyBoard(){
     var groups=dutyRot.groups, cur=currentDutyGroup();
     var cfgHtml='<div class="db-cfg"><b>轮值设置</b>：<input class="db-cfg-in" id="dutyGroupsInput" placeholder="如：第一组,第二组,第三组" value="'+esc(groups.join(","))+'">'
@@ -1455,23 +1511,29 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     // 已录入记录：键 = 值日组|内容（整周按组分工，不再按星期拆分）
     var map={};
     (DATA.duty||[]).forEach(function(r){ var k=r["值日组"]+"|"+r["内容"]; if(!map[k]) map[k]=r; });
-    var head='<th class="db-th db-rh">分工 ＼ 值日组</th>'+cols.map(function(g,gi){
-      var curCls=(groups.length && gi===dutyRot.cursor)?' db-col-cur':'';
-      var tag=(groups.length && gi===dutyRot.cursor)?'<span class="db-curtag">本周</span>':'';
-      return '<th class="db-th'+curCls+'">'+esc(g)+tag+'</th>';
-    }).join("");
-    var rows=DUTY_TASKS.map(function(t,ti){
-      var team=DUTY_TEAM[t]?'<span class="db-team" title="建议 2 人及以上完成">≥2人</span>':'';
-      var tds='<th class="db-rh">'+esc(t)+team+'</th>';
-      cols.forEach(function(g,gi){
-        var rec=map[g+"|"+t];
-        var val=rec?(rec["学生姓名"]||""):"";
-        var ph=DUTY_TEAM[t]?"建议2人":"学生姓名";
-        tds+='<td class="db-td'+(groups.length&&gi===dutyRot.cursor?' db-td-cur':'')+'"><input class="db-cell" id="dutycell-'+gi+'-'+ti+'" value="'+esc(val)+'" placeholder="'+ph+'"></td>';
-      });
-      return '<tr>'+tds+'</tr>';
-    }).join("");
-    var grid='<table class="db-table"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table>';
+    // 分工按 室内 / 室外 分两块
+    var idxByArea={ 室内:[], 室外:[] };
+    DUTY_TASKS.forEach(function(t,ti){ idxByArea[t.area==="室外"?"室外":"室内"].push(ti); });
+    function headRow(){
+      return '<th class="db-th db-rh">分工 ＼ 值日组</th>'+cols.map(function(g,gi){
+        var curCls=(cols.length && gi===dutyRot.cursor)?' db-col-cur':'';
+        var tag=(cols.length && gi===dutyRot.cursor)?'<span class="db-curtag">本周</span>':'';
+        return '<th class="db-th'+curCls+'">'+esc(g)+tag+'</th>';
+      }).join("");
+    }
+    function addBtn(area){
+      return '<div class="db-add-wrap"><button class="btn-mini db-add" data-dutytask="add" data-area="'+area+'">＋ 新增分工</button></div>';
+    }
+    function blockHtml(title, icon, area, items){
+      if(!items.length){
+        return '<div class="db-block"><div class="db-block-h">'+icon+' '+title+'</div>'
+          +'<div class="db-block-empty">（暂无分工，点下方「＋ 新增分工」添加）</div>'+addBtn(area)+'</div>';
+      }
+      var rows=items.map(function(ti){ return dutyTaskRow(DUTY_TASKS[ti], ti, cols, map); }).join("");
+      return '<div class="db-block"><div class="db-block-h">'+icon+' '+title+' <span class="db-block-n">'+items.length+' 项</span></div>'
+        +'<table class="db-table"><thead><tr>'+headRow()+'</tr></thead><tbody>'+rows+'</tbody></table>'
+        +addBtn(area)+'</div>';
+    }
     var wkNow=isoWeek().key, rfHtml;
     if(groups.length){
       if(dutyRot.checkedWeek===wkNow){
@@ -1486,9 +1548,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="db-title">'+STITCH_EAR+'每周值日看板'+(groups.length?' · 本周：<span class="db-cur">'+esc(cur)+'</span>（已值日 '+dutyRot.servedWeeks+' 周）':'')+'</div>'
       +cfgHtml
       +'<div class="db-timeline">'+tl+'</div>'
-      +'<div class="db-grid-bar"><b>'+STITCH_PAW+'值日表（值日组 × 分工）</b><span class="db-grid-hint">按单元格填入学生名单（多人逗号分隔），保存后写入「值日安排」</span>'
+      +'<div class="db-grid-bar"><b>'+STITCH_PAW+'值日表（轮值组 × 分工）</b><span class="db-grid-hint">分工名称 / 室内外 / 人数均可调；保存后写入「值日安排」</span>'
         +'<button class="btn-mini" data-dutygrid="save">保存值日表</button></div>'
-      +grid
+      +blockHtml("🏠 室内", "🏠", "室内", idxByArea["室内"])
+      +blockHtml("🌳 室外", "🌳", "室外", idxByArea["室外"])
       +rfHtml
       +'</div>';
   }
@@ -1500,17 +1563,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     (DATA.duty||[]).forEach(function(r){ var k=r["值日组"]+"|"+r["内容"]; if(!exist[k]) exist[k]=r; });
     cols.forEach(function(g,gi){
       DUTY_TASKS.forEach(function(t,ti){
-        var input=document.getElementById("dutycell-"+gi+"-"+ti);
-        var val=input?(input.value||"").trim():"";
-        var key=g+"|"+t;
+        var key=g+"|"+t.name;
+        var parts=[];
+        for(var p=0;p<t.min;p++){
+          var input=document.getElementById("dutycell-"+gi+"-"+ti+"-"+p);
+          var v=input?(input.value||"").trim():"";
+          if(v) parts.push(v);
+        }
+        var val=parts.join(",");
         var rec=exist[key];
         if(val){
           if(rec && rec._id){
             rec["学生姓名"]=val;
             jobs.push(apiUpdate("duty",rec._id,{ 学生姓名:val }).then(function(o){ if(o&&o.data) Object.assign(rec,o.data); }));
           } else {
-            var nrec={ 星期:"本周", 值日组:g, 学生姓名:val, 内容:t, 备注:"" };
-            jobs.push(apiAdd("duty",nrec).then(function(o){ o["星期"]="本周";o["值日组"]=g;o["学生姓名"]=val;o["内容"]=t; DATA.duty.push(o); }));
+            var nrec={ 星期:"本周", 值日组:g, 学生姓名:val, 内容:t.name, 备注:"" };
+            jobs.push(apiAdd("duty",nrec).then(function(o){ o["星期"]="本周";o["值日组"]=g;o["学生姓名"]=val;o["内容"]=t.name; DATA.duty.push(o); }));
           }
         } else if(rec && rec._id){
           (function(rr){ jobs.push(apiDelete("duty",rr._id).then(function(){ var i=DATA.duty.indexOf(rr); if(i>=0) DATA.duty.splice(i,1); })); })(rec);
@@ -1520,6 +1588,31 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     Promise.all(jobs).then(function(){
       toast("值日表已保存 ✓"); renderList("duty"); render();
     }).catch(function(e){ toast("保存失败："+(e&&e.message||e)); });
+  }
+  // 分工模板编辑：名称 / 室内外 / 人数 / 增删（名称改动会同步迁移已有值日记录）
+  function onDutyTask(act, ti, val){
+    ti=parseInt(ti);
+    if(act==="name"){
+      if(!DUTY_TASKS[ti]) return;
+      var old=DUTY_TASKS[ti].name, nv=(val||"").trim(); if(!nv||nv===old) return;
+      DUTY_TASKS[ti].name=nv; saveDutyTasks();
+      (DATA.duty||[]).forEach(function(r){ if(r["内容"]===old){ r["内容"]=nv; if(r._id) apiUpdate("duty",r._id,{内容:nv}); } });
+      renderList("duty");
+    } else if(act==="area"){
+      if(!DUTY_TASKS[ti]) return; DUTY_TASKS[ti].area=(val==="室外"?"室外":"室内"); saveDutyTasks(); renderList("duty");
+    } else if(act==="min"){
+      if(!DUTY_TASKS[ti]) return; DUTY_TASKS[ti].min=Math.max(1,Math.min(6,parseInt(val)||1)); saveDutyTasks(); renderList("duty");
+    } else if(act==="del"){
+      if(!DUTY_TASKS[ti]) return;
+      var nm=DUTY_TASKS[ti].name;
+      if(!window.confirm("删除分工「"+nm+"」？该分工对应的值日记录也会一并删除。")) return;
+      DUTY_TASKS.splice(ti,1); saveDutyTasks();
+      (DATA.duty||[]).filter(function(r){return r["内容"]===nm;}).forEach(function(r){ if(r._id) apiDelete("duty",r._id); });
+      DATA.duty=(DATA.duty||[]).filter(function(r){return r["内容"]!==nm;});
+      renderList("duty"); render();
+    } else if(act==="add"){
+      DUTY_TASKS.push({name:"新分工",area:(val==="室外"?"室外":"室内"),min:1}); saveDutyTasks(); renderList("duty");
+    }
   }
   function askRedFlag(){
     var cur=currentDutyGroup();
@@ -1617,7 +1710,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'请严格按以下格式返回（便于程序解析，不要加多余说明）：\n主题：<主题>\n提纲：\n- <要点1>\n- <要点2>\n- <要点3>\n\n最近班级发生的事：\n'+ev;
     qwenChat(prompt, key).then(function(reply){
       var p=parseMeeting(reply);
-      var rec={ id:uid("m"), date:todayStr(), theme:p.theme, events:ev, outline:p.outline, files:[] };
+      var rec={ id:uid("m"), kind:"微班会", date:todayStr(), theme:p.theme, events:ev, outline:p.outline, files:[] };
       MEETINGS.unshift(rec);
       saveMeetings(); renderMeetingInto();
       toast("已生成微班会主题 ✓");
@@ -1750,8 +1843,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     };
     rd.readAsText(file);
   }
+  function onMeetAIWrite(id){
+    var m=meetById(id); if(!m) return;
+    var key=localStorage.getItem("wb_cls_dashscope_key");
+    if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
+    var box=document.getElementById("meetGenBox");
+    if(box) box.innerHTML='<div class="pf-ai-busy">🤖 正在为「'+(esc(m.theme||"班会"))+'」生成提纲…</div>';
+    var prompt='你是经验丰富的班主任。请为一场题为「'+(m.theme||"班级班会")+'」的常规班会，生成 3-5 条简明、**可操作**的班会提纲，每条是一条小环节或讨论点。\n'
+      +'请严格按列表返回（每行一条，不要加多余说明）：\n- <要点1>\n- <要点2>\n- <要点3>';
+    qwenChat(prompt, key).then(function(reply){
+      var p=parseMeeting(reply);
+      m.outline=p.outline||[];
+      saveMeetings(); renderMeetingInto();
+      if(box) box.innerHTML="";
+      toast("已生成班会提纲 ✓");
+    }).catch(function(e){
+      if(box) box.innerHTML='<div class="pf-ai-busy">⚠️ 生成失败：'+(esc(e&&e.message||e))+'</div>';
+    });
+  }
   function onMeetAction(act,id,fid){
     if(act==="gen") genMeetingTheme();
+    else if(act==="newreg"){ MEETINGS.unshift({id:uid("mm"),kind:"常规班会",date:todayStr(),theme:"",events:"",outline:[],files:[]}); saveMeetings(); renderMeetingInto(); toast("已新建常规班会，可手动填写主题并上传 PPT / 照片到收集区"); }
+    else if(act==="aiwrite") onMeetAIWrite(id);
     else if(act==="ppt") onMeetPPT(id);
     else if(act==="del") onMeetDel(id);
     else if(act==="dl"){ var m=meetById(id); var f=m&&(m.files||[]).filter(function(x){return x.id===fid;})[0]; if(f) downloadDataUrl(f); }
@@ -1765,8 +1878,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function renderMeeting(){
     return ''
-      +'<div class="phead"><h3>📣 微班会</h3><span class="hint">AI 生成主题 → 用 WorkBuddy 制作 PPT → 收集区归档命名</span>'
+      +'<div class="phead"><h3>📣 班会</h3><span class="hint">微班会(AI生成主题) · 常规班会(手动建+收集PPT/照片)</span>'
       +'<span class="spacer"></span>'
+      +'<button class="btn-mini" data-meet="newreg">＋ 新建常规班会</button>'
       +'<button class="btn-mini" data-meet="exp">导出备份</button>'
       +'<button class="btn-mini" data-meet="imp">导入备份</button></div>'
       +'<div id="meetGen">'
@@ -1812,8 +1926,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="meet-card-h">'
         +'<input class="meet-theme" id="meetTheme-'+m.id+'" value="'+esc(m.theme||"")+'" placeholder="班会主题" data-meettheme="'+m.id+'">'
         +'<span class="meet-date">'+esc(m.date||"")+'</span>'
+        +'<span class="meet-kind '+(m.kind==="常规班会"?"reg":"micro")+'">'+(m.kind||"微班会")+'</span>'
         +'<span class="spacer"></span>'
         +'<button class="btn-ai" data-meet="ppt" data-id="'+m.id+'">📑 用 WorkBuddy 生成 PPT</button>'
+        +'<button class="btn-ai" data-meet="aiwrite" data-id="'+m.id+'">✨ AI 写提纲</button>'
         +'<button class="lnk lnk-del" data-meet="del" data-id="'+m.id+'">删除</button>'
       +'</div>'
       +'<div class="meet-events">最近发生的事：'+(m.events?esc(m.events):"—")+'</div>'
@@ -1824,6 +1940,200 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'</div>';
   }
   window.__meet={ addFile:meetAddFileById, rename:onMeetFileName, theme:onMeetTheme, upload:onMeetUpload, meetings:function(){return MEETINGS;} };
+
+  /* ================= 班级周报（本地存储，AI 生成 / 手动撰写 + 收集区） ================= */
+  var WEEKLY_LS="wb_cls_weekly";
+  var WEEKLY=[];
+  function loadWeekly(){ try{ var s=JSON.parse(localStorage.getItem(WEEKLY_LS)||"[]"); if(Array.isArray(s)) WEEKLY=s; }catch(e){ WEEKLY=[]; } DATA.weekly=WEEKLY; }
+  function saveWeekly(){ try{ localStorage.setItem(WEEKLY_LS, JSON.stringify(WEEKLY)); }catch(e){ toast("保存失败：本地存储可能已满（建议导出备份并清理大文件）"); } DATA.weekly=WEEKLY; renderSidebar(); }
+  function weekById(id){ for(var i=0;i<WEEKLY.length;i++){ if(WEEKLY[i].id===id) return WEEKLY[i]; } return null; }
+  function weekRange(d){
+    d=d||new Date();
+    var day=(d.getDay()+6)%7; // 周一=0
+    var mon=new Date(d); mon.setDate(d.getDate()-day);
+    var sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    function f(x){ return x.getFullYear()+"-"+pad(x.getMonth()+1)+"-"+pad(x.getDate()); }
+    return { start:f(mon), end:f(sun), label:f(mon)+" ~ "+f(sun) };
+  }
+  function genWeeklyReport(){
+    var ta=document.getElementById("wkCtx");
+    var ctx=ta?(ta.value||"").trim():"";
+    var key=localStorage.getItem("wb_cls_dashscope_key");
+    if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
+    var box=document.getElementById("wkGenBox");
+    if(box) box.innerHTML='<div class="pf-ai-busy">🤖 正在生成班级周报，请稍候…</div>';
+    var recent=MEETINGS.slice(0,6).map(function(m){return (m.kind||"微班会")+"：「"+(m.theme||"")+"」";}).join("；");
+    var prompt='你是班主任的 AI 助手。请基于以下班级概况与近期线索，撰写一份**班级周报**（供向年级 / 家长通报，约 300-500 字）。\n'
+      +'要求：\n1. 给出一句简短的周报标题（20 字以内）。\n2. 正文分 2-4 段：本周总体情况、亮点 / 进步、待改进问题、下周重点。\n3. 语气客观、积极、专业，不要每句重复概况。\n'
+      +'请严格按以下格式返回（便于程序解析，不要加多余说明）：\n标题：<标题>\n正文：\n<段落1>\n\n<段落2>\n\n<段落3>\n\n<段落4>\n\n班级概况：'+classSummary()+'\n近期班会：'+(recent||"无")+'\n补充线索：'+(ctx||"无");
+    qwenChat(prompt, key).then(function(reply){
+      var p=parseWeekly(reply);
+      var wr=weekRange();
+      var rec={ id:uid("w"), week:wr.label, title:p.title||"班级周报", content:p.content, files:[] };
+      WEEKLY.unshift(rec);
+      saveWeekly(); renderWeeklyInto();
+      toast("已生成班级周报 ✓");
+    }).catch(function(e){
+      if(box) box.innerHTML='<div class="pf-ai-busy">⚠️ 生成失败：'+(esc(e&&e.message||e))+'</div>';
+    });
+  }
+  function parseWeekly(reply){
+    reply=(reply||"").trim();
+    var title="", content="";
+    var tM=reply.match(/标题[：:]\s*(.+)/);
+    if(tM) title=tM[1].trim();
+    var bodyPart=reply.split(/正文[：:]/)[1];
+    if(bodyPart){
+      content=bodyPart.split(/\n{2,}/).map(function(s){return s.trim();}).filter(function(s){return s;}).join("\n\n");
+    } else { content=reply; }
+    if(!title) title=(content.split(/\n/)[0]||"班级周报").slice(0,20);
+    if(!content) content="（暂无正文，可手动撰写或用 AI 重写）";
+    return {title:title, content:content};
+  }
+  function onWeekUpload(id){
+    var w=weekById(id); if(!w) return;
+    var inp=document.getElementById("wkFile-"+id);
+    if(!inp||!inp.files||!inp.files.length) return;
+    var file=inp.files[0];
+    var isImg=/^image\//.test(file.type||"");
+    var after=function(durl){ if(durl) weekAddFileById(id, file.name, file.type, file.size, durl); else toast("读取文件失败"); };
+    if(isImg) compressImage(file,1280,function(d){ after(d||null); });
+    else readDataUrl(file, after);
+  }
+  function weekAddFileById(id, name, mime, size, dataUrl){
+    var w=weekById(id); if(!w) return;
+    var dot=name.lastIndexOf("."); var ext=dot>=0?name.slice(dot+1).toLowerCase():"bin";
+    var idx=(w.files||[]).length+1;
+    var nm=(w.week||todayStr())+"_"+(w.title||"周报")+"_"+(idx)+"."+ext;
+    nm=nm.replace(/[\\/:*?"<>|]/g,"_");
+    var f={ id:uid("f"), name:nm, mime:mime||"application/octet-stream", size:size||0, data:dataUrl, added:new Date().toLocaleString("zh-CN") };
+    w.files=w.files||[]; w.files.push(f); saveWeekly(); renderWeeklyInto();
+  }
+  function onWeekFileName(id,fid){
+    var w=weekById(id); if(!w) return;
+    var f=(w.files||[]).filter(function(x){return x.id===fid;})[0]; if(!f) return;
+    var inp=document.getElementById("wkFName-"+fid); if(inp) f.name=inp.value.trim()||f.name;
+    saveWeekly();
+  }
+  function onWeekFileDel(id,fid){
+    var w=weekById(id); if(!w) return;
+    if(!window.confirm("确定删除该收集项？（仅本地，不会删除原文件）")) return;
+    w.files=(w.files||[]).filter(function(x){return x.id!==fid;});
+    saveWeekly(); renderWeeklyInto();
+  }
+  function onWeekTitle(id){ var w=weekById(id); if(!w) return; var i=document.getElementById("wkTitle-"+id); if(i) w.title=i.value.trim()||w.title; saveWeekly(); renderSidebar(); }
+  function onWeekWeek(id){ var w=weekById(id); if(!w) return; var i=document.getElementById("wkWeek-"+id); if(i) w.week=i.value.trim()||w.week; saveWeekly(); }
+  function onWeekContent(id){ var w=weekById(id); if(!w) return; var i=document.getElementById("wkContent-"+id); if(i) w.content=i.value; saveWeekly(); }
+  function onWeekAI(id){
+    var w=weekById(id); if(!w) return;
+    var key=localStorage.getItem("wb_cls_dashscope_key");
+    if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
+    var prompt='你是班主任的 AI 助手。请基于以下现有周报草稿，重写 / 润色为一份更专业、积极、结构清晰的班级周报（格式：标题：...\n正文：...）。\n现有草稿：\n标题：'+(w.title||"")+'\n正文：'+(w.content||"");
+    qwenChat(prompt, key).then(function(reply){
+      var p=parseWeekly(reply);
+      w.title=p.title||w.title; w.content=p.content||w.content;
+      saveWeekly(); renderWeeklyInto(); toast("已用 AI 重写周报 ✓");
+    }).catch(function(e){ toast("AI 重写失败："+(e&&e.message||e)); });
+  }
+  function onWeekDel(id){
+    if(!window.confirm("确定删除这份班级周报（含收集的文件）？")) return;
+    WEEKLY=WEEKLY.filter(function(x){return x.id!==id;});
+    saveWeekly(); renderWeeklyInto();
+  }
+  function exportWeekly(){
+    try{
+      var blob=new Blob([JSON.stringify(WEEKLY,null,1)],{type:"application/json"});
+      var url=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=url; a.download="班级周报备份_"+todayStr()+".json"; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },100);
+      toast("已导出周报备份 ✓");
+    }catch(e){ toast("导出失败"); }
+  }
+  function importWeekly(file){
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var arr=JSON.parse(rd.result); if(!Array.isArray(arr)) throw new Error("格式不正确");
+        if(!window.confirm("导入将覆盖当前班级周报，继续？")) return;
+        WEEKLY=arr; saveWeekly(); renderWeeklyInto(); toast("已导入周报备份 ✓");
+      }catch(e){ toast("导入失败："+(e&&e.message||e)); }
+    };
+    rd.readAsText(file);
+  }
+  function onWeekAction(act,id,fid){
+    if(act==="gen") genWeeklyReport();
+    else if(act==="new"){ var wr=weekRange(); WEEKLY.unshift({id:uid("w"),week:wr.label,title:"班级周报",content:"",files:[]}); saveWeekly(); renderWeeklyInto(); toast("已新建周报，可手动撰写或用 AI 生成"); }
+    else if(act==="ai") onWeekAI(id);
+    else if(act==="del") onWeekDel(id);
+    else if(act==="dl"){ var w=weekById(id); var f=w&&(w.files||[]).filter(function(x){return x.id===fid;})[0]; if(f) downloadDataUrl(f); }
+    else if(act==="fdel") onWeekFileDel(id,fid);
+    else if(act==="exp") exportWeekly();
+    else if(act==="imp"){
+      var fi=document.getElementById("wkImpFile"); if(!fi) return; fi.value="";
+      fi.onchange=function(){ if(fi.files&&fi.files[0]) importWeekly(fi.files[0]); fi.onchange=null; };
+      fi.click();
+    }
+  }
+  function renderWeekly(){
+    return ''
+      +'<div class="phead"><h3>🗞️ 班级周报</h3><span class="hint">AI 生成或手动撰写 · 收集区归档 PPT / 照片等</span>'
+      +'<span class="spacer"></span>'
+      +'<button class="btn-mini" data-week="new">＋ 新建</button>'
+      +'<button class="btn-mini" data-week="exp">导出备份</button>'
+      +'<button class="btn-mini" data-week="imp">导入备份</button></div>'
+      +'<div id="wkGen">'
+        +'<div class="meet-gen-card">'
+          +'<div class="meet-gen-h">🤖 AI 生成班级周报</div>'
+          +'<textarea id="wkCtx" class="meet-ta" placeholder="补充本周线索（选填）：例如运动会获奖、月考成绩、某生明显进步、纪律问题…"></textarea>'
+          +'<div class="meet-gen-bar"><button class="btn-ai" data-week="gen">✨ 生成班级周报</button><span class="meet-gen-hint">生成后会出现在下方的周报档案</span></div>'
+          +'<div id="wkGenBox"></div>'
+        +'</div>'
+      +'</div>'
+      +'<input type="file" id="wkImpFile" accept="application/json" style="display:none">'
+      +'<div id="wkList"></div>';
+  }
+  function renderWeeklyInto(){
+    var list=document.getElementById("wkList");
+    if(!list) return;
+    if(!WEEKLY.length){
+      list.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有班级周报，先在上方用 AI 生成，或点「＋ 新建」手动撰写。</div></div>';
+      return;
+    }
+    list.innerHTML=WEEKLY.map(weekCard).join("");
+  }
+  function weekCard(w){
+    var files=(w.files||[]).map(function(f){
+      var isImg=/^image\//.test(f.mime||"");
+      var prev=isImg? '<img class="meet-thumb" src="'+esc(f.data)+'" alt="'+esc(f.name)+'">' : '<span class="meet-file-ico">📄</span>';
+      var ext=(f.name.split(".").pop()||"文件").toUpperCase();
+      var sz=(f.size||0)>=1048576?((f.size/1048576).toFixed(1)+" MB"):((f.size||0)>=1024?((f.size/1024).toFixed(0)+" KB"):(f.size||0)+" B");
+      return '<div class="meet-file">'
+        +'<div class="meet-file-prev">'+prev+'</div>'
+        +'<div class="meet-file-meta">'
+          +'<input class="meet-fname" id="wkFName-'+f.id+'" value="'+esc(f.name)+'" placeholder="文件名" data-weekname="'+w.id+'" data-weekfid="'+f.id+'">'
+          +'<div class="meet-file-sub">'+(isImg?"图片":ext)+' · '+sz+' · '+(f.added||"")+'</div>'
+          +'<div class="meet-file-acts">'
+            +'<button class="lnk" data-week="dl" data-id="'+w.id+'" data-fid="'+f.id+'">下载</button>'
+            +'<button class="lnk lnk-del" data-week="fdel" data-id="'+w.id+'" data-fid="'+f.id+'">删除</button>'
+          +'</div>'
+        +'</div>'
+      +'</div>';
+    }).join("");
+    return '<div class="meet-card">'
+      +'<div class="meet-card-h">'
+        +'<input class="meet-theme" id="wkTitle-'+w.id+'" value="'+esc(w.title||"")+'" placeholder="周报标题" data-weektitle="'+w.id+'">'
+        +'<span class="meet-date">'+esc(w.week||"")+'</span>'
+        +'<span class="spacer"></span>'
+        +'<button class="btn-ai" data-week="ai" data-id="'+w.id+'">✨ AI 重写</button>'
+        +'<button class="lnk lnk-del" data-week="del" data-id="'+w.id+'">删除</button>'
+      +'</div>'
+      +'<input class="meet-theme" id="wkWeek-'+w.id+'" value="'+esc(w.week||"")+'" placeholder="周次 / 日期范围" data-weekweek="'+w.id+'" style="margin:6px 0;font-size:13px">'
+      +'<textarea class="meet-ta2" id="wkContent-'+w.id+'" placeholder="周报正文（可手动撰写或用 AI 生成）" data-weekcontent="'+w.id+'">'+esc(w.content||"")+'</textarea>'
+      +'<div class="meet-coll-h">📥 收集区（PPT、照片等，可命名）</div>'
+      +'<div class="meet-coll-bar"><label class="btn-mini meet-up-btn">＋ 上传到收集区<input type="file" id="wkFile-'+w.id+'" class="hide-file" data-weekfile="'+w.id+'"></label></div>'
+      + (files? '<div class="meet-files">'+files+'</div>' : '<div class="meet-files-empty">还没有收集内容，点上方上传 PPT / 照片。</div>')
+      +'</div>';
+  }
+  window.__week={ addFile:weekAddFileById, rename:onWeekFileName, weekly:function(){return WEEKLY;} };
 
   function extraPill(key, field, val){
     if(key==="affairs"){
@@ -2551,7 +2861,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
+      loadDutyTasks();
       loadMeetings();
+      loadWeekly();
       try { render(); loadToday(); }
       catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
@@ -3030,7 +3342,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rf=e.target.closest("[data-redflag]"); if(rf){ resolveRedFlag(rf.getAttribute("data-redflag")==="won"); return; }
     var dcfg=e.target.closest("[data-dutycfg]"); if(dcfg){ onDutyCfg(dcfg.getAttribute("data-dutycfg")); return; }
     var dgrid=e.target.closest("[data-dutygrid]"); if(dgrid){ saveDutyGrid(dgrid.getAttribute("data-dutygrid")); return; }
+    var dta=e.target.closest("[data-dutytask]"); if(dta){
+      var da=dta.getAttribute("data-dutytask");
+      if(da==="add"){ onDutyTask("add", null, dta.getAttribute("data-area")); return; }
+      if(da==="del"){ onDutyTask("del", dta.getAttribute("data-ti")); return; }
+    }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
+    var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
@@ -3063,6 +3381,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(mth){ onMeetTheme(mth.getAttribute("data-meettheme")); return; }
     var mnm=e.target.closest && e.target.closest("[data-meetname]");
     if(mnm){ onMeetFileName(mnm.getAttribute("data-meetname"), mnm.getAttribute("data-meetfid")); return; }
+    var dtn=e.target.closest && e.target.closest("[data-dutytask]");
+    if(dtn){
+      var da=dtn.getAttribute("data-dutytask"), ti=dtn.getAttribute("data-ti");
+      if(da==="name"){ onDutyTask("name", ti, dtn.value); return; }
+      if(da==="area"){ onDutyTask("area", ti, dtn.value); return; }
+      if(da==="min"){ onDutyTask("min", ti, dtn.value); return; }
+    }
+    var wf=e.target.closest && e.target.closest("[data-weekfile]");
+    if(wf){ onWeekUpload(wf.getAttribute("data-weekfile")); return; }
+    var wnm=e.target.closest && e.target.closest("[data-weekname]");
+    if(wnm){ onWeekFileName(wnm.getAttribute("data-weekname"), wnm.getAttribute("data-weekfid")); return; }
+    var wt=e.target.closest && e.target.closest("[data-weektitle]");
+    if(wt){ onWeekTitle(wt.getAttribute("data-weektitle")); return; }
+    var wwk=e.target.closest && e.target.closest("[data-weekweek]");
+    if(wwk){ onWeekWeek(wwk.getAttribute("data-weekweek")); return; }
+    var wc=e.target.closest && e.target.closest("[data-weekcontent]");
+    if(wc){ onWeekContent(wc.getAttribute("data-weekcontent")); return; }
   });
   document.getElementById("content").addEventListener("keydown",function(e){
     if(e.key==="Enter"){ var c=e.target.closest && e.target.closest(".scell"); if(c){ e.preventDefault(); c.blur(); } }
