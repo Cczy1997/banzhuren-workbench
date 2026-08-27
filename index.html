@@ -731,6 +731,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .imp-chat-item:last-child{margin-bottom:0}
   .imp-chat-item:active{opacity:.6}
   .imp-chat-sub{color:var(--ink-soft);font-size:11.5px;font-weight:500}
+  /* 相册截图导入：图片预览 + 各模块附件条 */
+  .imp-img-wrap{margin:8px 0;text-align:center}
+  .imp-img{max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--line)}
+  .imp-img-note{font-size:12.5px;color:var(--ink-soft);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0 10px;line-height:1.5}
+  .att-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:8px 10px;margin-bottom:10px}
+  .att-label{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+  .att-chip{position:relative;display:inline-flex;align-items:center}
+  .att-thumb{display:block;width:46px;height:46px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
+  .att-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .att-name{font-size:12px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .att-del{position:absolute;top:-6px;right:-6px;border:none;background:var(--danger);color:#fff;font-size:11px;line-height:1;width:17px;height:17px;border-radius:50%;cursor:pointer;opacity:.65;padding:0}
+  .att-del:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -817,8 +829,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   <div class="sheet">
     <h3 id="impTitle">导入</h3>
     <button class="x" id="impClose">×</button>
-    <p class="imp-tip">支持 <b>Excel(.xlsx/.xls)</b>、<b>Word(.docx)</b>、<b>PDF(.pdf)</b> 与 <b>CSV/TSV</b>。<br>自动识别表格/表头并匹配字段（如「姓名」→学生姓名、「分数」→分数）。Word 请整理成表格（首行是列名）；PDF 为近似识别，<b>建议优先用 Excel/Word</b>。</p>
-    <input type="file" id="impFile" accept=".xlsx,.xls,.docx,.pdf,.csv,.tsv,.txt" style="display:none">
+    <p class="imp-tip">支持 <b>Excel(.xlsx/.xls)</b>、<b>Word(.docx)</b>、<b>PDF(.pdf)</b> 与 <b>CSV/TSV</b>。<br>自动识别表格/表头并匹配字段（如「姓名」→学生姓名、「分数」→分数）。Word 请整理成表格（首行是列名）；PDF 为近似识别，<b>建议优先用 Excel/Word</b>。<br>也可直接选 <b>相册里的截图</b>：将以图片形式保存到本模块（不参与表格解析）。</p>
+    <input type="file" id="impFile" accept=".xlsx,.xls,.docx,.pdf,.csv,.tsv,.txt,image/*" style="display:none">
     <button class="imp-pick" id="impPick">📁 选择文件…</button>
     <button class="imp-pick imp-pick-chat" id="impChatBtn">📥 从聊天导入（iPhone 微信）</button>
     <div id="impChat" class="imp-chat" style="display:none"></div>
@@ -1420,6 +1432,32 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div id="list-'+key+'"></div>';
   }
 
+  /* ---------- 各模块「📎 附件」区（相册截图 / 聊天上传的图片等） ---------- */
+  function renderModAttachments(key){
+    var all=DATA.files||[];
+    var list=all.filter(function(r){ return r && r.mod===key && r.kind==="image"; });
+    if(!list.length) return "";
+    var items=list.map(function(r){
+      var url=r.url || (r.path?modFileUrl(r.path):"");
+      return '<span class="att-chip">'
+        + (url?'<a class="att-thumb" href="'+esc(url)+'" target="_blank" rel="noopener"><img src="'+esc(url)+'" alt="'+esc(r.name||"截图")+'"></a>'
+               :'<span class="att-name">'+esc(r.name||"截图")+'</span>')
+        + '<button class="att-del" data-attdel="'+esc(r._id)+'" data-attpath="'+esc(r.path||"")+'" title="删除">×</button>'
+        + '</span>';
+    }).join("");
+    return '<div class="att-strip"><span class="att-label">📎 附件 '+list.length+'</span>'+items+'</div>';
+  }
+  function modFileUrl(path){ return SUPABASE_URL+"/storage/v1/object/public/"+BUCKET+"/"+encodeURIComponent(path); }
+  function loadAllFiles(){
+    if(!db) return Promise.resolve();
+    return apiQuery("files").then(function(out){ DATA.files=(out&&out.results)||[]; }).catch(function(){ DATA.files=DATA.files||[]; });
+  }
+  function deleteAttachment(id, path){
+    var jobs=[];
+    if(path && db && db.storage) jobs.push(db.storage.from(BUCKET).remove([path]).then(function(){}, function(){}));
+    jobs.push(apiDelete("files", id));
+    Promise.all(jobs).then(function(){ DATA.files=(DATA.files||[]).filter(function(r){return r._id!==id;}); toast("已删除附件 ✓"); renderList(state.mod); }).catch(function(e){ toast("删除失败："+(e&&e.message?e.message:e)); });
+  }
   function renderList(key){
     var m=MODULES[key], rows=DATA[key], box=document.getElementById("list-"+key);
     if(!box) return;
@@ -1432,11 +1470,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     // 成绩 / 值日 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板）
     var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : (key==="rules" ? renderRuleCats() : ""));
+    var attStrip = renderModAttachments(key);
     if(!rows.length){
-      box.innerHTML = extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
+      box.innerHTML = attStrip + extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
     }
-    box.innerHTML = extra + rows.map(function(r){ return cardHTML(key,r); }).join("");
+    box.innerHTML = attStrip + extra + rows.map(function(r){ return cardHTML(key,r); }).join("");
   }
 
   /* ---------- 成绩 AI 分析 ---------- */
@@ -2487,16 +2526,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function renderChatFilesList(){
     var box=document.getElementById("cfList"); if(!box) return;
-    var rows=DATA.files||[];
+    var rows=(DATA.files||[]).filter(function(r){ return !r.mod; });  // 仅显示「从聊天导入」收件箱（模块附件单独在各模块展示）
     if(!rows.length){ box.innerHTML='<div class="cf-empty">还没有从聊天导入的文件。在 iPhone 上用「快捷指令」把微信/聊天里的文件分享过来即可。</div>'; return; }
     box.innerHTML=rows.map(function(r){
       var d=r; var path=d.path||""; var name=d.name||"未命名文件"; var ec=extClass(name);
+      var openUrl=d.url || chatFileUrl(path);
       return '<div class="cf-item">'
         +'<span class="cf-ico cf-ico-'+ec+'">'+( ({img:"🖼️",pdf:"📕",doc:"📄",xls:"📊",ppt:"📑",vid:"🎞️",zip:"🗜️",file:"📎"})[ec] || "📎") +'</span>'
         +'<div class="cf-meta"><div class="cf-name">'+esc(name)+'</div>'
         +'<div class="cf-sub">'+fmtSize(d.size)+' · '+fmtDate(d.created_at||r.created_at)+' · '+esc(d.mime||"")+'</div></div>'
         +'<div class="cf-acts">'
-        +'<a class="lnk" href="'+esc(chatFileUrl(path))+'" target="_blank" rel="noopener">打开</a>'
+        +'<a class="lnk" href="'+esc(openUrl)+'" target="_blank" rel="noopener">打开</a>'
         +'<button class="lnk lnk-del" data-cfdel="'+esc(r._id)+'" data-cfpath="'+esc(path)+'">删除</button>'
         +'</div></div>';
     }).join("");
@@ -3209,6 +3249,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       try { render(); loadToday(); }
       catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
+      loadAllFiles().catch(function(){});
       return failed;
     });
   }
@@ -3697,6 +3738,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rcdel=e.target.closest("[data-rulecat-del]"); if(rcdel){ onRuleCatDel(rcdel.getAttribute("data-rulecat-del")); return; }
     var cfref=e.target.closest("#cfRefresh"); if(cfref){ loadChatFiles(); return; }
     var cfdel=e.target.closest("[data-cfdel]"); if(cfdel){ deleteChatFile(cfdel.getAttribute("data-cfdel"), cfdel.getAttribute("data-cfpath")); return; }
+    var attdel=e.target.closest("[data-attdel]"); if(attdel){ deleteAttachment(attdel.getAttribute("data-attdel"), attdel.getAttribute("data-attpath")); return; }
     var cfcp=e.target.closest(".cf-cp"); if(cfcp){ copyCfVal(cfcp); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
@@ -3781,6 +3823,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("impChatBtn").addEventListener("click",openImpChat);
   document.getElementById("impChat").addEventListener("click",function(e){ var it=e.target.closest(".imp-chat-item"); if(it){ pickChatFile(it.getAttribute("data-cfid")); } });
   document.getElementById("impDo").addEventListener("click",confirmImport);
+  document.getElementById("impPreview").addEventListener("click",function(e){ var b=e.target.closest("[data-impimg]"); if(b){ if(b.getAttribute("data-impimg")==="save") saveScreenshot(impImgFile); } });
   document.getElementById("ocrClose").addEventListener("click",closeOCR);
   document.getElementById("ocrCancel").addEventListener("click",closeOCR);
   document.getElementById("ocrMask").addEventListener("click",function(e){ if(e.target===this) closeOCR(); });
@@ -3812,7 +3855,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* ---------- 导入 / 导出 ---------- */
-  var impKey=null, impData=null;
+  var impKey=null, impData=null, impImgFile=null;
   var FIELD_ALIAS = {
     "姓名":"学生姓名","名字":"学生姓名","学生":"学生姓名","同学":"学生姓名",
     "手机":"电话","手机号":"电话","联系电话":"电话","tel":"电话","手机电话":"电话",
@@ -3921,6 +3964,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(n.endsWith(".xlsx")||n.endsWith(".xls")) return "xlsx";
     if(n.endsWith(".docx")) return "docx";
     if(n.endsWith(".pdf")) return "pdf";
+    if(/\.(png|jpe?g|gif|webp|heic|bmp|heif|avif)$/.test(n) || (file.type&&file.type.indexOf("image/")===0)) return "img";
     return "csv";
   }
   function aoa2hr(aoa){
@@ -4046,6 +4090,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function parseAndPreview(file){
     var t=detectType(file);
     var prev=document.getElementById("impPreview");
+    if(t==="img"){ previewImage(file); return; }
     if(t==="csv"){
       var reader=new FileReader();
       reader.onload=function(){ try{ showPreview(parseCSV(String(reader.result||""))); }catch(err){ showImpError(err); } };
@@ -4055,6 +4100,36 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     prev.innerHTML='<div class="imp-empty">⏳ 正在解析 '+esc(file.name)+' …（首次需加载解析组件，请稍候）</div>';
     var p = t==="xlsx"?parseXLSX(file) : t==="docx"?parseDOCX(file) : t==="pdf"?parsePDF(file) : Promise.reject(new Error("不支持的文件类型"));
     p.then(function(parsed){ showPreview(parsed); }).catch(function(err){ showImpError(err); });
+  }
+  function previewImage(file){
+    var prev=document.getElementById("impPreview");
+    impImgFile=file; impData=null;
+    document.getElementById("impDo").disabled=true;
+    var reader=new FileReader();
+    reader.onerror=function(){ showImpError(new Error("图片读取失败")); };
+    reader.onload=function(){
+      var dataUrl=reader.result;
+      prev.innerHTML='<div class="imp-img-wrap"><img class="imp-img" src="'+esc(dataUrl)+'" alt="截图预览"></div>'
+        +'<div class="imp-img-note">📷 这是图片/截图，将以图片形式保存到「'+esc(MODULES[impKey]?MODULES[impKey].title:impKey)+'」的附件区，<b>不参与表格解析</b>。</div>'
+        +'<button class="btn-save" data-impimg="save">保存到本模块</button>';
+    };
+    reader.readAsDataURL(file);
+  }
+  function saveScreenshot(file){
+    if(!file) return;
+    if(!db||!db.storage){ toast("存储未初始化，请稍候重试"); return; }
+    setStatus("syncing");
+    var ext=(file.name.split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'');
+    var path=impKey+"/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+    db.storage.from(BUCKET).upload(path, file, {upsert:true, cacheControl:"3600"}).then(function(r){
+      if(r.error) throw r.error;
+      var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      return apiAdd("files", {name:file.name||"截图", path:path, mime:(file.type||"image/*"), size:file.size||0, mod:impKey, kind:"image", url:url}).then(function(o){
+        DATA.files=DATA.files||[];
+        DATA.files.push({_id:o._id, name:file.name||"截图", path:path, mime:file.type||"image/*", size:file.size||0, mod:impKey, kind:"image", url:url, created_at:o.created_at});
+        closeImp(); toast("截图已保存 ✓"); return refreshAll();
+      });
+    }).then(function(){ setStatus("ok"); }).catch(function(err){ setStatus("offline"); console.error(err); toast("保存失败："+(err&&err.message?err.message:err)); });
   }
   function handleImpFile(e){
     var file=e.target.files && e.target.files[0];
