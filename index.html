@@ -32,45 +32,8 @@
 /* ===== /polyfill ===== */
 </script>
 <script>
-/* ===== 全局错误兜底：任何脚本报错都显式提示，绝不静默白屏 ===== */
-window.addEventListener("error", function(e){
-  var msg = (e && e.message) || (e && e.error && e.error.message) || "未知错误";
-  // 跨域脚本错误通常只暴露 "Script error."，附加源位置便于定位
-  var extra = "";
-  if (msg === "Script error." || msg === "未知错误") {
-    extra = "（很可能是跨域 CDN 上的 xlsx/pdf/word 组件，请尝试刷新或换网络）";
-  }
-  if (e && e.filename) extra += "\n来源：" + e.filename + ":" + (e.lineno||0) + ":" + (e.colno||0);
-  if (e && e.error && e.error.stack) extra += "\n堆栈：" + (e.error.stack||"").split("\n").slice(0,3).join(" | ");
-  var box = document.getElementById("fatalBox");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "fatalBox";
-    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#c0392b;color:#fff;padding:12px 16px;font:13px/1.6 -apple-system,sans-serif;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.3);max-height:40vh;overflow:auto";
-    (document.body || document.documentElement).appendChild(box);
-  }
-  // 同一错误不重复刷新底部文案
-  var sig = String(msg) + "|" + String(e && e.filename||"");
-  if (box.dataset.sig === sig) return;
-  box.dataset.sig = sig;
-  box.textContent = "⚠ 页面脚本出错：" + msg + extra + "\n（请把这段发给我以便定位）";
-});
-/* unhandledrejection：Promise 抛出的异常走这里 */
-window.addEventListener("unhandledrejection", function(e){
-  var r = e && e.reason;
-  var msg = (r && (r.message||r.toString())) || "未知 Promise 异常";
-  var box = document.getElementById("fatalBox");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "fatalBox";
-    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#c0392b;color:#fff;padding:12px 16px;font:13px/1.6 -apple-system,sans-serif;white-space:pre-wrap";
-    (document.body || document.documentElement).appendChild(box);
-  }
-  var sig = "P|" + String(msg);
-  if (box.dataset.sig2 === sig) return;
-  box.dataset.sig2 = sig;
-  box.textContent = "⚠ 未捕获的异步异常：" + msg + "\n（请把这段发给我以便定位）";
-});
+/* 全局错误处理统一在页面末尾的 showFatal() 中注册（含复制/重试/技术详情），
+   此处不再重复注册，避免页面出现两条红色错误横幅、且显示内容互相覆盖。 */
 </script>
 <script>
 /* ===== Supabase JS v2.112.4 UMD (inlined) ===== */
@@ -3246,6 +3209,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return {kind:"transient", msg:String(msg)};
   }
   function errSnippet(s, n){ n = n||80; s = String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
+  /* 安全解析 fetch 响应：dashscope 等接口偶发返回非 JSON（网关 HTML/网络拦截/CORS 失败），
+     直接 r.json() 会抛 "unexpected token" 并拖崩页面。这里降级为友好错误对象而非抛异常。 */
+  function safeJson(r){
+    return Promise.resolve(r.text ? r.text() : "").then(function(txt){
+      var ct=(r.headers&&r.headers.get&&r.headers.get("content-type"))||"";
+      var body=String(txt||"");
+      if(ct.indexOf("json")<0 && body.trim()){
+        return { ok:r.ok, json:{ __notJson:true, status:r.status, text:body.slice(0,400) } };
+      }
+      try { return { ok:r.ok, json: JSON.parse(body) }; }
+      catch(e){ return { ok:r.ok, json:{ __notJson:true, status:r.status, text:body.slice(0,400) }, parseError:String(e&&e.message||e) }; }
+    }).catch(function(e){ return { ok:false, json:{ __notJson:true, status:r.status, text:"", parseError:String(e&&e.message||e) } }; });
+  }
 
   /* 诊断横幅已按需求移除：不再向用户展示「模块未加载 / 表不存在」等提示。保留函数名仅为兼容旧调用点（此处为空操作）。 */
   function syncBanner(){ return; }
@@ -3550,8 +3526,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return fetch(url,{ method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
       body:JSON.stringify(body)
-    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,json:j}; }); })
+    }).then(safeJson)
      .then(function(res){
+       if(res.json && res.json.__notJson) throw new Error("dashscope 接口返回的不是 JSON（可能是网络/网关拦截，HTTP "+(res.json.status||"?")+"）。请检查网络后重试；若反复出现请关闭代理/VPN 再试。");
        if(!res.ok) throw new Error("API错误："+(res.json&&res.json.error&&(res.json.error.message||JSON.stringify(res.json.error))||JSON.stringify(res.json)));
        var content=res.json&&res.json.choices&&res.json.choices&&res.json.choices[0]&&res.json.choices[0].message&&res.json.choices[0].message.content;
        return parseOCRContent(content);
@@ -3726,8 +3703,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return fetch(url,{ method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
       body:JSON.stringify({ model:"qwen-plus", temperature:0.8, messages:messages })
-    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,json:j}; }); })
+    }).then(safeJson)
      .then(function(res){
+       if(res.json && res.json.__notJson) throw new Error("dashscope 接口返回的不是 JSON（可能是网络/网关拦截，HTTP "+(res.json.status||"?")+"）。请检查网络后重试；若反复出现请关闭代理/VPN 再试。");
        if(!res.ok) throw new Error("API错误："+(res.json&&res.json.error&&(res.json.error.message||JSON.stringify(res.json.error))||JSON.stringify(res.json)));
        var c=res.json&&res.json.choices&&res.json.choices[0]&&res.json.choices[0].message&&res.json.choices[0].message.content;
        return c||"（无回复）";
@@ -4353,17 +4331,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var box=document.getElementById("fatalErr");
     if(!box){ box=document.createElement("div"); box.id="fatalErr"; box.className="fatal-err"; var wrap=document.querySelector(".wrap"); (wrap||document.body).insertBefore(box, (wrap?wrap.firstChild:null)); }
     box.className="fatal-err";
-    var raw = e && (e.error || e.reason || e) || e;
-    var msg = (e && (e.message || (e.reason && (e.reason.message||e.reason)) || e.reason)) || (e && e.message) || String(e);
-    var stack = (raw && raw.stack) || (e && e.reason && e.reason.stack) || "";
+    var errObj = (e && e.error) || (e && e.reason) || (e instanceof Error ? e : null);
+    var msg = (errObj && errObj.message) || (e && (e.message || (e.reason && (e.reason.message||e.reason)) || e.reason)) || String(e);
+    var stack = (errObj && errObj.stack) || (e && e.reason && e.reason.stack) || "";
+    var src = (errObj && errObj.filename) ? ("\n来源：" + errObj.filename + ":" + (errObj.lineno||0) + ":" + (errObj.colno||0)) : "";
+    var low = String(msg).toLowerCase();
+    var hint = "";
+    if (/unexpected token|syntaxerror|not valid json|json\.parse|json parse/i.test(low)) {
+      hint = "\n提示：这通常是网络/接口返回了非 JSON（如网关 HTML 拦截页），或某个脚本加载损坏。请：① 硬刷新（Mac ⌘+Shift+R；iPhone 长按刷新→重新载入）；② 若开了代理/VPN 请先关闭；③ 点「复制错误」把下方完整信息发我，可精确定位。";
+    } else if (msg === "Script error.") {
+      hint = "\n提示：多为跨域组件（xlsx/pdf/word）加载失败，请硬刷新或换网络再试。";
+    }
     var when = new Date().toLocaleString("zh-CN");
+    var detail = msg + src + (stack ? ("\n堆栈：" + stack) : "") + hint;
     box.innerHTML='<div class="fe-h">⚠️ 页面运行出错（已捕获，顶部其它功能一般仍可正常使用）</div>'
       +'<div class="fe-m">'+esc(msg)+'</div>'
+      + (src ? '<div class="fe-m" style="opacity:.7;margin-top:4px">'+esc(src)+'</div>' : '')
       +'<div class="fe-m" style="opacity:.7;margin-top:4px">时间：'+esc(when)+'</div>'
-      + (stack ? '<details class="fe-s"><summary>技术详情（可复制反馈）</summary><pre>'+esc(stack)+'</pre></details>' : '')
+      +'<div class="fe-m" style="opacity:.85;margin-top:6px;white-space:pre-wrap">'+esc(hint)+'</div>'
+      + (stack ? '<details class="fe-s" open><summary>技术详情（点「复制错误」可发我定位）</summary><pre>'+esc(stack)+'</pre></details>' : '')
       + '<div class="fe-actions"><button id="feRetry">重试加载</button><button id="feCopy">复制错误</button></div>';
     var rb=document.getElementById("feRetry"); if(rb) rb.onclick=function(){ box.classList.add("hide"); try{ refreshAll().then(function(){ render(); }); }catch(_){} };
-    var cb=document.getElementById("feCopy"); if(cb) cb.onclick=function(){ try{ if(navigator.clipboard) navigator.clipboard.writeText(msg+"\n"+stack); toast("错误已复制，可发给我定位"); }catch(_){} };
+    var cb=document.getElementById("feCopy"); if(cb) cb.onclick=function(){ try{ if(navigator.clipboard) navigator.clipboard.writeText(detail); toast("错误已复制，可发给我定位"); }catch(_){ var ta=document.createElement("textarea"); ta.value=detail; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); toast("错误已复制，可发给我定位"); }catch(__){} document.body.removeChild(ta); } };
   }
   window.addEventListener("error", function(ev){ try{ showFatal(ev.error || ev.message); }catch(_){} });
   window.addEventListener("unhandledrejection", function(ev){ try{ showFatal(ev.reason); }catch(_){} });
