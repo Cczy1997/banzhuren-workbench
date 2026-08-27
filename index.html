@@ -527,6 +527,26 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .db-block-empty{font-size:12.5px;color:var(--ink-soft);font-style:italic;padding:4px 0 10px}
   .db-add-wrap{margin-top:8px}
   .db-add{background:#FFF6FA;border:1.5px dashed var(--pink);color:var(--pink-d);font-weight:700}
+  /* 值日生名单（按组汇总表） */
+  .db-roster{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:12px 13px;background:#FCFDFF}
+  .db-roster-empty{font-size:13px;color:var(--ink-soft);font-style:italic;line-height:1.7}
+  .db-roster-h{font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+  .db-roster-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  .db-roster-tbl th{background:#EEF2FF;color:var(--ink);font-weight:700;text-align:left;padding:8px 10px;border:1px solid var(--line)}
+  .db-roster-tbl td{padding:8px 10px;border:1px solid var(--line);vertical-align:top}
+  .db-rg-name{font-weight:800;color:var(--ink);white-space:nowrap}
+  .db-rg-cnt{color:var(--ink-soft);white-space:nowrap;text-align:center}
+  .db-rg-mem{display:flex;flex-wrap:wrap;gap:5px}
+  .db-mem{background:#F4F1FB;border:1px solid #E4DCF2;border-radius:999px;padding:2px 10px;font-size:12.5px;color:var(--ink);font-weight:600}
+  .db-mem-empty{color:var(--ink-soft);font-style:italic}
+  .db-roster-tip{margin-top:9px;font-size:12px;color:var(--ink-soft);line-height:1.6}
+  /* 总览 · 本周值日生 */
+  .ov-duty{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:14px 15px;background:linear-gradient(135deg,#FFF7FA,#F7FAFF)}
+  .ov-duty h2{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800;color:var(--ink);margin:0 0 10px}
+  .ov-duty-grp{color:var(--pink-d)}
+  .ov-duty-list{display:flex;flex-wrap:wrap;gap:7px}
+  .ov-duty-mem{background:#fff;border:1.5px solid var(--pink);color:var(--pink-d);border-radius:999px;padding:4px 13px;font-size:13.5px;font-weight:700}
+  .ov-duty-empty{color:var(--ink-soft);font-style:italic}
   .btn-ok{background:#1f9d5b;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
   .btn-ok:hover{background:#178a4e}
   .btn-bad{background:#e0584f;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -1341,7 +1361,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return;
     }
     // 成绩 / 值日 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板）
-    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard() : "");
+    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : "");
     if(!rows.length){
       box.innerHTML = extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
@@ -1554,6 +1574,40 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +blockHtml("🌳 室外", "🌳", "室外", idxByArea["室外"])
       +rfHtml
       +'</div>';
+  }
+  // 值日生名单（按组汇总成表格）：把每个值日组的成员列出来
+  function renderDutyRoster(){
+    var groups=dutyRot.groups;
+    if(!groups.length){
+      return '<div class="db-roster db-roster-empty">先在上方「轮值设置」填写值日小组（如 第一组,第二组,第三组,第四组），保存后这里会按组列出每个组的值日生成员。</div>';
+    }
+    var rows=groups.map(function(g,i){
+      var mem=dutyGroupMembers(g);
+      var curTag=(i===dutyRot.cursor)?'<span class="db-curtag">本周</span>':'';
+      var chips=mem.length?mem.map(function(n){return '<span class="db-mem">'+esc(n)+'</span>';}).join(''):'<span class="db-mem-empty">未安排</span>';
+      return '<tr>'
+        +'<td class="db-rg-name">'+esc(g)+curTag+'</td>'
+        +'<td class="db-rg-cnt">'+mem.length+' 人</td>'
+        +'<td class="db-rg-mem">'+chips+'</td>'
+      +'</tr>';
+    }).join("");
+    return '<div class="db-roster">'
+      +'<div class="db-roster-h">📋 值日生名单（按组）</div>'
+      +'<table class="db-roster-tbl"><thead><tr><th>值日组</th><th>人数</th><th>成员</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table>'
+      +'<div class="db-roster-tip">成员为该组在各分工（室内/室外）中出现的全部学生；本周值日生也会同步显示在「总览」。</div>'
+      +'</div>';
+  }
+  // 总览：本周值日生（当前轮值组 + 其成员）
+  function renderDutyWeek(){
+    var groups=dutyRot.groups;
+    if(!groups.length){
+      return '<div class="ov-duty"><h2>🧹 本周值日生</h2><div class="empty">尚未设置值日小组，去「值日安排」填写轮值小组即可自动显示。</div></div>';
+    }
+    var cur=currentDutyGroup();
+    var mem=dutyGroupMembers(cur);
+    var chips=mem.length?mem.map(function(n){return '<span class="ov-duty-mem">'+esc(n)+'</span>';}).join(''):'<span class="ov-duty-empty">本周值日生尚未安排</span>';
+    return '<div class="ov-duty"><h2>🧹 本周值日生 · <span class="ov-duty-grp">'+esc(cur)+'</span></h2><div class="ov-duty-list">'+chips+'</div></div>';
   }
   // 把值日表网格写回 DATA.duty（按 值日组+内容 upsert；星期统一记「本周」）
   function saveDutyGrid(){
@@ -2491,7 +2545,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<span class="badge" id="todayCount">0</span>'
       +'</h2>'
       +'<div id="todayList"></div>'
-      +'</div>';
+      +'</div>'
+      +renderDutyWeek();
   }
 
   /* ---------- 荣誉榜：个人积分TOP3 + 小组积分TOP2 ---------- */
@@ -3845,6 +3900,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   // 调试/自动化验证用：暴露内部状态与函数（不影响业务）
   window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll };
+  // 值日模块调试/自动化验证钩子
+  window.__duty = {
+    groups: function(){ return dutyRot.groups.slice(); },
+    setGroups: function(arr){ dutyRot.groups=arr.slice(); dutyRot.cursor=0; dutyRot.servedWeeks=1; saveDutyRot(); },
+    seed: function(rows){ DATA.duty = rows; },
+    members: function(g){ return dutyGroupMembers(g); },
+    current: function(){ return currentDutyGroup(); },
+    rosterHTML: function(){ return renderDutyRoster(); },
+    weekHTML: function(){ return renderDutyWeek(); }
+  };
 })();
   </script>
   <script>
