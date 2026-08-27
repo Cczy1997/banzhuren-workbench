@@ -35,14 +35,41 @@
 /* ===== 全局错误兜底：任何脚本报错都显式提示，绝不静默白屏 ===== */
 window.addEventListener("error", function(e){
   var msg = (e && e.message) || (e && e.error && e.error.message) || "未知错误";
+  // 跨域脚本错误通常只暴露 "Script error."，附加源位置便于定位
+  var extra = "";
+  if (msg === "Script error." || msg === "未知错误") {
+    extra = "（很可能是跨域 CDN 上的 xlsx/pdf/word 组件，请尝试刷新或换网络）";
+  }
+  if (e && e.filename) extra += "\n来源：" + e.filename + ":" + (e.lineno||0) + ":" + (e.colno||0);
+  if (e && e.error && e.error.stack) extra += "\n堆栈：" + (e.error.stack||"").split("\n").slice(0,3).join(" | ");
   var box = document.getElementById("fatalBox");
   if (!box) {
     box = document.createElement("div");
     box.id = "fatalBox";
-    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#c0392b;color:#fff;padding:12px 16px;font:13px/1.6 -apple-system,sans-serif;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.3)";
+    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#c0392b;color:#fff;padding:12px 16px;font:13px/1.6 -apple-system,sans-serif;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.3);max-height:40vh;overflow:auto";
     (document.body || document.documentElement).appendChild(box);
   }
-  box.textContent = "⚠ 页面脚本出错：" + msg + "\n（请把这段发给我以便定位）";
+  // 同一错误不重复刷新底部文案
+  var sig = String(msg) + "|" + String(e && e.filename||"");
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.textContent = "⚠ 页面脚本出错：" + msg + extra + "\n（请把这段发给我以便定位）";
+});
+/* unhandledrejection：Promise 抛出的异常走这里 */
+window.addEventListener("unhandledrejection", function(e){
+  var r = e && e.reason;
+  var msg = (r && (r.message||r.toString())) || "未知 Promise 异常";
+  var box = document.getElementById("fatalBox");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "fatalBox";
+    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:2147483647;background:#c0392b;color:#fff;padding:12px 16px;font:13px/1.6 -apple-system,sans-serif;white-space:pre-wrap";
+    (document.body || document.documentElement).appendChild(box);
+  }
+  var sig = "P|" + String(msg);
+  if (box.dataset.sig2 === sig) return;
+  box.dataset.sig2 = sig;
+  box.textContent = "⚠ 未捕获的异步异常：" + msg + "\n（请把这段发给我以便定位）";
 });
 </script>
 <script>
@@ -3940,12 +3967,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     document.getElementById("impMask").classList.add("show");
   }
   function closeImp(){ document.getElementById("impMask").classList.remove("show"); }
+  /* ---------- 站点根路径解析（无论部署在仓库根还是 /xxx/ 子路径，副本都能命中） ---------- */
+  // GitHub Pages / CloudStudio 的站点根 = URL pathname 第一段（仓库名或项目名）。
+  // 比如 /banzhuren-workbench/7vsfx3 → 根 = /banzhuren-workbench/
+  //     /banzhuren-workbench/         → 根 = /banzhuren-workbench/
+  //     /                              → 根 = /
+  var SITE_ROOT = (function(){
+    try{
+      var m = (location.pathname||"/").match(/^(\/[^\/]+)\//);
+      return m ? m[1] : "";
+    }catch(e){ return ""; }
+  })();
   /* ---------- 文件解析库（按需懒加载，固定版本，自部署优先 + 多 CDN 并行竞速） ---------- */
-  // xlsx.full.min.js ≈ 930KB，放在 gh-pages 根目录随站点部署，相对路径永远可用。
+  // xlsx.full.min.js ≈ 930KB，放在 gh-pages 根目录随站点部署，绝对路径永远可用。
   // 失败再回退到官方/国内/国际 CDN，并行竞速取最先响应的。
   var LIB={
     xlsx:[
-      "./xlsx.full.min.js",                                                                                       // 站点自部署（GitHub Pages 同域）
+      SITE_ROOT + "/xlsx.full.min.js",                                                                            // 站点自部署（同源，零网络抖动）
       "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",                                       // 官方
       "https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js",                                          // jsDelivr
       "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.3/xlsx.full.min.js",                                      // cdnjs
@@ -3954,7 +3992,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       "https://lib.baomitu.com/xlsx/0.20.3/xlsx.full.min.js"                                                      // 360
     ],
     mammoth:["https://lib.baomitu.com/mammoth/1.8.0/mammoth.browser.min.js","https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js","https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"],
-    pdf:["./pdf.min.js","https://lib.baomitu.com/pdf.js/3.11.174/pdf.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"],
+    pdf:["/banzhuren-workbench/pdf.min.js","https://lib.baomitu.com/pdf.js/3.11.174/pdf.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"],
     pdfWorker:"https://lib.baomitu.com/pdf.js/3.11.174/pdf.worker.min.js"
   };
   var _libCache={};
@@ -3962,6 +4000,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(typeof urls==="string") urls=[urls];
     opts=opts||{};
     var timeoutMs=opts.timeoutMs||5000;
+    // 过滤掉空字符串 / "/" 这类无效占位
+    urls = urls.filter(function(u){ return typeof u==="string" && u && u!=="/" && u!=="/"+"/"; });
     return new Promise(function(resolve,reject){
       var pending=0, finished=false, failures=[];
       function done(err){ if(finished) return; finished=true; if(err) reject(err); else resolve(); }
@@ -3971,6 +4011,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         pending++;
         var s=document.createElement("script");
         s.async=true;
+        // 跨域 script 出错时，浏览器只暴露 "Script error." 不给详细信息。
+        // 加 crossorigin="anonymous" 后能拿到具体 stack trace，便于定位。
+        try{ s.crossOrigin = "anonymous"; }catch(e){}
         var t=setTimeout(function(){ cleanup(); _libCache[url]="fail"; onFail(url,"超时"); }, timeoutMs);
         function cleanup(){ try{ s.onload=s.onerror=null; clearTimeout(t); if(s.parentNode) s.parentNode.removeChild(s); }catch(e){} }
         s.onload=function(){ cleanup(); _libCache[url]="ok"; pending--; done(); };
