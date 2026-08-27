@@ -694,6 +694,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .lnk-del{color:var(--danger)}
   .lnk:active{opacity:.6}
   .meet-files-empty{font-size:12.5px;color:var(--ink-soft);font-style:italic;padding:4px 0}
+  /* 班级方向：可增减方向 + 计分概览 */
+  .rulecats{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+  .rc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .rc-title{font-size:13.5px;font-weight:800;color:var(--ink)}
+  .rc-add{border:1px solid var(--line);background:var(--bg);color:var(--lav);font-size:12.5px;font-weight:700;border-radius:8px;padding:5px 10px;cursor:pointer}
+  .rc-add:active{opacity:.6}
+  .rc-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .rc-chip{display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 8px 5px 12px;font-size:12.5px}
+  .rc-name{font-weight:800;color:var(--ink)}
+  .rc-meta{color:var(--ink-soft);font-size:11.5px}
+  .rc-del{border:none;background:none;color:var(--danger);font-size:15px;line-height:1;cursor:pointer;padding:0 2px;opacity:.5}
+  .rc-del:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -917,7 +929,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     rules:{
       title:"📜 班级制度", cat:"aff", unit:"条", main:"内容",
       fields:[
-        {name:"类别",type:"select",options:["纪律","学习","卫生","礼仪","安全","其他"]},
+        {name:"类别",type:"select",dyn:"ruleCats",required:true,ph:"选择方向",options:["安全","班级贡献","仪容仪表","比赛获奖","纪律","卫生","礼仪","学习","其他"]},
+        {name:"方向",type:"select",required:true,options:["得分","扣分"]},
+        {name:"分值",type:"number",ph:"如：2"},
         {name:"内容",type:"text",required:true,multiline:true,ph:"制度内容"},
         {name:"说明",type:"text",multiline:true,ph:"补充说明（选填）"}
       ]
@@ -1383,7 +1397,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return;
     }
     // 成绩 / 值日 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板）
-    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : "");
+    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : (key==="rules" ? renderRuleCats() : ""));
     if(!rows.length){
       box.innerHTML = extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
@@ -1589,6 +1603,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }catch(e){}
   }
   function saveDutyTasks(){ try{ localStorage.setItem(DUTY_TASKS_LS, JSON.stringify(DUTY_TASKS)); }catch(e){} }
+  /* 班级制度：可增减的「大方向」分类（本地持久化，模式参考 DUTY_TASKS） */
+  var RULECAT_LS = "wb_cls_rulecats";
+  var RULE_CATS = ["安全","班级贡献","仪容仪表","比赛获奖","纪律","卫生","礼仪","学习","其他"];
+  function loadRuleCats(){
+    try{
+      var s=JSON.parse(localStorage.getItem(RULECAT_LS)||"null");
+      if(Array.isArray(s)&&s.length){ RULE_CATS=s.map(function(t){return String(t||"").trim();}).filter(Boolean); }
+    }catch(e){}
+  }
+  function saveRuleCats(){ try{ localStorage.setItem(RULECAT_LS, JSON.stringify(RULE_CATS)); }catch(e){} }
   function loadDutyRot(){
     try{
       var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
@@ -2323,6 +2347,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(key==="honor" && field==="类别"){
       return val==="荣誉" ? '<span class="pill s-imp">荣誉</span>' : '<span class="pill s-urgent">处分</span>';
     }
+    if(key==="rules" && field==="方向"){
+      return val==="得分" ? '<span class="pill s-done">得分</span>' : '<span class="pill s-urgent">扣分</span>';
+    }
+    if(key==="rules" && field==="类别"){
+      return '<span class="pill">'+esc(val)+'</span>';
+    }
     return '';
   }
 
@@ -2372,6 +2402,38 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +subs
       +'<div class="card-actions">'+acts+'</div>'
       +'</div>';
+  }
+  /* 班级制度：可增减「大方向」面板 + 各方向计分概览 */
+  function renderRuleCats(){
+    var html='<div class="rulecats">';
+    html+='<div class="rc-head"><span class="rc-title">班级方向（可增减）</span>'
+        +'<button class="rc-add" data-rulecat-add>＋ 添加方向</button></div>';
+    html+='<div class="rc-chips">';
+    RULE_CATS.forEach(function(c){
+      var rs=(DATA.rules||[]).filter(function(r){return r["类别"]===c;});
+      var add=rs.filter(function(r){return r["方向"]==="得分";}).reduce(function(s,r){return s+(Number(r["分值"])||0);},0);
+      var sub=rs.filter(function(r){return r["方向"]==="扣分";}).reduce(function(s,r){return s+(Number(r["分值"])||0);},0);
+      html+='<span class="rc-chip" data-rc-cat="'+esc(c)+'">'
+          +'<span class="rc-name">'+esc(c)+'</span>'
+          +'<span class="rc-meta">'+rs.length+' 条 · 得 '+add+' / 扣 '+sub+'</span>'
+          +'<button class="rc-del" data-rulecat-del="'+esc(c)+'" title="删除该方向">×</button>'
+          +'</span>';
+    });
+    html+='</div></div>';
+    return html;
+  }
+  function onRuleCatAdd(){
+    var name=window.prompt("新增班级方向（如：作业完成、课堂纪律）：");
+    if(name===null) return;
+    name=(name||"").trim();
+    if(!name) return;
+    if(RULE_CATS.indexOf(name)>=0){ toast(name+" 已存在"); return; }
+    RULE_CATS.push(name); saveRuleCats(); renderList("rules"); toast("已添加方向："+name+" ✓");
+  }
+  function onRuleCatDel(name){
+    if(RULE_CATS.length<=1){ toast("至少保留一个方向"); return; }
+    if(!confirm("删除方向「"+name+"」？\n（已按该方向归类的制度仍会保留，仅不再作为下拉选项）")) return;
+    RULE_CATS=RULE_CATS.filter(function(c){return c!==name;}); saveRuleCats(); renderList("rules"); toast("已删除方向："+name);
   }
 
   function renderSeatGrid(key){
@@ -3036,6 +3098,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
       loadDutyTasks();
+      loadRuleCats();
       loadMeetings();
       loadWeekly();
       try { render(); loadToday(); }
@@ -3070,7 +3133,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       } else if(f.type==="select"){
         var sel=document.createElement("select"); sel.setAttribute("data-f",f.name);
         var ph=document.createElement("option"); ph.value=""; ph.textContent="请选择"; sel.appendChild(ph);
-        (f.options||[]).forEach(function(o){
+        var selOpts=(f.dyn==="ruleCats")?RULE_CATS.slice():(f.options||[]);
+        selOpts.forEach(function(o){
           var op=document.createElement("option"); op.value=o; op.textContent=o; if(val===o) op.selected=true; sel.appendChild(op);
         });
         wrap.appendChild(sel);
@@ -3524,6 +3588,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rdel=e.target.closest("[data-rdel]"); if(rdel){ dutyRosterRemove(rdel.getAttribute("data-rg"), rdel.getAttribute("data-rn")); return; }
     var radd=e.target.closest("[data-radd]"); if(radd){ dutyRosterAdd(radd.getAttribute("data-rg")); return; }
     var rmem=e.target.closest(".db-rmem"); if(rmem){ onDutyRosterClick(rmem); return; }
+    var rcadd=e.target.closest("[data-rulecat-add]"); if(rcadd){ onRuleCatAdd(); return; }
+    var rcdel=e.target.closest("[data-rulecat-del]"); if(rcdel){ onRuleCatDel(rcdel.getAttribute("data-rulecat-del")); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
@@ -4046,6 +4112,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     swapRoster: function(a,b){ dutyRosterSwap({group:a.group,name:a.name},{group:b.group,name:b.name}); },
     addRoster: function(g,name){ var p=dutyRosterAddLocal(g,name); Promise.resolve(p).then(function(){ afterDutyRosterChange(false); }).catch(function(){}); return p; },
     removeRoster: function(g,name){ dutyRosterRemove(g,name); }
+  };
+  // 班级制度调试/自动化验证钩子
+  window.__rules = {
+    cats: function(){ return RULE_CATS.slice(); },
+    addCat: function(name){ name=(name||"").trim(); if(!name||RULE_CATS.indexOf(name)>=0) return false; RULE_CATS.push(name); saveRuleCats(); renderList("rules"); return true; },
+    delCat: function(name){ if(RULE_CATS.length<=1) return false; RULE_CATS=RULE_CATS.filter(function(c){return c!==name;}); saveRuleCats(); renderList("rules"); return true; },
+    rules: function(){ return (DATA.rules||[]).slice(); },
+    addRule: function(props){ return apiAdd("rules", props).then(function(o){ DATA.rules.push(o); return o; }); }
   };
 })();
   </script>
