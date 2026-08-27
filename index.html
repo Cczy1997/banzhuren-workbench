@@ -239,51 +239,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 荣誉榜 · 商城入口 */
   .honor-h-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .honor-h-row .honor-h{margin:0}
-  .btn-mall{
     margin-left:auto;border:1px solid var(--coral);cursor:pointer;font-weight:800;font-size:13px;color:var(--pink-d);
     background:#FFF3F7;border-radius:999px;padding:7px 14px;transition:.15s;
   }
-  .btn-mall:hover{background:#FFE3EE}
-  .btn-mall:active{transform:scale(.97)}
   /* 周报 · AI 生成入口 */
-  .btn-ai{
     border:1px solid #8b5cf6;cursor:pointer;font-weight:700;font-size:12.5px;color:#6d28d9;
     background:#F5F0FF;border-radius:999px;padding:8px 13px;transition:.15s;
   }
-  .btn-ai:hover{background:#ECE3FF}
-  .btn-ai:active{transform:scale(.97)}
   /* 周报 AI 弹窗 */
-  .wg-sheet{max-width:560px}
-  .wg-tip{font-size:12.5px;color:var(--ink-soft);margin:2px 0 10px;line-height:1.5}
-  .wg-label{display:block;font-weight:700;font-size:13px;margin:10px 0 5px;color:var(--ink)}
-  .wg-events{width:100%;min-height:120px;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13.5px;font-family:inherit;resize:vertical;box-sizing:border-box}
-  .wg-file{margin-bottom:6px}
-  .wg-status{font-size:12.5px;color:var(--ink-soft);min-height:16px;margin:8px 0}
-  .wg-actions{display:flex;gap:10px;margin:6px 0 10px}
-  .wg-result{border-top:1px dashed var(--line);padding-top:10px}
-  .wg-result h4{margin:10px 0 5px;font-size:13px;color:var(--pink-d)}
-  .wg-text{white-space:pre-wrap;line-height:1.6;font-size:13.5px;color:var(--ink);background:#FAFAFA;border-radius:10px;padding:10px}
-  .wg-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-  .wg-imgs img{width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
   /* 积分商城 */
-  .mall-mode{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff}
-  .mm-btn{border:none;background:#fff;cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink-soft);padding:7px 13px}
-  .mm-btn.on{background:linear-gradient(135deg,var(--pink),var(--pink-d));color:#fff}
-  .mall-hint{font-size:12.5px;color:var(--ink-soft);line-height:1.6;background:#FFF6FA;border:1px solid var(--line);border-radius:14px;padding:10px 13px;margin:0 0 14px}
-  .mall-hint b{color:var(--pink-d)}
-  .mall-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
-  .prize{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 8px rgba(140,120,130,.06)}
-  .prize-img{height:96px;border-radius:12px;background-size:cover;background-position:center;background-color:#F4EEF2}
-  .prize-name{font-weight:800;font-size:15px;color:var(--ink)}
-  .prize-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.5}
-  .prize-price{font-weight:800;color:var(--mint-d);font-size:15px}
-  .prize-diff{font-size:13px;color:#B07800}
-  .prize-diffn{color:var(--ink-soft);font-weight:600}
-  .prize-quota{font-size:12px;color:var(--ink-soft)}
-  .prize-acts{display:flex;gap:8px;margin-top:2px}
-  .prize-redeem{border:none;cursor:pointer;font-weight:800;font-size:13.5px;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint-d));border-radius:999px;padding:8px 14px;box-shadow:0 4px 12px rgba(79,200,174,.28)}
-  .prize-redeem:disabled{background:#E7E0E5;color:#fff;box-shadow:none;cursor:not-allowed}
-  .prize-redeem:active:not(:disabled){transform:scale(.97)}
   /* AI 小助手 */
   .ai-key{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;flex-wrap:wrap}
   .ai-key input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit}
@@ -297,9 +261,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .ai-input-row{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
   .ai-input-row textarea{flex:1;min-height:46px;max-height:120px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px}
   /* 兑换弹窗 */
-  .redeem-prize{font-size:14px;font-weight:700;color:var(--ink);background:#FFF6FA;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px}
-  .redeem-prize b{color:var(--pink-d)}
-  .redeem-sel{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fff}
   .ocr-list{margin:4px 0 8px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .ocr-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #F2ECF0;font-size:14px}
   .ocr-row:last-child{border-bottom:none}
@@ -519,8 +480,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .grade-ai-bar .glbl{font-size:13px;font-weight:700;color:var(--ink)}
   .grade-ai-bar .g-sel{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--ink);background:#fff;max-width:150px}
   .grade-ai-box{background:#F6F4FF;border:1px solid #E6E0FB;border-radius:16px;padding:13px 14px;margin-bottom:14px}
-  .btn-ai{background:#6a4fb0;color:#fff;border:none;border-radius:14px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
-  .btn-ai:hover{background:#5a3fa0}
   /* 每周值日看板 */
   .duty-board{background:linear-gradient(135deg,#EEF3FF,#F1EBFF);border:1.5px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px}
   .duty-board .db-title{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:10px}
@@ -605,32 +564,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     .wrap{padding:14px 14px 36px}
     .ov-mods{grid-template-columns:1fr}
   .phead .btn-clear{display:none}
-  .sync-banner{position:sticky;top:0;z-index:20;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;margin:0 0 12px;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.05)}
-  .sync-banner.hide{display:none}
-  .sync-banner.loading{background:#FFF0F6;color:#E5508B}
-  .sync-banner.warn{background:#FFF4E0;color:#B26A00}
-  .sync-banner.err{background:#FFE9E9;color:#C0392B}
-  .sync-banner .sb-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  .sync-banner .sb-msg{flex:1;min-width:200px;line-height:1.4}
-  .sync-banner .sb-actions{display:flex;gap:6px;flex-shrink:0}
-  .sync-banner .sb-retry-btn{border:none;background:#fff;color:inherit;font-weight:800;padding:7px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:13px}
-  .sync-banner .sb-retry-btn.mini{padding:6px 10px;font-size:12px}
-  .sync-banner .sb-retry-btn.ghost{background:transparent;box-shadow:none;color:inherit;opacity:.7;text-decoration:underline}
-  .sync-banner .sb-details{margin-top:2px}
-  .sync-banner .sb-details summary{cursor:pointer;font-weight:600;opacity:.85;font-size:12px;padding:2px 0}
-  .sync-banner .sb-list{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
-  .sync-banner .sb-item{background:rgba(255,255,255,.6);border-radius:8px;padding:8px 10px;font-weight:500}
-  .sync-banner .sb-item.sb-schema{background:rgba(255,236,236,.85)}
-  .sync-banner .sb-item.sb-rls{background:rgba(255,243,224,.85)}
-  .sync-banner .sb-item.sb-transient{background:rgba(245,245,245,.6)}
-  .sync-banner .sb-name{font-weight:800;font-size:13px}
-  .sync-banner .sb-tbl{font-weight:500;opacity:.7;font-size:12px;margin-left:4px;font-family:ui-monospace,Menlo,Consolas,monospace}
-  .sync-banner .sb-cause{font-weight:500;font-size:12px;opacity:.85;margin-top:2px;word-break:break-all;line-height:1.4;font-family:ui-monospace,Menlo,Consolas,monospace}
-  .sync-banner .sb-hint{font-size:12px;margin-top:4px;font-weight:600;line-height:1.4}
-  .sync-banner .sb-hint code,.sync-banner .sb-callout code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:11px}
-  .sync-banner .sb-callout{margin-top:6px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.7);font-weight:500;font-size:12px;line-height:1.5}
-  .sync-banner .sb-callout-schema{background:rgba(255,225,225,.85);color:#9c2a2a}
-  .sync-banner .sb-callout-rls{background:rgba(255,232,200,.85);color:#8a5800}
 }
 
   /* 登录 / 注册 */
@@ -667,6 +600,45 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .fe-s pre{margin:6px 0 0;max-height:180px;overflow:auto;background:#fff;color:#7a2b27;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-word;font-size:11.5px}
   .fe-actions{margin-top:10px;display:flex;gap:10px}
   .fe-actions button{border:none;background:#fff;color:#B3261E;font-weight:800;padding:7px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  /* 微班会 · AI 主题 + 收集区 */
+  .meet-gen-card{background:linear-gradient(135deg,#FFF6FB,#F3F0FF);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
+  .meet-gen-h{font-size:15px;font-weight:800;margin-bottom:8px;color:var(--pink-d)}
+  .meet-ta{width:100%;box-sizing:border-box;min-height:84px;resize:vertical;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;outline:none;font-family:inherit;line-height:1.5}
+  .meet-ta:focus{border-color:var(--pink)}
+  .meet-gen-bar{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .meet-gen-hint{font-size:12px;color:var(--ink-soft)}
+  .btn-ai{border:none;cursor:pointer;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d));border-radius:12px;padding:10px 16px;box-shadow:0 5px 14px rgba(255,107,157,.28)}
+  .btn-ai:active{transform:scale(.98)}
+  .btn-mini{border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:700;font-size:12.5px;border-radius:9px;padding:6px 11px;cursor:pointer}
+  .btn-mini:active{background:#FFF3F7}
+  .meet-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 15px;margin-bottom:14px;box-shadow:0 2px 10px rgba(120,110,200,.06)}
+  .meet-card-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .meet-theme{border:none;border-bottom:2px dashed var(--line);background:transparent;font-size:16px;font-weight:800;color:var(--pink-d);padding:3px 2px;min-width:140px;outline:none;flex:1 1 160px}
+  .meet-theme:focus{border-bottom-color:var(--pink)}
+  .meet-date{font-size:12px;color:var(--ink-soft);font-weight:700;white-space:nowrap}
+  .meet-card-h .spacer{flex:1}
+  .meet-events{font-size:13px;color:var(--ink-soft);line-height:1.55;background:#FAF7FF;border-radius:10px;padding:8px 10px;margin-bottom:8px}
+  .meet-ol{margin:0 0 10px;padding-left:20px;font-size:13.5px;line-height:1.7;color:var(--ink)}
+  .meet-ol li{margin-bottom:2px}
+  .meet-coll-h{font-size:13.5px;font-weight:800;color:var(--lav);margin:6px 0 8px;display:flex;align-items:center;gap:6px}
+  .meet-coll-bar{margin-bottom:10px}
+  .meet-up-btn{display:inline-flex;align-items:center;border:1.5px dashed var(--pink);color:var(--pink-d);background:#FFF6FA;border-radius:9px;padding:6px 12px;font-size:12.5px;font-weight:800;cursor:pointer}
+  .hide-file{display:none}
+  .meet-files{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+  .meet-file{display:flex;gap:10px;align-items:center;background:#FAF8FF;border:1px solid var(--line);border-radius:12px;padding:8px 9px}
+  .meet-file-prev{width:46px;height:46px;flex:none;border-radius:8px;overflow:hidden;background:#efeaff;display:flex;align-items:center;justify-content:center}
+  .meet-thumb{width:100%;height:100%;object-fit:cover}
+  .meet-file-ico{font-size:22px}
+  .meet-file-meta{flex:1;min-width:0}
+  .meet-fname{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:12px;outline:none}
+  .meet-fname:focus{border-color:var(--pink)}
+  .meet-file-sub{font-size:11px;color:var(--ink-soft);margin:2px 0 3px}
+  .meet-file-acts{display:flex;gap:8px}
+  .lnk{border:none;background:none;color:var(--lav);font-size:12px;font-weight:700;cursor:pointer;padding:0}
+  .lnk-del{color:var(--danger)}
+  .lnk:active{opacity:.6}
+  .meet-files-empty{font-size:12.5px;color:var(--ink-soft);font-style:italic;padding:4px 0}
 </style>
 </head>
 <body>
@@ -708,7 +680,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <h2 class="ttl" id="mobTitle">总览<small id="mobSub">班级工作台</small></h2>
     </div>
     <div class="wrap">
-      <div class="sync-banner hide" id="syncBanner"></div>
       <div class="fatal-err hide" id="fatalErr"></div>
       <!-- 内容区（动态渲染）初始显示加载态，避免刷新期被误判为空白 -->
       <div id="content"><div class="boot-loading"><span class="spinner"></span>正在加载工作台数据…</div></div>
@@ -793,33 +764,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <button class="btn-cancel" id="ocrCancel">取消</button>
       <button class="btn-save" id="ocrDo" disabled>确认并保存</button>
     </div>
-  </div>
-</div>
-
-<!-- 积分商城 · 兑换弹窗 -->
-<div class="mask" id="redeemMask">
-  <div class="sheet">
-    <h3 id="redeemTitle">兑换奖品</h3>
-    <button class="x" id="redeemClose">×</button>
-    <div id="redeemBody"></div>
-  </div>
-</div>
-
-<!-- 班级周报 · AI 生成 -->
-<div class="mask" id="wgMask">
-  <div class="sheet wg-sheet">
-    <h3>🤖 AI 生成班级周报</h3>
-    <button class="x" id="wgClose">×</button>
-    <p class="wg-tip">粘贴本周发生的事情（活动、表扬、问题、数据等），可上传本周照片作为周报配图。AI 会生成图文结合的周报内容。</p>
-    <label class="wg-label">本周发生的事情</label>
-    <textarea id="wgEvents" class="wg-events" placeholder="例如：本周召开了秋季运动会，张三在 800 米夺冠；语文单元测试平均分 82，较上月提升；李四、王五课堂发言积极获表扬；周末有 3 人未交作业需关注……"></textarea>
-    <label class="wg-label">本周照片（选填，作为周报配图）</label>
-    <input type="file" id="wgFile" class="wg-file" accept=".jpg,.jpeg,.png,.gif,.webp" multiple>
-    <div id="wgStatus" class="wg-status"></div>
-    <div class="wg-actions">
-      <button class="btn-add" id="wgGenBtn">🤖 生成周报</button>
-    </div>
-    <div id="wgResult" class="wg-result" style="display:none"></div>
   </div>
 </div>
 
@@ -1032,49 +976,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"评语",type:"text",multiline:true,ph:"写给学生的评语"}
       ]
     },
-    meeting:{
-      title:"📅 班会内容", cat:"mtg", unit:"次", main:"主题",
-      fields:[
-        {name:"主题",type:"text",required:true,ph:"如：期中考试动员班会"},
-        {name:"日期",type:"date"},
-        {name:"内容说明",type:"text",multiline:true,ph:"班会要点 / 议程（选填）"},
-        {name:"附件",type:"file",accept:".ppt,.pptx,.pdf,.jpg,.jpeg,.png,.gif,.webp",label:"PPT / 图片（可多选）"}
-      ]
-    },
-    weekly:{
-      title:"🗞️ 班级周报", cat:"mtg", unit:"期", main:"标题",
-      fields:[
-        {name:"标题",type:"text",required:true,ph:"如：第 12 周班级周报"},
-        {name:"日期",type:"date"},
-        {name:"本周小结",type:"text",multiline:true,ph:"本周班级整体情况"},
-        {name:"下周计划",type:"text",multiline:true,ph:"下周工作安排（选填）"},
-        {name:"配图",type:"file",accept:".jpg,.jpeg,.png,.gif,.webp",label:"周报配图（可多选）"}
-      ]
-    },
-    mall:{
-      title:"🛒 积分商城", cat:"aff", unit:"件", main:"名称",
-      fields:[
-        {name:"名称",type:"text",required:true,ph:"如：免作业券 / 文具盲盒"},
-        {name:"描述",type:"text",multiline:true,ph:"奖品说明（选填）"},
-        {name:"图片",type:"file",accept:".jpg,.jpeg,.png,.gif,.webp",label:"奖品图片（选填）"},
-        {name:"难度",type:"select",options:["1","2","3","4","5","6","7","8","9","10"],ph:"1~10，越高越难获得"},
-        {name:"兑换上限",type:"number",ph:"该奖品最多可兑换次数，如 20"}
-      ]
-    },
     ai:{
       title:"🤖 AI 小助手", cat:"ai", unit:"", main:"", fields:[]
     },
     sched_hwk:{
       title:"📚 个人功课表", cat:"mine", unit:"", main:"", fields:[]
+    },
+    meeting:{
+      title:"📣 微班会", cat:"meet", unit:"次", main:"主题", fields:[]
     }
   };
 
   var ORDER = {
     stu:["students","committee","parents"],
-    aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard","mall"],
+    aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard"],
     mor:["talk","comm","comment"],
-    mtg:["meeting","weekly"],
     mine:["sched_hwk"],
+    meet:["meeting"],
     ai:["ai"]
   };
   var CAT_META = {
@@ -1082,11 +1000,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     stu:{icon:"🧑‍🎓",label:"学生管理"},
     aff:{icon:"🗂️",label:"班级事务"},
     mor:{icon:"💗",label:"德育心理"},
-    mtg:{icon:"📅",label:"班会与周报"},
     mine:{icon:"📚",label:"我的功课"},
+    meet:{icon:"📣",label:"班会"},
     ai:{icon:"🤖",label:"AI 小助手"}
   };
-  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment","meeting","weekly","mall"];
+  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment"];
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
@@ -1279,61 +1197,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function errSnippet(s, n){ n = n||80; s = String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-  function syncBanner(kind, failed, msg){
-    var b = document.getElementById("syncBanner");
-    if(!b) return;
-    failed = failed || [];
-    if(!kind){
-      b.className = "sync-banner hide"; b.innerHTML = ""; return;
-    }
-    var wrap = [];
-    var hasSchema = failed.some(function(f){ return classifyError(f.e).kind==="schema"; });
-    var hasRls = failed.some(function(f){ return classifyError(f.e).kind==="rls"; });
-    wrap.push('<div class="sb-row">');
-    wrap.push('<div class="sb-msg">'+esc(msg||"部分模块加载失败")+'</div>');
-    wrap.push('<div class="sb-actions">');
-    wrap.push('<button class="sb-retry-btn" id="syncRetryAll" type="button">重试全部</button>');
-    if(failed.length){ wrap.push('<button class="sb-retry-btn mini" id="syncRetryFailed" type="button">仅重试这 '+failed.length+' 个</button>'); }
-    wrap.push('<button class="sb-retry-btn ghost" id="syncDismiss" type="button">忽略，继续使用</button>');
-    wrap.push('</div>');
-    wrap.push('</div>');
-    if(failed.length){
-      wrap.push('<details class="sb-details"><summary>查看未加载模块与原因（'+failed.length+'）</summary>');
-      wrap.push('<ul class="sb-list">');
-      failed.forEach(function(f){
-        var c = classifyError(f.e);
-        var label = moduleLabelOf(f.k);
-        wrap.push('<li class="sb-item sb-'+c.kind+'">');
-        wrap.push('<div class="sb-name">'+esc(label)+' <span class="sb-tbl">('+esc('hr_'+f.k)+')</span></div>');
-        wrap.push('<div class="sb-cause">'+esc(errSnippet(c.msg, 140))+'</div>');
-        if(c.kind==="schema") wrap.push('<div class="sb-hint">→ 需要到 Supabase SQL Editor 执行 <code>supabase_schema.sql</code> 建表</div>');
-        else if(c.kind==="rls") wrap.push('<div class="sb-hint">→ 需要在 Supabase → Authentication → Policies 启用 <code>hr_'+esc(f.k)+'</code> 的 RLS 策略</div>');
-        wrap.push('</li>');
-      });
-      wrap.push('</ul></details>');
-    }
-    if(hasSchema){
-      wrap.push('<div class="sb-callout sb-callout-schema">检测到「表不存在」错误。去 <code>Supabase → SQL Editor</code> 粘贴 <code>supabase_schema.sql</code> 全文执行；执行后点「仅重试」即可恢复。</div>');
-    }
-    if(hasRls && !hasSchema){
-      wrap.push('<div class="sb-callout sb-callout-rls">检测到 RLS 权限拒绝。在 Supabase → Authentication → Policies 给相关表加策略，可临时 <code>DISABLE ROW LEVEL SECURITY</code> 排查。</div>');
-    }
-    b.className = "sync-banner "+kind;
-    b.innerHTML = wrap.join("");
-
-    var reb = document.getElementById("syncRetryAll");
-    if(reb) reb.onclick = function(){ refreshAll().then(function(failed2){ setStatus((failed2 && failed2.length===ALLKEYS.length)?"offline":"ok"); }); };
-    var rfb = document.getElementById("syncRetryFailed");
-    if(rfb) rfb.onclick = function(){
-      b.className = "sync-banner loading"; b.innerHTML = '<div class="sb-row"><div class="sb-msg">正在重新加载…</div></div>';
-      loadPass(failed.map(function(f){return f.k;})).then(function(still){
-        if(!still.length){ syncBanner(null, [], ""); setStatus("ok"); return; }
-        syncBanner("warn", still, "仍有 "+still.length+" 个模块加载失败：");
-      });
-    };
-    var dmb = document.getElementById("syncDismiss");
-    if(dmb) dmb.onclick = function(){ b.className = "sync-banner hide"; b.innerHTML = ""; };
-  }
 
   /* ---------- Supabase 数据层（Postgres + Auth + RLS） ---------- */
   function apiQuery(key){
@@ -1380,8 +1243,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     html += secHTML("stu",CAT_META.stu,ORDER.stu);
     html += secHTML("aff",CAT_META.aff,ORDER.aff);
     html += secHTML("mor",CAT_META.mor,ORDER.mor);
-    html += secHTML("mtg",CAT_META.mtg,ORDER.mtg);
     html += secHTML("mine",CAT_META.mine,ORDER.mine);
+    html += secHTML("meet",CAT_META.meet,ORDER.meet);
     html += secHTML("ai",CAT_META.ai,ORDER.ai);
     nav.innerHTML=html;
   }
@@ -1419,8 +1282,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadToday(); renderScheduleInto("class","overviewSched"); return; }
     if(state.mod==="sched_hwk"){ box.innerHTML='<div class="phead"><h3>📚 个人功课表</h3><span class="hint">按星期×节次记录每节课要布置的功课 / 个人教学安排；支持本周调课，下周自动还原</span></div>'+renderScheduleHTML("hwk"); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
-    if(state.mod==="mall"){ box.innerHTML=renderMall(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
+    if(state.mod==="meeting"){ box.innerHTML=renderMeeting(); renderMeetingInto(); return; }
     if(ORDER[state.cat].indexOf(state.mod)<0) state.mod=ORDER[state.cat][0];
     try { box.innerHTML=renderModule(state.mod); }
     catch(e){ box.innerHTML='<div class="empty">「'+(MODULES[state.mod]?esc(MODULES[state.mod].title):esc(state.mod))+'」界面渲染失败：'+(esc(e&&e.message||e))+'</div>'; console.error(e); return; }
@@ -1441,7 +1304,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var m=MODULES[key];
     var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':'座位网格')+'</button>' : '';
     var ocrBtn = key==="attendance" ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别考勤表</button>' : '';
-    var aiBtn = key==="weekly" ? '<button class="btn-ai" data-ai="'+key+'">🤖 AI 生成周报</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
@@ -1449,7 +1311,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<span class="spacer"></span>'
       + gridBtn
       + ocrBtn
-      + aiBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
       +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
       +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
@@ -1726,6 +1587,243 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     redflagAskedThisWeek=true;
     askRedFlag();
   }
+
+  /* ---------- 班会（微班会）：AI 主题生成 + 用 WorkBuddy 生成 PPT + 收集区（本地存储） ---------- */
+  var MEETINGS_LS="wb_cls_meetings";
+  var MEETINGS=[];
+  function uid(p){ return (p||"id")+(Date.now().toString(36))+Math.floor(Math.random()*1e4).toString(36); }
+  function loadMeetings(){
+    try{ var s=JSON.parse(localStorage.getItem(MEETINGS_LS)||"[]"); if(Array.isArray(s)) MEETINGS=s; }catch(e){ MEETINGS=[]; }
+    DATA.meeting=MEETINGS;
+  }
+  function saveMeetings(){
+    try{ localStorage.setItem(MEETINGS_LS, JSON.stringify(MEETINGS)); }
+    catch(e){ toast("保存失败：本地存储可能已满（建议导出备份并清理大文件）"); }
+    DATA.meeting=MEETINGS; renderSidebar();
+  }
+  function meetById(id){ for(var i=0;i<MEETINGS.length;i++){ if(MEETINGS[i].id===id) return MEETINGS[i]; } return null; }
+
+  function genMeetingTheme(){
+    var ta=document.getElementById("meetEvents");
+    var ev=ta?(ta.value||"").trim():"";
+    if(!ev){ toast("请先描述最近班级发生的事"); return; }
+    var key=localStorage.getItem("wb_cls_dashscope_key");
+    if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
+    var box=document.getElementById("meetGenBox");
+    if(box) box.innerHTML='<div class="pf-ai-busy">🤖 正在生成微班会主题，请稍候…</div>';
+    var prompt='你是经验丰富的班主任。请根据下面「最近班级发生的事」，设计一次**微班会**（5-10分钟短时班会）方案。\n'
+      +'要求：\n1. 给出一个凝练的**微班会主题**（尽量 12 字以内）。\n2. 给出 3-5 条**班会提纲**（每条是一条简明、可操作的小环节或讨论点）。\n'
+      +'3. 若信息不足，可基于常见班级问题合理补充，并在该条后标注「（推测）」。\n'
+      +'请严格按以下格式返回（便于程序解析，不要加多余说明）：\n主题：<主题>\n提纲：\n- <要点1>\n- <要点2>\n- <要点3>\n\n最近班级发生的事：\n'+ev;
+    qwenChat(prompt, key).then(function(reply){
+      var p=parseMeeting(reply);
+      var rec={ id:uid("m"), date:todayStr(), theme:p.theme, events:ev, outline:p.outline, files:[] };
+      MEETINGS.unshift(rec);
+      saveMeetings(); renderMeetingInto();
+      toast("已生成微班会主题 ✓");
+    }).catch(function(e){
+      if(box) box.innerHTML='<div class="pf-ai-busy">⚠️ 生成失败：'+(esc(e&&e.message||e))+'</div>';
+    });
+  }
+  function parseMeeting(reply){
+    reply=(reply||"").trim();
+    var theme="", outline=[];
+    var tM=reply.match(/主题[：:]\s*(.+)/);
+    if(tM) theme=tM[1].trim();
+    var olPart=reply.split(/提纲[：:]/)[1];
+    (olPart||reply).split(/\r?\n/).forEach(function(line){
+      var s=line.trim(); if(!s) return;
+      var m=s.match(/^[-–—*]\s*(.+)$/)||s.match(/^\d+[.、)]\s*(.+)$/);
+      if(m) outline.push(m[1].trim());
+    });
+    if(!outline.length && !theme) theme="未命名微班会";
+    if(!theme && outline.length) theme=outline.shift();
+    if(!theme) theme="未命名微班会";
+    return {theme:theme, outline:outline};
+  }
+  function meetPPTText(m){
+    var lines=["请为以下「微班会」生成一份 PowerPoint（.pptx）课件，直接输出可下载的 .pptx 文件：","","主题："+m.theme,"日期："+(m.date||""),"","提纲："];
+    (m.outline||[]).forEach(function(o){ lines.push("- "+o); });
+    lines.push("","要求：封面页 + 每条约一页，整体 5-8 页；风格简洁、积极，适合中小学班会使用；全中文。");
+    return lines.join("\n");
+  }
+  function onMeetPPT(id){
+    var m=meetById(id); if(!m) return;
+    copyText(meetPPTText(m)).then(function(ok){
+      toast(ok ? "已复制生成要点，去 WorkBuddy 对话发送即可生成 PPT，再把 .pptx 上传到下方收集区" : "复制失败，请手动记录主题与提纲");
+    });
+  }
+  function copyText(t){
+    return new Promise(function(res){
+      try{
+        if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){res(true);},function(){res(fallbackCopy(t));}); }
+        else res(fallbackCopy(t));
+      }catch(e){ res(fallbackCopy(t)); }
+    });
+  }
+  function fallbackCopy(t){
+    try{ var ta=document.createElement("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); var ok=document.execCommand("copy"); document.body.removeChild(ta); return ok; }catch(e){ return false; }
+  }
+  function onMeetUpload(id){
+    var m=meetById(id); if(!m) return;
+    var inp=document.getElementById("meetFile-"+id);
+    if(!inp||!inp.files||!inp.files.length) return;
+    var file=inp.files[0];
+    var isImg=/^image\//.test(file.type||"");
+    var after=function(durl){ if(durl) meetAddFileById(id, file.name, file.type, file.size, durl); else toast("读取文件失败"); };
+    if(isImg) compressImage(file,1280,function(d){ after(d||null); });
+    else readDataUrl(file, after);
+  }
+  function readDataUrl(file, cb){ var rd=new FileReader(); rd.onload=function(){ cb(rd.result); }; rd.onerror=function(){ toast("读取文件失败"); }; rd.readAsDataURL(file); }
+  function compressImage(file, maxDim, cb){
+    var url=URL.createObjectURL(file);
+    var img=new Image();
+    img.onload=function(){
+      try{
+        var w=img.width,h=img.height, scale=Math.min(1, maxDim/Math.max(w,h));
+        var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+        var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+        cv.getContext("2d").drawImage(img,0,0,cw,ch);
+        cb(cv.toDataURL("image/jpeg",0.85));
+      }catch(e){ cb(null); }
+      URL.revokeObjectURL(url);
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); cb(null); };
+    img.src=url;
+  }
+  function meetAddFileById(id, name, mime, size, dataUrl){
+    var m=meetById(id); if(!m) return;
+    var dot=name.lastIndexOf("."); var ext=dot>=0?name.slice(dot+1).toLowerCase():"bin";
+    var idx=(m.files||[]).length+1;
+    var nm=(m.date||todayStr())+"_"+(m.theme||"班会")+"_"+(idx)+"."+ext;
+    nm=nm.replace(/[\\/:*?"<>|]/g,"_");
+    var f={ id:uid("f"), name:nm, mime:mime||"application/octet-stream", size:size||0, data:dataUrl, added:new Date().toLocaleString("zh-CN") };
+    m.files=m.files||[]; m.files.push(f); saveMeetings(); renderMeetingInto();
+  }
+  function onMeetFileName(id,fid){
+    var m=meetById(id); if(!m) return;
+    var f=(m.files||[]).filter(function(x){return x.id===fid;})[0]; if(!f) return;
+    var inp=document.getElementById("meetFName-"+fid); if(inp) f.name=inp.value.trim()||f.name;
+    saveMeetings();
+  }
+  function onMeetFileDel(id,fid){
+    var m=meetById(id); if(!m) return;
+    if(!window.confirm("确定删除该收集项？（仅本地，不会删除原文件）")) return;
+    m.files=(m.files||[]).filter(function(x){return x.id!==fid;});
+    saveMeetings(); renderMeetingInto();
+  }
+  function onMeetTheme(id){
+    var m=meetById(id); if(!m) return;
+    var inp=document.getElementById("meetTheme-"+id); if(inp) m.theme=inp.value.trim()||m.theme;
+    saveMeetings(); renderSidebar();
+  }
+  function onMeetDel(id){
+    if(!window.confirm("确定删除这次班会记录（含收集的文件）？")) return;
+    MEETINGS=MEETINGS.filter(function(x){return x.id!==id;});
+    saveMeetings(); renderMeetingInto();
+  }
+  function downloadDataUrl(f){
+    try{
+      var arr=f.data.split(","), b64=arr.length>1?arr[1]:f.data, bin=atob(b64), len=bin.length, u8=new Uint8Array(len);
+      for(var i=0;i<len;i++) u8[i]=bin.charCodeAt(i);
+      var blob=new Blob([u8],{type:f.mime||"application/octet-stream"}); var url=URL.createObjectURL(blob);
+      var a=document.createElement("a"); a.href=url; a.download=f.name; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },100);
+    }catch(e){ toast("下载失败："+(e&&e.message||e)); }
+  }
+  function exportMeetings(){
+    try{
+      var blob=new Blob([JSON.stringify(MEETINGS,null,1)],{type:"application/json"});
+      var url=URL.createObjectURL(blob); var a=document.createElement("a"); a.href=url; a.download="班会记录备份_"+todayStr()+".json"; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },100);
+      toast("已导出班会备份 ✓");
+    }catch(e){ toast("导出失败"); }
+  }
+  function importMeetings(file){
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var arr=JSON.parse(rd.result); if(!Array.isArray(arr)) throw new Error("格式不正确");
+        if(!window.confirm("导入将覆盖当前班会记录，继续？")) return;
+        MEETINGS=arr; saveMeetings(); renderMeetingInto(); toast("已导入班会备份 ✓");
+      }catch(e){ toast("导入失败："+(e&&e.message||e)); }
+    };
+    rd.readAsText(file);
+  }
+  function onMeetAction(act,id,fid){
+    if(act==="gen") genMeetingTheme();
+    else if(act==="ppt") onMeetPPT(id);
+    else if(act==="del") onMeetDel(id);
+    else if(act==="dl"){ var m=meetById(id); var f=m&&(m.files||[]).filter(function(x){return x.id===fid;})[0]; if(f) downloadDataUrl(f); }
+    else if(act==="fdel") onMeetFileDel(id,fid);
+    else if(act==="exp") exportMeetings();
+    else if(act==="imp"){
+      var fi=document.getElementById("meetImpFile"); if(!fi) return; fi.value="";
+      fi.onchange=function(){ if(fi.files&&fi.files[0]) importMeetings(fi.files[0]); fi.onchange=null; };
+      fi.click();
+    }
+  }
+  function renderMeeting(){
+    return ''
+      +'<div class="phead"><h3>📣 微班会</h3><span class="hint">AI 生成主题 → 用 WorkBuddy 制作 PPT → 收集区归档命名</span>'
+      +'<span class="spacer"></span>'
+      +'<button class="btn-mini" data-meet="exp">导出备份</button>'
+      +'<button class="btn-mini" data-meet="imp">导入备份</button></div>'
+      +'<div id="meetGen">'
+        +'<div class="meet-gen-card">'
+          +'<div class="meet-gen-h">🤖 AI 生成微班会主题</div>'
+          +'<textarea id="meetEvents" class="meet-ta" placeholder="描述最近班级发生的事（例如：这周上课走神明显增多，作业拖欠严重，男生之间小摩擦变多…）"></textarea>'
+          +'<div class="meet-gen-bar"><button class="btn-ai" data-meet="gen">✨ 生成微班会主题</button><span class="meet-gen-hint">生成后会出现在下方的班会记录与收集区</span></div>'
+          +'<div id="meetGenBox"></div>'
+        +'</div>'
+      +'</div>'
+      +'<input type="file" id="meetImpFile" accept="application/json" style="display:none">'
+      +'<div id="meetList"></div>';
+  }
+  function renderMeetingInto(){
+    var list=document.getElementById("meetList");
+    if(!list) return;
+    if(!MEETINGS.length){
+      list.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有班会记录，先在上方用 AI 生成一个微班会主题吧～</div></div>';
+      return;
+    }
+    list.innerHTML=MEETINGS.map(meetCard).join("");
+  }
+  function meetCard(m){
+    var ol=(m.outline||[]).map(function(o){return '<li>'+esc(o)+'</li>';}).join("");
+    var files=(m.files||[]).map(function(f){
+      var isImg=/^image\//.test(f.mime||"");
+      var prev=isImg? '<img class="meet-thumb" src="'+esc(f.data)+'" alt="'+esc(f.name)+'">' : '<span class="meet-file-ico">📄</span>';
+      var ext=(f.name.split(".").pop()||"文件").toUpperCase();
+      var sz=(f.size||0)>=1048576?((f.size/1048576).toFixed(1)+" MB"):((f.size||0)>=1024?((f.size/1024).toFixed(0)+" KB"):(f.size||0)+" B");
+      return '<div class="meet-file">'
+        +'<div class="meet-file-prev">'+prev+'</div>'
+        +'<div class="meet-file-meta">'
+          +'<input class="meet-fname" id="meetFName-'+f.id+'" value="'+esc(f.name)+'" placeholder="文件名" data-meetname="'+m.id+'" data-meetfid="'+f.id+'">'
+          +'<div class="meet-file-sub">'+(isImg?"图片":ext)+' · '+sz+' · '+(f.added||"")+'</div>'
+          +'<div class="meet-file-acts">'
+            +'<button class="lnk" data-meet="dl" data-id="'+m.id+'" data-fid="'+f.id+'">下载</button>'
+            +'<button class="lnk lnk-del" data-meet="fdel" data-id="'+m.id+'" data-fid="'+f.id+'">删除</button>'
+          +'</div>'
+        +'</div>'
+      +'</div>';
+    }).join("");
+    return '<div class="meet-card">'
+      +'<div class="meet-card-h">'
+        +'<input class="meet-theme" id="meetTheme-'+m.id+'" value="'+esc(m.theme||"")+'" placeholder="班会主题" data-meettheme="'+m.id+'">'
+        +'<span class="meet-date">'+esc(m.date||"")+'</span>'
+        +'<span class="spacer"></span>'
+        +'<button class="btn-ai" data-meet="ppt" data-id="'+m.id+'">📑 用 WorkBuddy 生成 PPT</button>'
+        +'<button class="lnk lnk-del" data-meet="del" data-id="'+m.id+'">删除</button>'
+      +'</div>'
+      +'<div class="meet-events">最近发生的事：'+(m.events?esc(m.events):"—")+'</div>'
+      + (ol? '<ul class="meet-ol">'+ol+'</ul>' : '')
+      +'<div class="meet-coll-h">📥 收集区（PPT、照片等，可命名）</div>'
+      +'<div class="meet-coll-bar"><label class="btn-mini meet-up-btn">＋ 上传到收集区<input type="file" id="meetFile-'+m.id+'" class="hide-file" data-meetfile="'+m.id+'"></label></div>'
+      + (files? '<div class="meet-files">'+files+'</div>' : '<div class="meet-files-empty">还没有收集内容，点上方上传 PPT / 照片。</div>')
+      +'</div>';
+  }
+  window.__meet={ addFile:meetAddFileById, rename:onMeetFileName, theme:onMeetTheme, upload:onMeetUpload, meetings:function(){return MEETINGS;} };
 
   function extraPill(key, field, val){
     if(key==="affairs"){
@@ -2359,9 +2457,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
   }
 
-  /* ---------- 积分商城 ---------- */
-  var mallMode="manage";      // manage=教师管理模式(可见难度) / redeem=兑换(学生)视图(隐藏难度)
-  var redeemPrizeId=null;
+  /* ---------- 积分（可用 / 累积）---------- */
   function studentPoints(name){   // 现在积分（可用，含兑换花费）
     var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; var x=Number(r["分值"])||0; if(r["类型"]==="减分"||r["类型"]==="兑换") x=-x; v+=x; }); return v;
   }
@@ -2374,176 +2470,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var sum=0; names.forEach(function(n){ sum+=studentPoints(n); });
     return sum/names.length;
   }
-  function priceOf(diff){
-    var avg=classAvgPoints(); var base=avg>0?avg:50;
-    return Math.max(1, Math.round(base*Number(diff)/5));
-  }
-  function renderMall(){
-    var rows=DATA.mall||[], avg=classAvgPoints();
-    var head='<div class="phead">'
-      +'<h3>🛒 积分商城</h3>'
-      +'<span class="count" id="count-mall">共 '+rows.length+' 件</span>'
-      +'<span class="spacer"></span>'
-      +'<div class="mall-mode">'
-      +'<button class="mm-btn'+(mallMode==="manage"?" on":"")+'" data-mallmode="manage">管理模式</button>'
-      +'<button class="mm-btn'+(mallMode==="redeem"?" on":"")+'" data-mallmode="redeem">兑换模式</button>'
-      +'</div>'
-      +'<button class="btn-add" data-add="mall">+ 添加奖品</button>'
-      +'</div>';
-    var hint='<div class="mall-hint">💡 定价 = 班级人均积分 × 难度 ÷ 5（当前人均 <b>'+Math.round(avg)+'</b> 分；人均为 0 时按 50 计）。<b>难度仅「管理模式」可见</b>，兑换视图对学生隐藏。</div>';
-    var body;
-    if(!rows.length){
-      body='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有奖品，点右上角「+ 添加奖品」上架吧～</div></div>';
-    } else {
-      body='<div class="mall-grid">'+rows.map(function(p){ return prizeCard(p, avg); }).join("")+'</div>';
-    }
-    return head+hint+body;
-  }
-  function prizeCard(p){
-    var diff=Number(p["难度"])||1, price=priceOf(diff);
-    var cap=Number(p["兑换上限"])||0, done=Number(p["已兑换"])||0, remain=cap-done;
-    var imgs=Array.isArray(p["图片"])?p["图片"]:[];
-    var firstImg=imgs.filter(function(u){ return /\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i.test(u); })[0];
-    var img= firstImg ? '<div class="prize-img" style="background-image:url(\''+esc(firstImg)+'\')"></div>' : '';
-    var stars=""; for(var i=0;i<diff;i++) stars+="⭐";
-    var manageExtra = mallMode==="manage"
-      ? '<div class="prize-diff">难度 '+stars+' <span class="prize-diffn">('+diff+'/10)</span></div>' : '';
-    var actions;
-    if(mallMode==="manage"){
-      actions='<div class="prize-acts">'
-        +'<button class="mini edit" data-act="edit" data-mod="mall" data-id="'+p._id+'">编辑</button>'
-        +'<button class="mini del" data-act="del" data-mod="mall" data-id="'+p._id+'">删除</button>'
-        +'</div>';
-    } else {
-      actions='<button class="prize-redeem" data-redeem="'+p._id+'"'+(remain<=0?" disabled":"")+'>🎁 兑换'+(remain<=0?'（已兑完）':'')+'</button>';
-    }
-    return '<div class="prize">'
-      + img
-      +'<div class="prize-name">'+esc(p["名称"]||"未命名奖品")+'</div>'
-      + (p["描述"]?'<div class="prize-desc">'+esc(p["描述"])+'</div>':'')
-      +'<div class="prize-price">💎 '+price+' 积分</div>'
-      + manageExtra
-      +'<div class="prize-quota">已兑换 '+done+' / 上限 '+cap+'（剩 '+Math.max(0,remain)+'）</div>'
-      + actions
-      +'</div>';
-  }
-  function openRedeem(id){
-    var p=(DATA.mall||[]).filter(function(x){return x._id===id;})[0]; if(!p) return;
-    var price=priceOf(Number(p["难度"])||1), cap=Number(p["兑换上限"])||0, done=Number(p["已兑换"])||0;
-    if(cap-done<=0){ toast("该奖品已兑换完"); return; }
-    var elig=(DATA.students||[]).map(function(s){ var n=s["姓名"], v=studentPoints(n); return {n:n,v:v}; })
-                .filter(function(x){ return x.v>price; }).sort(function(a,b){return b.v-a.v;});
-    redeemPrizeId=id;
-    var html='<div class="redeem-prize">🎁 '+esc(p["名称"]||"")+'　·　需 <b>'+price+'</b> 积分（需同学积分 &gt; 商品价格）</div>';
-    if(!elig.length){
-      html+='<div class="imp-empty">暂无可兑换的同学（积分需大于 '+price+'）。可先去「加减分管理」给同学加分～</div>';
-    } else {
-      html+='<div class="field"><label>选择兑换同学</label><select id="redeemStudent" class="redeem-sel">'
-        + elig.map(function(x){ return '<option value="'+esc(x.n)+'">'+esc(x.n)+'（当前 '+x.v+' 分）</option>'; }).join("")
-        +'</select></div>';
-    }
-    html+='<div class="actions"><button class="btn-cancel" id="redeemCancel">取消</button>'
-      +'<button class="btn-save" id="redeemDo"'+(elig.length?'':' disabled')+'>确认兑换并扣分</button></div>';
-    document.getElementById("redeemBody").innerHTML=html;
-    document.getElementById("redeemTitle").textContent="兑换："+stripEmoji(p["名称"]||"");
-    document.getElementById("redeemMask").classList.add("show");
-  }
-  function closeRedeem(){ document.getElementById("redeemMask").classList.remove("show"); redeemPrizeId=null; }
-  function applyRedeem(){
-    if(!redeemPrizeId) return;
-    var p=(DATA.mall||[]).filter(function(x){return x._id===redeemPrizeId;})[0]; if(!p) return;
-    var price=priceOf(Number(p["难度"])||1);
-    var sel=document.getElementById("redeemStudent");
-    if(!sel){ toast("没有可兑换的同学"); return; }
-    var name=sel.value; if(!name){ toast("请选择同学"); return; }
-    if(!(studentPoints(name)>price)){ toast("该同学积分不足（需 &gt; "+price+"）"); return; }
-    var cap=Number(p["兑换上限"])||0, done=Number(p["已兑换"])||0;
-    if(cap-done<=0){ toast("该奖品已兑换完"); return; }
-    var st=(DATA.students||[]).filter(function(s){return s["姓名"]===name;})[0];
-    var no=st?st["学号"]:"";
-    setStatus("syncing");
-    var newData={}; Object.keys(p).forEach(function(k){ if(k!=="_id") newData[k]=p[k]; }); newData["已兑换"]=done+1;
-    var pt={日期:todayStr(), 学生姓名:name, 学号:no, 类型:"兑换", 分值:price, 时间:nowHMS(), 原因:"兑换："+(p["名称"]||"奖品")};
-    Promise.all([ apiUpdate("mall", p._id, newData), apiAdd("points", pt) ])
-      .then(function(){ closeRedeem(); toast("兑换成功，已扣 "+price+" 分 ✓"); return refreshAll(); })
-      .then(function(){ setStatus("ok"); })
-      .catch(function(e){ console.error(e); setStatus("offline"); toast("兑换失败，请重试"); });
-  }
-
-  /* ---------- 班级周报 · AI 生成 ---------- */
-  var weeklyGenData=null, weeklyGenImgs=[];
-  function openWeeklyGen(){
-    if(!localStorage.getItem("wb_cls_dashscope_key")){ toast("请先在「AI 小助手」或「识别考勤表」中填写通义千问 API Key"); return; }
-    weeklyGenData=null; weeklyGenImgs=[];
-    var ev=document.getElementById("wgEvents"), fl=document.getElementById("wgFile"),
-        rs=document.getElementById("wgResult"), st=document.getElementById("wgStatus"), gb=document.getElementById("wgGenBtn");
-    if(ev) ev.value=""; if(fl) fl.value=""; if(rs){ rs.innerHTML=""; rs.style.display="none"; }
-    if(st) st.textContent=""; if(gb){ gb.disabled=false; gb.textContent="🤖 生成周报"; }
-    document.getElementById("wgMask").classList.add("show");
-  }
-  function closeWeeklyGen(){ document.getElementById("wgMask").classList.remove("show"); }
-  function setWGStatus(t, busy){ var st=document.getElementById("wgStatus"); if(st) st.textContent=t||""; var gb=document.getElementById("wgGenBtn"); if(gb) gb.disabled=!!busy; }
-  function genWeekly(){
-    var key=localStorage.getItem("wb_cls_dashscope_key"); if(!key){ toast("缺少 API Key"); return; }
-    var ev=document.getElementById("wgEvents"); if(!ev) return;
-    var events=ev.value.trim(); if(!events){ toast("请先描述本周发生的事情"); return; }
-    var fl=document.getElementById("wgFile");
-    weeklyGenImgs = fl && fl.files ? Array.prototype.slice.call(fl.files) : [];
-    setWGStatus("正在生成周报…", true);
-    var prompt='你是班主任的班级周报助手。根据下面「本周发生的事情」，生成一期图文结合的班级周报。\n'
-      +'要求：\n1. 语言温暖、积极、有班级温度，适合发给家长群或作为班级公告。\n'
-      +'2. 结构清晰，建议包含：本周亮点、学习情况、班级活动、表扬与进步、温馨提示。\n'
-      +'3. 不要编造未提及的具体人名或数据；照片将作为配图，可在文中自然提及「详见配图」。\n\n本周发生的事情：\n'+events;
-    qwenChat(prompt, key).then(function(txt){
-      var parts=parseWeekly(txt);
-      showWeeklyResult(parts, weeklyGenImgs);
-      setWGStatus("生成完成，可保存为本期周报或复制文本。", false);
-    }).catch(function(e){ setWGStatus("生成失败："+(e&&e.message||e), false); });
-  }
-  function parseWeekly(txt){
-    txt=(txt||"").trim();
-    var i=txt.indexOf("下周计划");
-    if(i<0) return {sum:txt, plan:""};
-    var head=txt.slice(0,i).replace(/^【?本周小结】?[:：]?\s*/,"").trim();
-    var tail=txt.slice(i+"下周计划".length).replace(/^[:：\s]*/,"").trim();
-    return {sum:head, plan:tail};
-  }
-  function showWeeklyResult(p, imgs){
-    weeklyGenData=p; weeklyGenImgs=imgs||[];
-    var imgsHtml="";
-    if(weeklyGenImgs.length){
-      imgsHtml='<h4>配图（'+weeklyGenImgs.length+' 张，保存后作为周报配图）</h4><div class="wg-imgs">'
-        + weeklyGenImgs.map(function(f){ try{ return '<img src="'+(window.URL&&URL.createObjectURL?URL.createObjectURL(f):"")+'" alt="'+esc(f.name)+'"/>'; }catch(e){ return ''; } }).join("")
-        +'</div>';
-    }
-    var html='<div class="wg-prev">'
-      +'<h4>本周小结</h4><div class="wg-text">'+esc(p.sum)+'</div>'
-      + (p.plan?'<h4>下周计划</h4><div class="wg-text">'+esc(p.plan)+'</div>':'')
-      + imgsHtml
-      +'</div>'
-      +'<div class="wg-actions"><button class="btn-add" id="wgSaveBtn">💾 保存为本期周报</button><button class="btn-grid" id="wgCopyBtn">📋 复制文本</button></div>';
-    var box=document.getElementById("wgResult"); box.innerHTML=html; box.style.display="block";
-    var gb=document.getElementById("wgGenBtn"); if(gb) gb.textContent="🔄 重新生成";
-    document.getElementById("wgSaveBtn").addEventListener("click", saveWeeklyReport);
-    document.getElementById("wgCopyBtn").addEventListener("click", function(){
-      var t="【本周小结】\n"+(p.sum||"")+"\n\n"+(p.plan?("【下周计划】\n"+p.plan+"\n\n"):"")+(weeklyGenImgs.length?("（配图 "+weeklyGenImgs.length+" 张）"):"");
-      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast("已复制 ✓"); }); }
-      else { toast("复制失败，请手动选择文本"); }
-    });
-  }
-  function saveWeeklyReport(){
-    var p=weeklyGenData; if(!p){ toast("请先生成周报"); return; }
-    var imgs=weeklyGenImgs||[];
-    setWGStatus("上传图片并保存中…", true);
-    var up=imgs.map(function(f){ return uploadOne("weekly", f); });
-    Promise.all(up).then(function(urls){
-      var data={ 标题:"班级周报 · "+todayStr(), 日期:todayStr(), 本周小结:p.sum, 下周计划:p.plan||"", 配图:urls };
-      return apiAdd("weekly", data);
-    }).then(function(){ closeWeeklyGen(); toast("周报已生成并保存 ✓"); return refreshAll(); })
-     .then(function(){ setStatus("ok"); })
-     .catch(function(e){ console.error(e); setWGStatus("保存失败："+(e&&e.message||e), false); });
-  }
-
   /* ---------- 今日要处理 ---------- */
   function loadToday(){
     var rows=DATA.affairs, box=document.getElementById("todayList");
@@ -2603,6 +2529,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function errSnippet(s, n){ n = n||80; s = String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
 
+  /* 诊断横幅已按需求移除：不再向用户展示「模块未加载 / 表不存在」等提示。保留函数名仅为兼容旧调用点（此处为空操作）。 */
+  function syncBanner(){ return; }
   function refreshAll(){
     return loadPass(ALLKEYS).then(function(failed1){
       var retryable = failed1.filter(function(f){ return classifyError(f.e).kind==="transient"; }).map(function(f){return f.k;});
@@ -2623,16 +2551,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
+      loadMeetings();
       try { render(); loadToday(); }
       catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
-      if(failed.length===ALLKEYS.length){
-        syncBanner("err", [], "所有模块加载失败（可能为网络/账号问题）。请重试。");
-      } else if(failed.length){
-        syncBanner("warn", failed, "已加载 "+(ALLKEYS.length-failed.length)+"/"+ALLKEYS.length+" 个模块，以下模块暂时不可用：");
-      } else {
-        syncBanner(null, [], "");
-      }
       return failed;
     });
   }
@@ -3104,14 +3026,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
-    var aiBtn=e.target.closest("[data-ai]"); if(aiBtn){ openWeeklyGen(); return; }
     var gai=e.target.closest("[data-gradeai]"); if(gai){ onGradeAI(gai.getAttribute("data-gradeai")); return; }
     var rf=e.target.closest("[data-redflag]"); if(rf){ resolveRedFlag(rf.getAttribute("data-redflag")==="won"); return; }
     var dcfg=e.target.closest("[data-dutycfg]"); if(dcfg){ onDutyCfg(dcfg.getAttribute("data-dutycfg")); return; }
     var dgrid=e.target.closest("[data-dutygrid]"); if(dgrid){ saveDutyGrid(dgrid.getAttribute("data-dutygrid")); return; }
-    var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
-    var mm=e.target.closest("[data-mallmode]"); if(mm){ mallMode=mm.getAttribute("data-mallmode"); render(); return; }
-    var rd=e.target.closest("[data-redeem]"); if(rd){ openRedeem(rd.getAttribute("data-redeem")); return; }
+    var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
@@ -3138,6 +3057,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("content").addEventListener("change",function(e){
     var modeSel=e.target.closest && e.target.closest("[data-seatmode]");
     if(modeSel){ seatLayout.mode = (modeSel.value==="group"?"group":"grid"); saveSeatLayout(); renderList("seats"); return; }
+    var mf=e.target.closest && e.target.closest("[data-meetfile]");
+    if(mf){ onMeetUpload(mf.getAttribute("data-meetfile")); return; }
+    var mth=e.target.closest && e.target.closest("[data-meettheme]");
+    if(mth){ onMeetTheme(mth.getAttribute("data-meettheme")); return; }
+    var mnm=e.target.closest && e.target.closest("[data-meetname]");
+    if(mnm){ onMeetFileName(mnm.getAttribute("data-meetname"), mnm.getAttribute("data-meetfid")); return; }
   });
   document.getElementById("content").addEventListener("keydown",function(e){
     if(e.key==="Enter"){ var c=e.target.closest && e.target.closest(".scell"); if(c){ e.preventDefault(); c.blur(); } }
@@ -3162,18 +3087,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("ocrMask").addEventListener("click",function(e){ if(e.target===this) closeOCR(); });
   document.getElementById("ocrRecognize").addEventListener("click",ocrRecognize);
   document.getElementById("ocrDo").addEventListener("click",applyOCR);
-
-  /* 班级周报 · AI 生成弹窗 */
-  document.getElementById("wgClose").addEventListener("click",closeWeeklyGen);
-  document.getElementById("wgGenBtn").addEventListener("click",genWeekly);
-  document.getElementById("wgMask").addEventListener("click",function(e){ if(e.target===this) closeWeeklyGen(); });
-
-  /* 积分商城 · 兑换弹窗（在容器上委派，避免 redeemBody 重渲染丢失监听） */
-  document.getElementById("redeemMask").addEventListener("click",function(e){
-    if(e.target.closest("#redeemClose")||e.target.closest("#redeemCancel")) closeRedeem();
-    else if(e.target.closest("#redeemDo")) applyRedeem();
-    else if(e.target===this) closeRedeem();
-  });
 
   /* 一生一档 · 学生档案 */
   document.getElementById("profileMask").addEventListener("click",function(e){
@@ -3550,7 +3463,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     refreshAll().then(function(failed){
       setStatus((failed && failed.length===ALLKEYS.length) ? "offline" : "ok");
     }).catch(function(e){
-      console.error(e); setStatus("offline"); syncBanner("err","加载失败，点此重试");
+      console.error(e); setStatus("offline");
     });
   }
 
