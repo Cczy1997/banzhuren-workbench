@@ -540,6 +540,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .db-mem{background:#F4F1FB;border:1px solid #E4DCF2;border-radius:999px;padding:2px 10px;font-size:12.5px;color:var(--ink);font-weight:600}
   .db-mem-empty{color:var(--ink-soft);font-style:italic}
   .db-roster-tip{margin-top:9px;font-size:12px;color:var(--ink-soft);line-height:1.6}
+  /* 分工行：室内/室外徽标 */
+  .db-tbadge{display:inline-block;font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px;margin-right:2px}
+  .db-tbadge.in{background:#E7F0FF;color:#3a6ea5}
+  .db-tbadge.out{background:#E6F6EC;color:#2f8a5b}
+  /* 值日生名单：四个小组并列（像座位表那样可交换 / 增减） */
+  .db-roster-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:6px}
+  .db-rcol{border:1px solid var(--line);border-radius:14px;padding:10px 11px;background:#FBFCFF;display:flex;flex-direction:column;min-height:132px}
+  .db-rcol.cur{border-color:var(--pink);box-shadow:0 0 0 2px rgba(255,107,157,.15);background:#FFF7FB}
+  .db-rcol-h{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--ink);font-size:14px;margin-bottom:9px}
+  .db-rcol-h .db-curtag{margin-left:auto}
+  .db-rmems{display:flex;flex-direction:column;gap:7px;flex:1}
+  .db-rmem{display:flex;align-items:center;gap:6px;background:#F4F1FB;border:1.5px solid #E4DCF2;border-radius:10px;padding:7px 9px;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;user-select:none;transition:.1s}
+  .db-rmem:hover{border-color:var(--pink)}
+  .db-rmem.sel{border-color:var(--pink);background:#FFE9F2;box-shadow:0 0 0 2px rgba(255,107,157,.25)}
+  .db-rn{font-weight:700}
+  .db-rdel{margin-left:auto;border:none;background:transparent;color:#bdb2c4;font-size:13px;cursor:pointer;padding:2px 5px;border-radius:6px;line-height:1}
+  .db-rdel:hover{color:#e0584f;background:#fdeaea}
+  .db-rcol-empty{color:var(--ink-soft);font-style:italic;font-size:12.5px;padding:6px 2px}
+  .db-radd{margin-top:9px;border:1.5px dashed var(--line);background:#fff;color:var(--ink-soft);border-radius:10px;padding:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .db-radd:hover{border-color:var(--pink);color:var(--pink-d)}
+  .db-swapbar{font-size:12.5px;color:var(--pink-d);font-weight:700;margin:4px 0 0;line-height:1.6}
+  .db-rhint{font-size:12px;color:var(--ink-soft);margin:4px 0 0;line-height:1.6}
   /* 总览 · 本周值日生 */
   .ov-duty{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:14px 15px;background:linear-gradient(135deg,#FFF7FA,#F7FAFF)}
   .ov-duty h2{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800;color:var(--ink);margin:0 0 10px}
@@ -1440,6 +1462,108 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* ---------- 每周值日看板 + 流动红旗轮值 ---------- */
+  // 值日表草稿：键 = 组\u0000分工 → [姓名...]；保存前所有改动只动草稿，绝不回读服务器清空已输入的名字
+  var dutyGrid=null;
+  var dutyRosterSel=null;
+  function dgKey(g,t){ return g+"\u0000"+t; }
+  function buildDutyGrid(){
+    dutyGrid={};
+    (DATA.duty||[]).forEach(function(r){
+      var arr=String(r["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      dutyGrid[dgKey(r["值日组"], r["内容"])]=arr;
+    });
+  }
+  // 某组值日生：优先草稿，回退 DATA.duty
+  function groupMembersLive(g){
+    if(dutyGrid){
+      var m={};
+      Object.keys(dutyGrid).forEach(function(k){
+        if(k.indexOf(g+"\u0000")===0){ dutyGrid[k].forEach(function(n){ if(n) m[n]=1; }); }
+      });
+      return Object.keys(m);
+    }
+    return dutyGroupMembers(g);
+  }
+  // 保存前把 DOM 中已输入但未触发 input 的名字同步进草稿（兼做测试兼容）
+  function captureDutyGridFromDom(){
+    if(dutyGrid===null) buildDutyGrid();
+    document.querySelectorAll(".db-cell").forEach(function(cell){
+      var g=cell.getAttribute("data-dg"), t=cell.getAttribute("data-dt"), p=parseInt(cell.getAttribute("data-dp"),10);
+      if(g==null||t==null||isNaN(p)) return;
+      var k=dgKey(g,t);
+      if(!dutyGrid[k]) dutyGrid[k]=[];
+      dutyGrid[k][p]=cell.value;
+    });
+  }
+  /* 名单（四个小组并列）交互：交换 / 增减，像座位表那样，改动即时落库 */
+  function afterDutyRosterChange(swapped){
+    if(dutyGrid!==null) buildDutyGrid();
+    dutyRosterSel=null;
+    renderList("duty"); render();
+    if(swapped) toast("已交换并保存 ✓");
+  }
+  function dutyRosterRemoveLocal(g,name){
+    (DATA.duty||[]).forEach(function(r){
+      if(r["值日组"]!==g) return;
+      var arr=String(r["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      var i=arr.indexOf(name);
+      if(i>=0){ arr.splice(i,1); r["学生姓名"]=arr.join(","); }
+    });
+  }
+  // 本地新增并返回持久化 promise（null / Promise / "dup"）
+  function dutyRosterAddLocal(g,name){
+    name=(name||"").trim(); if(!name) return null;
+    if(groupMembersLive(g).indexOf(name)>=0) return "dup";
+    var recs=(DATA.duty||[]).filter(function(r){return r["值日组"]===g;});
+    var target= recs.length ? recs.slice().sort(function(a,b){ return (a["学生姓名"]||"").split(/[,，、]/).length - (b["学生姓名"]||"").split(/[,，、]/).length; })[0] : null;
+    if(!target){
+      var tname=DUTY_TASKS.length?DUTY_TASKS[0].name:"值日生";
+      var nrec={星期:"本周",值日组:g,学生姓名:name,内容:tname,备注:""};
+      return apiAdd("duty",nrec).then(function(o){ o["星期"]="本周";o["值日组"]=g;o["学生姓名"]=name;o["内容"]=tname; DATA.duty.push(o); return o; });
+    }
+    var arr=(target["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    arr.push(name); target["学生姓名"]=arr.join(",");
+    if(target._id) return apiUpdate("duty",target._id,{学生姓名:target["学生姓名"]});
+    return Promise.resolve();
+  }
+  function dutyRosterRemove(g,name){
+    dutyRosterRemoveLocal(g,name);
+    var jobs=[];
+    (DATA.duty||[]).slice().forEach(function(r){
+      if(r["学生姓名"]===""){
+        if(r._id) jobs.push(apiDelete("duty",r._id));
+        var k=DATA.duty.indexOf(r); if(k>=0) DATA.duty.splice(k,1);
+      } else if(r._id){
+        jobs.push(apiUpdate("duty",r._id,{学生姓名:r["学生姓名"]}));
+      }
+    });
+    Promise.all(jobs).then(function(){ afterDutyRosterChange(false); }).catch(function(e){ toast("删除失败："+(e&&e.message||e)); });
+  }
+  function dutyRosterAdd(g){
+    var name=window.prompt("为「"+g+"」添加值日生姓名：");
+    if(name===null) return;
+    name=(name||"").trim();
+    if(!name) return;
+    if(groupMembersLive(g).indexOf(name)>=0){ toast(name+" 已在 "+g); return; }
+    var p=dutyRosterAddLocal(g,name);
+    Promise.resolve(p).then(function(){ afterDutyRosterChange(false); }).catch(function(e){ toast("添加失败："+(e&&e.message||e)); });
+  }
+  function dutyRosterSwap(a,b){
+    if(a.group===b.group){ dutyRosterSel=null; renderList("duty"); return; }
+    dutyRosterRemoveLocal(a.group,a.name);
+    dutyRosterRemoveLocal(b.group,b.name);
+    var p1=dutyRosterAddLocal(b.group,a.name);
+    var p2=dutyRosterAddLocal(a.group,b.name);
+    Promise.all([p1,p2].filter(Boolean)).then(function(){ afterDutyRosterChange(true); }).catch(function(e){ toast("交换失败："+(e&&e.message||e)); });
+  }
+  function onDutyRosterClick(cell){
+    var rg=cell.getAttribute("data-rg"), rn=cell.getAttribute("data-rn");
+    if(dutyRosterSel===null){ dutyRosterSel={group:rg,name:rn}; renderList("duty"); return; }
+    if(dutyRosterSel.group===rg && dutyRosterSel.name===rn){ dutyRosterSel=null; renderList("duty"); return; }
+    var a=dutyRosterSel, b={group:rg,name:rn};
+    dutyRosterSel=null;
+    dutyRosterSwap(a,b);
+  }
   var DUTYROT_LS="wb_cls_dutyrot";
   var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null };
   var redflagAskedThisWeek=false;
@@ -1488,27 +1612,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   // 史迪奇风小图标（内联 SVG，零外部依赖）
   var STITCH_EAR='<svg class="db-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19C3.5 13 4 6 6.5 4 8 7 9.5 12 11.5 15M18 19c2.5-6 2-13-0.5-15-1.5 3-3 8-5 11" fill="none" stroke="var(--stitch-d)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var STITCH_PAW='<svg class="db-ico" viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--stitch-l)"><circle cx="7" cy="9" r="2"/><circle cx="12" cy="6.5" r="2"/><circle cx="17" cy="9" r="2"/><ellipse cx="12" cy="16" rx="4.6" ry="3.8"/></g></svg>';
-  // 渲染单个分工行：可编辑名称 + 室内外切换 + 人数选择 + 删除；每个轮值组一列，按人数渲染对应数量的姓名输入框
-  function dutyTaskRow(t, ti, cols, map){
+  // 渲染单个分工行：可编辑名称 + 室内外切换 + 人数选择 + 删除；每个轮值组一列，按人数渲染对应数量的姓名输入框（值取自草稿 dutyGrid，不回读服务器）
+  function dutyTaskRow(t, ti, cols){
     var areaSel='<select class="db-tarea" data-dutytask="area" data-ti="'+ti+'">'
       +'<option value="室内"'+(t.area==="室内"?" selected":"")+'>室内</option>'
       +'<option value="室外"'+(t.area==="室外"?" selected":"")+'>室外</option></select>';
     var minSel='<select class="db-tmin" data-dutytask="min" data-ti="'+ti+'">'
       +[1,2,3,4,5,6].map(function(n){ return '<option value="'+n+'"'+(t.min===n?' selected':'')+'>'+n+' 人</option>'; }).join("")+'</select>';
+    var areaBadge='<span class="db-tbadge '+(t.area==="室外"?"out":"in")+'">'+t.area+'</span>';
     var head='<th class="db-rh"><span class="db-th-wrap">'
       +'<input class="db-tname" data-dutytask="name" data-ti="'+ti+'" value="'+esc(t.name)+'" placeholder="分工名称">'
-      +areaSel+minSel
+      +areaBadge+areaSel+minSel
       +'<button class="lnk lnk-del" data-dutytask="del" data-ti="'+ti+'">删除</button>'
       +'</span></th>';
     var tds=head;
     cols.forEach(function(g,gi){
-      var rec=map[g+"|"+t.name];
-      var names=rec?(String(rec["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(function(s){return s;})):[];
+      var arr=dutyGrid[dgKey(g,t.name)]||[];
       var curCls=(cols.length&&gi===dutyRot.cursor)?' db-td-cur':'';
       var cell='<td class="db-td'+curCls+'"><div class="db-ppl">';
       for(var p=0;p<t.min;p++){
-        var v=names[p]||"";
-        cell+='<input class="db-cell" id="dutycell-'+gi+'-'+ti+'-'+p+'" value="'+esc(v)+'" placeholder="'+(p===0?"学生姓名":"")+'">';
+        var v=arr[p]||"";
+        cell+='<input class="db-cell" data-dg="'+esc(g)+'" data-dt="'+esc(t.name)+'" data-dp="'+p+'" id="dutycell-'+gi+'-'+ti+'-'+p+'" value="'+esc(v)+'" placeholder="'+(p===0?"学生姓名":"")+'">';
       }
       cell+='</div></td>';
       tds+=cell;
@@ -1516,8 +1640,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return '<tr>'+tds+'</tr>';
   }
   function renderDutyBoard(){
+    if(dutyGrid===null) buildDutyGrid();
     var groups=dutyRot.groups, cur=currentDutyGroup();
-    var cfgHtml='<div class="db-cfg"><b>轮值设置</b>：<input class="db-cfg-in" id="dutyGroupsInput" placeholder="如：第一组,第二组,第三组" value="'+esc(groups.join(","))+'">'
+    var cfgHtml='<div class="db-cfg"><b>轮值设置</b>：<input class="db-cfg-in" id="dutyGroupsInput" placeholder="如：第一组,第二组,第三组,第四组" value="'+esc(groups.join(","))+'">'
       +'<button class="btn-mini" data-dutycfg="save">保存</button>'
       +'<button class="btn-mini" data-dutycfg="reset">从记录提取</button></div>';
     // 表格列 = 值日组（按轮值顺序）；未设置时给一个默认「第一组」以便直接开填
@@ -1528,12 +1653,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           return '<span class="db-chip'+(i===dutyRot.cursor?' cur':'')+'">'+(i+1)+'. '+esc(g)+tag+'</span>';
         }).join('<span class="db-arrow">→</span>')
       : '<span class="db-empty">未设置轮值小组，表格列暂用「第一组」；在上方填写「第一组,第二组…」后列会按轮值顺序展开。</span>';
-    // 已录入记录：键 = 值日组|内容（整周按组分工，不再按星期拆分）
-    var map={};
-    (DATA.duty||[]).forEach(function(r){ var k=r["值日组"]+"|"+r["内容"]; if(!map[k]) map[k]=r; });
-    // 分工按 室内 / 室外 分两块
-    var idxByArea={ 室内:[], 室外:[] };
-    DUTY_TASKS.forEach(function(t,ti){ idxByArea[t.area==="室外"?"室外":"室内"].push(ti); });
     function headRow(){
       return '<th class="db-th db-rh">分工 ＼ 值日组</th>'+cols.map(function(g,gi){
         var curCls=(cols.length && gi===dutyRot.cursor)?' db-col-cur':'';
@@ -1541,19 +1660,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         return '<th class="db-th'+curCls+'">'+esc(g)+tag+'</th>';
       }).join("");
     }
-    function addBtn(area){
-      return '<div class="db-add-wrap"><button class="btn-mini db-add" data-dutytask="add" data-area="'+area+'">＋ 新增分工</button></div>';
-    }
-    function blockHtml(title, icon, area, items){
-      if(!items.length){
-        return '<div class="db-block"><div class="db-block-h">'+icon+' '+title+'</div>'
-          +'<div class="db-block-empty">（暂无分工，点下方「＋ 新增分工」添加）</div>'+addBtn(area)+'</div>';
-      }
-      var rows=items.map(function(ti){ return dutyTaskRow(DUTY_TASKS[ti], ti, cols, map); }).join("");
-      return '<div class="db-block"><div class="db-block-h">'+icon+' '+title+' <span class="db-block-n">'+items.length+' 项</span></div>'
-        +'<table class="db-table"><thead><tr>'+headRow()+'</tr></thead><tbody>'+rows+'</tbody></table>'
-        +addBtn(area)+'</div>';
-    }
+    var rows=DUTY_TASKS.map(function(t,ti){ return dutyTaskRow(t,ti,cols); }).join("");
     var wkNow=isoWeek().key, rfHtml;
     if(groups.length){
       if(dutyRot.checkedWeek===wkNow){
@@ -1568,33 +1675,44 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="db-title">'+STITCH_EAR+'每周值日看板'+(groups.length?' · 本周：<span class="db-cur">'+esc(cur)+'</span>（已值日 '+dutyRot.servedWeeks+' 周）':'')+'</div>'
       +cfgHtml
       +'<div class="db-timeline">'+tl+'</div>'
-      +'<div class="db-grid-bar"><b>'+STITCH_PAW+'值日表（轮值组 × 分工）</b><span class="db-grid-hint">分工名称 / 室内外 / 人数均可调；保存后写入「值日安排」</span>'
+      +'<div class="db-grid-bar"><b>'+STITCH_PAW+'值日表（轮值组 × 分工 · 室内外同表）</b><span class="db-grid-hint">分工名称 / 室内外 / 人数均可调；输入的名字不会因改动被清空</span>'
         +'<button class="btn-mini" data-dutygrid="save">保存值日表</button></div>'
-      +blockHtml("🏠 室内", "🏠", "室内", idxByArea["室内"])
-      +blockHtml("🌳 室外", "🌳", "室外", idxByArea["室外"])
+      +'<table class="db-table"><thead><tr>'+headRow()+'</tr></thead><tbody>'+rows+'</tbody></table>'
+      +'<div class="db-add-wrap"><button class="btn-mini db-add" data-dutytask="add" data-area="室内">＋ 新增分工</button></div>'
       +rfHtml
       +'</div>';
   }
-  // 值日生名单（按组汇总成表格）：把每个值日组的成员列出来
+  // 值日生名单（四个小组并列）：保存后并列展示；可像座位表那样 交换 / 增减（改动即时落库）
   function renderDutyRoster(){
     var groups=dutyRot.groups;
     if(!groups.length){
       return '<div class="db-roster db-roster-empty">先在上方「轮值设置」填写值日小组（如 第一组,第二组,第三组,第四组），保存后这里会按组列出每个组的值日生成员。</div>';
     }
-    var rows=groups.map(function(g,i){
-      var mem=dutyGroupMembers(g);
+    var cols=groups.map(function(g,i){
+      var mem=groupMembersLive(g);
+      var curCls=(i===dutyRot.cursor)?' cur':'';
       var curTag=(i===dutyRot.cursor)?'<span class="db-curtag">本周</span>':'';
-      var chips=mem.length?mem.map(function(n){return '<span class="db-mem">'+esc(n)+'</span>';}).join(''):'<span class="db-mem-empty">未安排</span>';
-      return '<tr>'
-        +'<td class="db-rg-name">'+esc(g)+curTag+'</td>'
-        +'<td class="db-rg-cnt">'+mem.length+' 人</td>'
-        +'<td class="db-rg-mem">'+chips+'</td>'
-      +'</tr>';
+      var mems = mem.length
+        ? mem.map(function(n){
+            var selCls=(dutyRosterSel && dutyRosterSel.group===g && dutyRosterSel.name===n)?' sel':'';
+            return '<div class="db-rmem'+selCls+'" data-rg="'+esc(g)+'" data-rn="'+esc(n)+'">'
+              +'<span class="rn">'+esc(n)+'</span>'
+              +'<button class="db-rdel" data-rdel="1" data-rg="'+esc(g)+'" data-rn="'+esc(n)+'" title="移除">✕</button></div>';
+          }).join('')
+        : '<div class="db-rcol-empty">未安排</div>';
+      return '<div class="db-rcol'+curCls+'">'
+        +'<div class="db-rcol-h"><span>'+esc(g)+'</span>'+curTag+'</div>'
+        +'<div class="db-rmems">'+mems+'</div>'
+        +'<button class="db-radd" data-radd="1" data-rg="'+esc(g)+'">＋ 添加学生</button>'
+        +'</div>';
     }).join("");
+    var hint = dutyRosterSel
+      ? '<div class="db-swapbar">已选中「'+esc(dutyRosterSel.group)+' · '+esc(dutyRosterSel.name)+'」，再点另一位同学即可交换所在小组；点同一人取消。</div>'
+      : '<div class="db-rhint">点两位同学可<b>交换</b>他们所在的值日组；点 ✕ 移除；点「＋ 添加学生」加入本组。改动自动保存。</div>';
     return '<div class="db-roster">'
-      +'<div class="db-roster-h">📋 值日生名单（按组）</div>'
-      +'<table class="db-roster-tbl"><thead><tr><th>值日组</th><th>人数</th><th>成员</th></tr></thead>'
-      +'<tbody>'+rows+'</tbody></table>'
+      +'<div class="db-roster-h">📋 值日生名单（四个小组并列）</div>'
+      +hint
+      +'<div class="db-roster-cols">'+cols+'</div>'
       +'<div class="db-roster-tip">成员为该组在各分工（室内/室外）中出现的全部学生；本周值日生也会同步显示在「总览」。</div>'
       +'</div>';
   }
@@ -1605,12 +1723,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return '<div class="ov-duty"><h2>🧹 本周值日生</h2><div class="empty">尚未设置值日小组，去「值日安排」填写轮值小组即可自动显示。</div></div>';
     }
     var cur=currentDutyGroup();
-    var mem=dutyGroupMembers(cur);
+    var mem=groupMembersLive(cur);
     var chips=mem.length?mem.map(function(n){return '<span class="ov-duty-mem">'+esc(n)+'</span>';}).join(''):'<span class="ov-duty-empty">本周值日生尚未安排</span>';
     return '<div class="ov-duty"><h2>🧹 本周值日生 · <span class="ov-duty-grp">'+esc(cur)+'</span></h2><div class="ov-duty-list">'+chips+'</div></div>';
   }
-  // 把值日表网格写回 DATA.duty（按 值日组+内容 upsert；星期统一记「本周」）
+  // 把值日表草稿写回 DATA.duty（按 值日组+内容 upsert；星期统一记「本周」）
   function saveDutyGrid(){
+    captureDutyGridFromDom();   // 先把 DOM 中已输入的名字并入草稿，避免漏存
     var cols = dutyRot.groups.length ? dutyRot.groups : ["第一组"];
     var jobs=[];
     var exist={};
@@ -1618,13 +1737,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     cols.forEach(function(g,gi){
       DUTY_TASKS.forEach(function(t,ti){
         var key=g+"|"+t.name;
-        var parts=[];
-        for(var p=0;p<t.min;p++){
-          var input=document.getElementById("dutycell-"+gi+"-"+ti+"-"+p);
-          var v=input?(input.value||"").trim():"";
-          if(v) parts.push(v);
-        }
-        var val=parts.join(",");
+        var arr=dutyGrid[dgKey(g,t.name)]||[];
+        var val=arr.map(function(s){return (s||"").trim();}).filter(Boolean).join(",");
         var rec=exist[key];
         if(val){
           if(rec && rec._id){
@@ -1640,16 +1754,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       });
     });
     Promise.all(jobs).then(function(){
+      buildDutyGrid();
       toast("值日表已保存 ✓"); renderList("duty"); render();
     }).catch(function(e){ toast("保存失败："+(e&&e.message||e)); });
   }
-  // 分工模板编辑：名称 / 室内外 / 人数 / 增删（名称改动会同步迁移已有值日记录）
+  // 分工模板编辑：名称 / 室内外 / 人数 / 增删（只动草稿 DUTY_TASKS + dutyGrid，不回读服务器，已输入的名字得以保留）
   function onDutyTask(act, ti, val){
     ti=parseInt(ti);
     if(act==="name"){
       if(!DUTY_TASKS[ti]) return;
       var old=DUTY_TASKS[ti].name, nv=(val||"").trim(); if(!nv||nv===old) return;
       DUTY_TASKS[ti].name=nv; saveDutyTasks();
+      if(dutyGrid){ dutyRot.groups.forEach(function(g){ var k=dgKey(g,nv); if(!(k in dutyGrid)) dutyGrid[k]=dutyGrid[dgKey(g,old)]||[]; delete dutyGrid[dgKey(g,old)]; }); }
       (DATA.duty||[]).forEach(function(r){ if(r["内容"]===old){ r["内容"]=nv; if(r._id) apiUpdate("duty",r._id,{内容:nv}); } });
       renderList("duty");
     } else if(act==="area"){
@@ -1661,11 +1777,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var nm=DUTY_TASKS[ti].name;
       if(!window.confirm("删除分工「"+nm+"」？该分工对应的值日记录也会一并删除。")) return;
       DUTY_TASKS.splice(ti,1); saveDutyTasks();
+      if(dutyGrid){ dutyRot.groups.forEach(function(g){ delete dutyGrid[dgKey(g,nm)]; }); }
       (DATA.duty||[]).filter(function(r){return r["内容"]===nm;}).forEach(function(r){ if(r._id) apiDelete("duty",r._id); });
       DATA.duty=(DATA.duty||[]).filter(function(r){return r["内容"]!==nm;});
       renderList("duty"); render();
     } else if(act==="add"){
-      DUTY_TASKS.push({name:"新分工",area:(val==="室外"?"室外":"室内"),min:1}); saveDutyTasks(); renderList("duty");
+      DUTY_TASKS.push({name:"新分工",area:(val==="室外"?"室外":"室内"),min:1}); saveDutyTasks();
+      if(dutyGrid){ dutyRot.groups.forEach(function(g){ var k=dgKey(g,"新分工"); if(!(k in dutyGrid)) dutyGrid[k]=[]; }); }
+      renderList("duty");
     }
   }
   function askRedFlag(){
@@ -3402,6 +3521,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(da==="add"){ onDutyTask("add", null, dta.getAttribute("data-area")); return; }
       if(da==="del"){ onDutyTask("del", dta.getAttribute("data-ti")); return; }
     }
+    var rdel=e.target.closest("[data-rdel]"); if(rdel){ dutyRosterRemove(rdel.getAttribute("data-rg"), rdel.getAttribute("data-rn")); return; }
+    var radd=e.target.closest("[data-radd]"); if(radd){ dutyRosterAdd(radd.getAttribute("data-rg")); return; }
+    var rmem=e.target.closest(".db-rmem"); if(rmem){ onDutyRosterClick(rmem); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
@@ -3453,6 +3575,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(wwk){ onWeekWeek(wwk.getAttribute("data-weekweek")); return; }
     var wc=e.target.closest && e.target.closest("[data-weekcontent]");
     if(wc){ onWeekContent(wc.getAttribute("data-weekcontent")); return; }
+  });
+  /* 值日表：输入学生姓名即时写入草稿，确保改动分工/人数时名字不被清空 */
+  document.getElementById("content").addEventListener("input",function(e){
+    var cell=e.target.closest && e.target.closest(".db-cell");
+    if(!cell) return;
+    var g=cell.getAttribute("data-dg"), t=cell.getAttribute("data-dt"), p=parseInt(cell.getAttribute("data-dp"),10);
+    if(g==null||t==null||isNaN(p)) return;
+    if(dutyGrid===null) buildDutyGrid();
+    var k=dgKey(g,t);
+    if(!dutyGrid[k]) dutyGrid[k]=[];
+    dutyGrid[k][p]=cell.value;
   });
   document.getElementById("content").addEventListener("keydown",function(e){
     if(e.key==="Enter"){ var c=e.target.closest && e.target.closest(".scell"); if(c){ e.preventDefault(); c.blur(); } }
@@ -3904,11 +4037,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   window.__duty = {
     groups: function(){ return dutyRot.groups.slice(); },
     setGroups: function(arr){ dutyRot.groups=arr.slice(); dutyRot.cursor=0; dutyRot.servedWeeks=1; saveDutyRot(); },
-    seed: function(rows){ DATA.duty = rows; },
-    members: function(g){ return dutyGroupMembers(g); },
+    seed: function(rows){ DATA.duty = rows; dutyGrid=null; },
+    members: function(g){ return groupMembersLive(g); },
     current: function(){ return currentDutyGroup(); },
     rosterHTML: function(){ return renderDutyRoster(); },
-    weekHTML: function(){ return renderDutyWeek(); }
+    weekHTML: function(){ return renderDutyWeek(); },
+    rosterCols: function(){ return dutyRot.groups.length; },
+    swapRoster: function(a,b){ dutyRosterSwap({group:a.group,name:a.name},{group:b.group,name:b.name}); },
+    addRoster: function(g,name){ var p=dutyRosterAddLocal(g,name); Promise.resolve(p).then(function(){ afterDutyRosterChange(false); }).catch(function(){}); return p; },
+    removeRoster: function(g,name){ dutyRosterRemove(g,name); }
   };
 })();
   </script>
