@@ -156,6 +156,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .tcard.soon .tag{background:#FFF3D6;color:#C98A00}
   .tcard .t-meta{font-size:12.5px;color:var(--ink-soft);margin-top:5px;display:flex;flex-wrap:wrap;gap:4px 12px}
   .tcard .t-act{margin-top:8px;display:flex;gap:8px}
+  /* 学生档案：一格一格的卡片墙 */
+  .stu-search-wrap{margin:10px 0 2px}
+  .stu-search{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line);border-radius:11px;font-size:14px;background:#fff;color:var(--ink)}
+  .stu-search:focus{outline:none;border-color:var(--pink);box-shadow:0 0 0 3px rgba(255,107,157,.14)}
+  .stu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;margin-top:4px}
+  .stu-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 9px 11px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+  .stu-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(255,107,157,.16);border-color:var(--pink)}
+  .stu-card:active{transform:translateY(0)}
+  .stu-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;margin-bottom:7px}
+  .stu-name{font-size:14.5px;font-weight:700;color:var(--ink);line-height:1.2;word-break:break-all}
+  .stu-sub{font-size:11.5px;color:var(--ink-soft);margin-top:3px;line-height:1.3}
+  .stu-tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+  .stu-tags .chip{font-size:10px;padding:1px 6px}
 
   /* sub chips (now unused on desktop but kept for safety) */
   .subchips{display:none}
@@ -920,7 +933,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   var MODULES = {
     students:{
-      title:"🐣 学生档案", cat:"stu", unit:"人", main:"姓名",
+      title:"🐣 学生档案", cat:"stu", unit:"人", main:"姓名", grid:true,
       fields:[
         {name:"姓名",type:"text",required:true,ph:"学生姓名"},
         {name:"性别",type:"select",options:["男","女"]},
@@ -1138,7 +1151,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   Object.keys(ORDER).forEach(function(cat){
     (ORDER[cat]||[]).forEach(function(k){ if(!DATA.hasOwnProperty(k)) DATA[k]=[]; });
   });
-  var state = { cat:"overview", mod:"students", grid:{seats:true}, open:{} };
+  var state = { cat:"overview", mod:"students", grid:{seats:true, students:true}, open:{}, stuQ:"" };
   /* 座位布局：行×列（默认 8×7=56，可容纳 55 人），本地持久化 */
   var SEAT_LS_KEY = "wb_cls_seat_layout";
   function loadSeatLayout(){
@@ -1434,7 +1447,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   function renderModule(key){
     var m=MODULES[key];
-    var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':'座位网格')+'</button>' : '';
+    var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':(key==="seats"?'座位网格':'卡片视图'))+'</button>' : '';
     var ocrBtn = key==="attendance" ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别考勤表</button>' : '';
     return ''
       +'<div class="phead">'
@@ -1448,6 +1461,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
       +'<button class="btn-add" data-add="'+key+'">+ 添加</button>'
       +'</div>'
+      + (key==="students" ? '<div class="stu-search-wrap"><input class="stu-search" id="stuSearch" placeholder="🔍 搜索姓名 / 学号 / 标签 / 小组…" value="'+esc(state.stuQ||"")+'"></div>' : '')
       +'<div id="list-'+key+'"></div>';
   }
 
@@ -1482,14 +1496,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!box) return;
     var cnt=document.getElementById("count-"+key);
     if(cnt) cnt.textContent="共 "+rows.length+" "+m.unit;
-    // 网格视图优先：即使暂无数据也直接画出座位表（含空位），无需先录入
+    // 学生档案：按搜索词过滤（姓名 / 学号 / 标签 / 小组），便于五六十人快速定位
+    if(key==="students" && state.stuQ){
+      var q=state.stuQ.trim().toLowerCase();
+      if(q) rows = rows.filter(function(r){
+        return (r["姓名"]||"").toLowerCase().indexOf(q)>=0
+          || (r["学号"]||"").toLowerCase().indexOf(q)>=0
+          || (r["学习小组"]||"").toLowerCase().indexOf(q)>=0
+          || (Array.isArray(r["关注标签"])?r["关注标签"].join(""):(r["关注标签"]||"")).toLowerCase().indexOf(q)>=0;
+      });
+    }
+    var attStrip = renderModAttachments(key);
+    // 网格视图优先：座位表（含空位）直接画出；学生档案则画「一格一格」的卡片墙，方便快速浏览
     if(m.grid && state.grid[key]){
+      if(key==="students"){ box.innerHTML=attStrip + renderStudentCards(rows); return; }
       box.innerHTML=renderSeatGrid(key);
       return;
     }
     // 成绩 / 值日 / 班务待办 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板 / 当天待办聚合）
     var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : (key==="rules" ? renderRuleCats() : ""));
-    var attStrip = renderModAttachments(key);
     if(!rows.length){
       box.innerHTML = attStrip + extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
@@ -2494,6 +2519,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +subs
       +'<div class="card-actions">'+acts+'</div>'
       +'</div>';
+  }
+  /* 学生档案「一格一格」卡片墙：头像首字 + 姓名 + 关键信息，点击打开「一生一档」；便于五六十人快速浏览定位 */
+  function avatarColor(name){
+    var palette=[["#FFE3EC","#C2185B"],["#E3F0FF","#1565C0"],["#E6F7EC","#1B7A43"],["#FFF3E0","#B26A00"],["#F0E9FF","#5E35B1"],["#E0F7FA","#00697A"],["#FFEBEE","#C62828"],["#EEF2FF","#3F51B5"]];
+    var h=0; name=String(name||"?"); for(var i=0;i<name.length;i++){ h=(h*31+name.charCodeAt(i))>>>0; }
+    return {bg:palette[h%palette.length][0], fg:palette[h%palette.length][1]};
+  }
+  function renderStudentCards(rows){
+    if(!rows.length) return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有学生，点右上角「+ 添加」或「导入」开始吧～</div></div>';
+    return '<div class="stu-grid">'+rows.map(function(r){
+      var name=String(r["姓名"]||"（未填写）");
+      var col=avatarColor(name);
+      var sub=[];
+      if(r["学号"]) sub.push("学号 "+r["学号"]);
+      if(r["性别"]) sub.push(r["性别"]);
+      if(r["学习小组"]) sub.push(r["学习小组"]);
+      var tags=(r["关注标签"]&&(Array.isArray(r["关注标签"])?r["关注标签"]:[r["关注标签"]]).filter(Boolean))||[];
+      return '<div class="stu-card" data-profile="'+esc(name)+'">'
+        +'<div class="stu-av" style="background:'+col.bg+';color:'+col.fg+'">'+esc(name.slice(0,1)||"?")+'</div>'
+        +'<div class="stu-name">'+esc(name)+'</div>'
+        + (sub.length?'<div class="stu-sub">'+sub.map(function(s){return esc(s);}).join(" · ")+'</div>':'')
+        + (tags.length?'<div class="stu-tags">'+tags.map(function(t){return '<i class="chip lav">'+esc(t)+'</i>';}).join("")+'</div>':'')
+        +'</div>';
+    }).join("")+'</div>';
   }
   /* 班级制度：可增减「大方向」面板 + 各方向计分概览 */
   function renderRuleCats(){
@@ -3675,6 +3724,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var head=e.target.closest(".sec-h"); if(head){ onSecHead(head.getAttribute("data-cat")); return; }
     var sub=e.target.closest(".sub a"); if(sub){ switchMod(sub.getAttribute("data-mod")); closeDrawer(); return; }
   });
+  document.getElementById("content").addEventListener("input",function(e){
+    if(e.target && e.target.id==="stuSearch"){ state.stuQ=e.target.value; renderList("students"); }
+  });
   document.getElementById("content").addEventListener("click",function(e){
     var g=e.target.closest(".ov-mod"); if(g){ return; }
     var goMod=e.target.closest("[data-gomod]"); if(goMod){ switchMod(goMod.getAttribute("data-gomod")); closeDrawer(); return; }
@@ -4215,7 +4267,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function confirmImport(){
     if(!impKey||!impData||!impData.rows.length) return;
-    var key=impKey, fields=MODULES[key].fields, map=impData.map, mainF=MODULES[key].main;
+    var key=impKey;
+    /* 学生档案：按姓名合并（同名行互相结合；与已有档案合并），不出现重复姓名 */
+    if(key==="students") return confirmImportStudents();
+    var fields=MODULES[key].fields, map=impData.map, mainF=MODULES[key].main;
     setStatus("syncing");
     var chain=Promise.resolve(), n=0;
     impData.rows.forEach(function(r){
@@ -4227,11 +4282,64 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(Object.keys(props).length===0) return;
       var mainV=props[mainF];
       if(mainV==null || String(mainV).trim()==="") return;
-      /* 学生档案：姓名须含中/英文字符，过滤掉汇总行/纯数字（如「0」）等垃圾行 */
-      if(key==="students" && !/[\u4e00-\u9fa5A-Za-z]/.test(String(mainV))) return;
       chain=chain.then(function(){ return apiAdd(key, props).then(function(){ n++; }); });
     });
     chain.then(function(){ closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
+      .then(function(){ setStatus("ok"); })
+      .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
+  }
+  /* 合并两条学生记录：以现有记录为底，遇空字段用新值补齐；多值字段（关注标签）取并集；单值字段两者都有值时保留已有（DB 权威、不覆盖） */
+  function mergeStudentRecords(key, existing, incoming){
+    var out = existing ? Object.assign({}, existing) : Object.assign({}, incoming);
+    Object.keys(incoming).forEach(function(f){
+      if(f==="_id") return;
+      var nv=incoming[f];
+      if(nv==null || nv==="") return;
+      var ev = (existing && existing[f]!=null) ? existing[f] : undefined;
+      if(ev==null || ev===""){
+        out[f]=nv;                                   // 填空：把另一份里有的信息补进来
+      } else {
+        var fld=(MODULES[key].fields||[]).filter(function(x){return x.name===f;})[0];
+        if(fld && fld.type==="multi_select"){
+          var a=Array.isArray(ev)?ev:[ev], b=Array.isArray(nv)?nv:[nv], set={};
+          a.concat(b).forEach(function(x){ if(x!=null && x!=="") set[x]=1; });
+          out[f]=Object.keys(set);                   // 关注标签等：两者并集
+        }
+        // 单值字段两者都有值：保留已有，不覆盖
+      }
+    });
+    return out;
+  }
+  function confirmImportStudents(){
+    var key="students", fields=MODULES[key].fields, map=impData.map, mainF=MODULES[key].main;
+    setStatus("syncing");
+    // 1) 先在本批内按「姓名」合并（同一文件里出现两次的同名学生，互相结合）
+    var batch={}, order=[];
+    impData.rows.forEach(function(r){
+      var props={};
+      fields.forEach(function(f){ var h=map[f.name]; if(!h) return; var v=wrapVal(f,r[h]); if(v) props[f.name]=v; });
+      if(Object.keys(props).length===0) return;
+      var mainV=props[mainF];
+      if(mainV==null || String(mainV).trim()==="") return;
+      if(!/[\u4e00-\u9fa5A-Za-z]/.test(String(mainV))) return;   // 过滤汇总行/纯数字垃圾行
+      var nm=String(mainV).trim();
+      if(!batch[nm]){ batch[nm]=props; order.push(nm); }
+      else { batch[nm]=mergeStudentRecords(key, batch[nm], props); }
+    });
+    // 2) 与「已有档案」合并：已有则更新（补齐/并集），没有则新增 —— 绝不产生重复姓名
+    var chain=Promise.resolve(), n=0;
+    order.forEach(function(nm){
+      var props=batch[nm];
+      var ex=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"").trim()===nm; })[0];
+      if(ex){
+        var merged=mergeStudentRecords(key, ex, props);
+        var data={}; Object.keys(merged).forEach(function(k){ if(k!=="_id") data[k]=merged[k]; });
+        chain=chain.then(function(){ return apiUpdate(key, ex._id, data).then(function(){ n++; }); });
+      } else {
+        chain=chain.then(function(){ return apiAdd(key, props).then(function(){ n++; }); });
+      }
+    });
+    chain.then(function(){ closeImp(); toast("已导入 / 合并 "+n+" 名学生 ✓"); return refreshAll(); })
       .then(function(){ setStatus("ok"); })
       .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
   }
@@ -4329,7 +4437,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "refreshfix-2026-08-28";
+  var __APP_VERSION__ = "stugrid-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
