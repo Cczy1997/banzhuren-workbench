@@ -371,6 +371,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pill.s-urgent{background:#FFE0E0;color:var(--danger)}
   .pill.s-imp{background:#FFF0DD;color:#D98324}
   .card-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .pill.on{background:#E6F7EC;color:#1B7A43}
+  .pill.off{background:#F0F1F5;color:#9AA3B8}
+  .mini.resign{background:#FFF3E0;color:#B26A00;border:1px solid #FFE0B0}
+  .mini.resign:active{background:#FFE0B0}
   .mini{
     border:none;cursor:pointer;font-size:12.5px;font-weight:700;border-radius:999px;padding:6px 13px;
     background:#F6F0F4;color:var(--ink-soft);
@@ -1001,7 +1006,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
         {name:"职务",type:"select",free:true,options:["班长","副班长","学习委员","纪律委员","卫生委员","体育委员","文艺委员","生活委员","宣传委员","课代表","小组长","电教委员","心理委员","安全委员"]},
         {name:"学号",type:"text",ph:"从学生档案自动填入"},
-        {name:"任职时间",type:"date"},
         {name:"负责事项",type:"text",ph:"如：收发作业"},
         {name:"备注",type:"text",ph:"选填"}
       ]
@@ -2545,6 +2549,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(key==="affairs" && r["状态"]!=="已完成"){
       badge = (r["优先级"]?extraPill("affairs","优先级",r["优先级"]):"") + (r["状态"]?extraPill("affairs","状态",r["状态"]):"");
     }
+    if(key==="committee"){
+      badge = r["卸任时间"] ? '<span class="pill off">已卸任</span>' : '<span class="pill on">在任</span>';
+    }
     var subs = m.fields.filter(function(f){return f.name!==m.main;}).map(function(f){
       var v=r[f.name];
       if(v==null||v==="") return "";
@@ -2574,11 +2581,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(key==="affairs" && r["状态"]!=="已完成"){
       acts+='<button class="mini done" data-act="done" data-id="'+id+'">完成</button>';
     }
+    if(key==="committee" && !r["卸任时间"]){
+      acts+='<button class="mini resign" data-act="resign" data-mod="committee" data-id="'+id+'">卸任</button>';
+    }
     acts+='<button class="mini edit" data-act="edit" data-mod="'+key+'" data-id="'+id+'">编辑</button>';
     acts+='<button class="mini del" data-act="del" data-mod="'+key+'" data-id="'+id+'">删除</button>';
 
     return '<div class="card" >'
       +'<div class="card-main">'+mainHTML+' '+badge+'</div>'
+      +(key==="committee"?('<div class="row"><span class="lbl">任期</span><span class="val">'+((r["任职时间"]?fmtDate(r["任职时间"]):"—")+(r["卸任时间"]?(" 至 "+fmtDate(r["卸任时间"])+"（已卸任）"):" 起（在任）"))+'</span></div>'):"")
       +subs
       +'<div class="card-actions">'+acts+'</div>'
       +'</div>';
@@ -2667,7 +2678,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function tagList(v){ if(Array.isArray(v)) return v.slice(); if(v==null||v==="") return []; return String(v).split(","); }
   function ensureTag(v){ var t=tagList(v); if(t.indexOf("班干部")<0) t.push("班干部"); return t; }
   function stripTag(v){ return tagList(v).filter(function(x){return x!=="班干部";}); }
-  /* 依据「班委成员」表，重算每个学生档案的「班干部」字段（职务+任职时间）与「关注标签·班干部」；
+  /* 依据「班委成员」表，重算每个学生档案的「班干部」字段（职务+任期）与「关注标签·班干部」；
+     在任：显示「自 任职时间 起」；已卸任：显示「任职时间 – 卸任时间」；仅当仍有在任职务时才保留「班干部」标签。
      学生无班委记录则清空，保证双向一致；仅更新有变化的学生的档案。 */
   function regenAllCommittee(){
     var rows=(DATA.committee||[]).filter(function(r){return r["学生姓名"];});
@@ -2684,8 +2696,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         newData["班干部"]="";
         newData["关注标签"]=stripTag(newData["关注标签"]);
       } else {
-        newData["班干部"]=matched.map(function(r){ return r["职务"]+(r["任职时间"]?(" "+r["任职时间"]):""); }).join("\n");
-        newData["关注标签"]=ensureTag(newData["关注标签"]);
+        newData["班干部"]=matched.map(function(r){
+          var s=r["职务"]||"班委";
+          var start=r["任职时间"]||"";
+          if(r["卸任时间"]) return s+"（"+(start?start+" – ":"")+r["卸任时间"]+"）";
+          return s+"（"+(start?("自 "+start+" 起"):"在任")+"）";
+        }).join("\n");
+        var active=matched.some(function(r){ return !r["卸任时间"]; });
+        newData["关注标签"]=active?ensureTag(newData["关注标签"]):stripTag(newData["关注标签"]);
       }
       jobs.push(apiUpdate("students", st._id, newData));
     });
@@ -3490,9 +3508,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           setStatus("syncing");
           var ch=Promise.resolve();
           Array.prototype.forEach.call(pfile.files, function(file){
-            ch=ch.then(function(){ return uploadOne(key, file).then(function(url){ formPhotos.push({url:url, year:yr, ts:Date.now()}); }); });
+            ch=ch.then(function(){ return compressPhoto(file, 512, 0.82).then(function(url){ formPhotos.push({url:url, year:yr, ts:Date.now()}); }); });
           });
-          ch.then(function(){ pfile.value=""; renderPhotosList(f.name); setStatus("ok"); }).catch(function(e){ console.error(e); setStatus("offline"); toast("照片上传失败"); });
+          ch.then(function(){ pfile.value=""; renderPhotosList(f.name); setStatus("ok"); }).catch(function(e){ console.error(e); setStatus("offline"); toast("照片处理失败："+(e&&e.message?e.message:e)); });
         });
       } else if(f.multiline){
         var ta=document.createElement("textarea"); ta.setAttribute("data-f",f.name); ta.placeholder=f.ph||""; if(val) ta.value=val;
@@ -3604,6 +3622,32 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       db.storage.from(BUCKET).remove([seg.split('?')[0]]);
     }catch(e){}
   }
+  /* 学生照片：本地压缩为 dataURL 后直接存进档案字段，彻底不依赖 Supabase Storage 桶（避免上传失败 / 桶策略问题）。
+     缩放至 maxDim 以内、转 JPEG，单个头像仅约数十 KB；失败则回退原图 dataURL，保证上传不丢。 */
+  function compressPhoto(file, maxDim, quality){
+    maxDim=maxDim||512; quality=(quality==null?0.82:quality);
+    return new Promise(function(resolve, reject){
+      var reader=new FileReader();
+      reader.onerror=function(){ reject(new Error("读取图片失败")); };
+      reader.onload=function(){
+        var dataUrl=reader.result;
+        var img=new Image();
+        img.onerror=function(){ reject(new Error("图片解码失败")); };
+        img.onload=function(){
+          try{
+            var w=img.width||maxDim, h=img.height||maxDim;
+            var scale=Math.min(1, maxDim/Math.max(w,h));
+            var cw=Math.max(1,Math.round(w*scale)), chh=Math.max(1,Math.round(h*scale));
+            var canvas=document.createElement("canvas"); canvas.width=cw; canvas.height=chh;
+            var ctx=canvas.getContext("2d"); ctx.drawImage(img,0,0,cw,chh);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          }catch(e){ resolve(dataUrl); }   // 回退：直接用原图，避免彻底失败
+        };
+        img.src=dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
   function collectProps(key){
     var m=MODULES[key], props={};
     m.fields.forEach(function(f){
@@ -3650,6 +3694,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!props[MODULES[key].main]){ toast("请填写"+MODULES[key].main); return; }
     // 加减分记录自动写入当前时间，便于按「记录时间」查询
     if(key==="points" && !props["时间"]){ props["时间"]=nowHMS(); }
+    // 班委成员：任职时间从「添加之日」起算，无需手动填写；编辑时沿用原值（propsFull 合并保留）
+    if(key==="committee" && !current.id && !props["任职时间"]){ props["任职时间"]=todayStr(); }
     // 照片字段（学生头像，按年份保留历史）：写入当前 formPhotos，并清理被删除的旧照片文件
     if(MODULES[key].fields.some(function(f){return f.type==="photos";})){
       props["照片"]=formPhotos.map(function(p){return {url:p.url, year:p.year, ts:p.ts};});
@@ -3698,6 +3744,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败：上传或写入出错"); });
   }
 
+  /* 班委「卸任」：标记卸任时间=今天，写回学生档案的「班干部」任期记录，并维护「关注标签」 */
+  function resignCommittee(id){
+    var rows=DATA.committee||[];
+    var rec=null; for(var i=0;i<rows.length;i++){ if(rows[i]._id===id){ rec=rows[i]; break; } }
+    if(!rec) return;
+    if(rec["卸任时间"]){ toast("该成员已标记为卸任"); return; }
+    if(!confirm("确认将「"+(rec["学生姓名"]||"该班委")+"」标记为已卸任？\n卸任时间将记录为今天，并写入其学生档案的班委任期。")) return;
+    rec["卸任时间"]=todayStr();
+    setStatus("syncing");
+    apiUpdate("committee", id, {卸任时间: rec["卸任时间"]})
+      .then(function(){ return regenAllCommittee(); })
+      .then(function(){ return refreshAll(); })
+      .then(function(){ setStatus("ok"); toast("已记录卸任 ✓"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败，请重试"); });
+  }
   function doDelete(key,id){
     if(!confirm("确定删除这条记录吗？")) return;
     setStatus("syncing");
@@ -3989,6 +4050,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(act==="done") doDone(id);
       else if(act==="edit") openEdit(mod,id);
       else if(act==="del") doDelete(mod,id);
+      else if(act==="resign") resignCommittee(id);
     }
   });
 
@@ -4665,7 +4727,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "comms-2026-08-28";
+  var __APP_VERSION__ = "comms2-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
