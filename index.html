@@ -204,8 +204,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .sp-head{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px}
   .sp-q{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13.5px}
   .sp-close{border:none;background:#F0F0F4;color:var(--ink-soft);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer}
-  .sp-list{overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-  .sp-item{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;text-align:left;font:inherit}
+  .sp-list{overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+  .sp-item{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;text-align:left;font:inherit;min-width:0}
   .sp-item:hover{background:#EEF3FF;border-color:var(--pink)}
   .sp-item:active{transform:scale(.98)}
   /* 多选学生选择器（批量扣分/加分） */
@@ -219,8 +219,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .sp-count{font-size:13px;font-weight:700;color:var(--ink-soft);margin-left:auto}
   .sp-av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;overflow:hidden;background:#EEF3FF;color:var(--pink-d);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
   .sp-av img{width:100%;height:100%;object-fit:cover;display:block}
-  .sp-name{font-size:13.5px;font-weight:700;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .sp-no{font-size:11px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 7px}
+  /* 名字不截断、可换行；学号在右侧独立显示，不会被名字挤掉 */
+  .sp-name{font-size:13.5px;font-weight:700;color:var(--ink);flex:1;min-width:0;word-break:break-all;line-height:1.3}
+  .sp-no{font-size:11px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 7px;flex:0 0 auto}
   /* 一生一档头像照片 + 班委任职 */
   .pf-av{width:60px;height:60px;flex:0 0 60px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,var(--pink),var(--pink-d));color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
   .pf-av img{width:100%;height:100%;object-fit:cover;display:block}
@@ -2156,7 +2157,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'5. 字数 80–150 字。\n\n=== '+name+' 同学档案（JSON）===\n'+JSON.stringify(d,null,1);
   }
   function openCommentAI(){
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); switchMod("ai"); return; }
     var stus=(DATA.students||[]).slice().sort(function(a,b){
       var na=parseFloat(a["学号"]), nb=parseFloat(b["学号"]);
@@ -2284,7 +2285,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
   }
   function analyzeGrades(scope, name){
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
     var box=document.getElementById("gradesAI");
     if(!box){ box=document.createElement("div"); box.id="gradesAI"; box.className="grade-ai-box"; var bar=document.querySelector("#list-grades .grade-ai-bar"); if(bar&&bar.parentNode) bar.parentNode.insertBefore(box, bar.nextSibling); }
@@ -3096,7 +3097,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var ta=document.getElementById("meetEvents");
     var ev=ta?(ta.value||"").trim():"";
     if(!ev){ toast("请先描述最近班级发生的事"); return; }
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
     var box=document.getElementById("meetGenBox");
     if(box) box.innerHTML='<div class="pf-ai-busy">🤖 正在生成微班会主题，请稍候…</div>';
@@ -3241,7 +3242,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function onMeetAIWrite(id){
     var m=meetById(id); if(!m) return;
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
     var box=document.getElementById("meetGenBox");
     if(box) box.innerHTML='<div class="pf-ai-busy">🤖 正在为「'+(esc(m.theme||"班会"))+'」生成提纲…</div>';
@@ -3354,7 +3355,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function genWeeklyReport(){
     var ta=document.getElementById("wkCtx");
     var ctx=ta?(ta.value||"").trim():"";
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
     var box=document.getElementById("wkGenBox");
     if(box) box.innerHTML='<div class="pf-ai-busy">🤖 正在生成班级周报，请稍候…</div>';
@@ -3422,7 +3423,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function onWeekContent(id){ var w=weekById(id); if(!w) return; var i=document.getElementById("wkContent-"+id); if(i) w.content=i.value; saveWeekly(); }
   function onWeekAI(id){
     var w=weekById(id); if(!w) return;
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」中填写通义千问 API Key"); return; }
     var prompt='你是班主任的 AI 助手。请基于以下现有周报草稿，重写 / 润色为一份更专业、积极、结构清晰的班级周报（格式：标题：...\n正文：...）。\n现有草稿：\n标题：'+(w.title||"")+'\n正文：'+(w.content||"");
     qwenChat(prompt, key).then(function(reply){
@@ -4749,7 +4750,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function closeStudentProfile(){ document.getElementById("profileMask").classList.remove("show"); }
   function analyzeStudent(){
     var name=profileName; if(!name) return;
-    var key=localStorage.getItem("wb_cls_dashscope_key");
+    var key=getAIKey();
     if(!key){ toast("请先在「AI 小助手」或「识别考勤表」中填写通义千问 API Key"); return; }
     var box=document.getElementById("profileAI");
     var d={ 基本信息:{}, 积分:{累计:studentTotal(name),可用:studentPoints(name)} };
@@ -5306,7 +5307,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var ocrState={ rows:[], date:"", deduct:1 };
 
   function openOCR(){
-    document.getElementById("ocrKey").value = localStorage.getItem("wb_cls_dashscope_key")||"";
+    document.getElementById("ocrKey").value = getAIKey()||"";
     document.getElementById("ocrDate").value = todayStr();
     document.getElementById("ocrDeduct").value = "1";
     document.getElementById("ocrFile").value = "";
@@ -5459,14 +5460,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +"；未完成班务 "+todo+" 项。请用简洁、贴近一线班主任的口吻回答，可给出可操作建议；不要每句都重复班级概况。";
   }
   function renderAIChat(){
-    var key=localStorage.getItem("wb_cls_dashscope_key")||"";
+    var key=getAIKey()||"";
     var msgs=aiMsgs.map(function(m){
       return '<div class="ai-msg '+(m.role==="user"?"me":"bot")+'"><div class="ai-bubble">'+esc(m.content)+'</div></div>';
     }).join("");
     if(!msgs) msgs='<div class="ai-empty">👋 我是你的班级 AI 小助手。可以问我：「帮我写一段给进步生的评语」「这周班会怎么安排」「怎么激励积分靠后的同学」…</div>';
     return ''
       +'<div class="phead"><h3>🤖 AI 小助手</h3><span class="hint">基于通义千问 · 已注入班级概况</span></div>'
-      +'<div class="ai-key">通义千问 Key：<input type="text" id="aiKey" placeholder="sk-...（与考勤识别共用，仅存本机）" value="'+esc(key)+'"><button class="mini" id="aiKeySave">保存</button></div>'
+      +'<div class="ai-key">通义千问 Key：<input type="text" id="aiKey" placeholder="sk-...（已登录账号自动云端同步，换设备登录同一账号即可）" value="'+esc(key)+'"><button class="mini" id="aiKeySave">保存</button></div>'
       +'<div class="ai-chat" id="aiChat">'+msgs+'</div>'
       +'<div class="ai-input-row">'
       +'<textarea id="aiInput" placeholder="输入你的问题，Enter 发送 / Shift+Enter 换行"></textarea>'
@@ -5482,7 +5483,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function doSend(){
       var text=(input.value||"").trim(); if(!text) return;
       var k=(key.value||"").trim(); if(!k){ toast("请先填写通义千问 Key（与考勤识别共用）"); return; }
-      localStorage.setItem("wb_cls_dashscope_key", k);
+      saveAIKey(k);
       aiMsgs.push({role:"user",content:text}); input.value=""; renderAIChatInto(); setStatus("syncing"); toast("思考中…");
       qwenChat(text, k).then(function(reply){
         aiMsgs.push({role:"assistant",content:reply}); aiPersist(); setStatus("ok"); renderAIChatInto();
@@ -5490,7 +5491,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
     send.onclick=doSend;
     if(input) input.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); doSend(); } });
-    if(keySave) keySave.onclick=function(){ localStorage.setItem("wb_cls_dashscope_key",(key.value||"").trim()); toast("Key 已保存 ✓"); };
+    if(keySave) keySave.onclick=function(){ saveAIKey((key.value||"").trim()); };
     if(clear) clear.onclick=function(){ if(!confirm("确定清空对话记录吗？")) return; aiMsgs=[]; aiPersist(); renderAIChatInto(); };
   }
   function renderAIChatInto(){
@@ -5500,6 +5501,48 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }).join("");
     box.innerHTML = msgs || '<div class="ai-empty">👋 我是你的班级 AI 小助手。可以问我：「帮我写一段给进步生的评语」「这周班会怎么安排」「怎么激励积分靠后的同学」…</div>';
     box.scrollTop=box.scrollHeight;
+  }
+  /* ===== AI Key 跨设备同步（基于 Supabase auth user_metadata）=====
+     之前 key 只存 localStorage，换设备/换浏览器就要重填。
+     现在保存时同时写云端（db.auth.updateUser({ data: { dashscope_key } })），
+     启动 / 登录成功时从云端拉到本地缓存。localStorage 仍作为本地缓存，避免每次启动都打云端。 */
+  var AI_KEY_META = "dashscope_key";
+  function getAIKey(){ return getAIKey() || ""; }
+  /* 保存到本地 + 异步写云端。云端写失败不影响本地使用，仅 toast 提示（避免阻塞当前操作）。
+     返回 true/false 仅表示「本地写入」是否成功。 */
+  function saveAIKey(k, opts){
+    var key = String(k==null?"":k).trim();
+    try{ localStorage.setItem("wb_cls_dashscope_key", key); }catch(e){}
+    var silent = opts && opts.silent;
+    if(!db || !db.auth || !db.auth.updateUser){ if(!silent) toast("已保存到本机（未登录，云端未同步）"); return; }
+    db.auth.updateUser({ data:{ dashscope_key: key } }).then(function(){
+      if(!silent) toast("Key 已保存到本机 + 云端 ✓ 换设备登录同一账号自动同步");
+    }).catch(function(e){
+      console.warn("AI Key 云端同步失败：", e);
+      if(!silent) toast("已存本机，云端同步失败："+errSnippet(e&&e.message||e,60));
+    });
+  }
+  /* 启动 / 登录后调用：从云端拉到本地缓存。冲突时云端优先（云端是主，本地是临时缓存）。
+     如果云端与本地不同，且本地是用户先填的，则把云端覆盖本地——避免"换设备携带旧 key"。
+     如果云端空、本地有，则把本地推到云端（首次填 key 后没保存到云端的情况）。 */
+  function syncAIKeyFromCloud(){
+    if(!db || !db.auth || !db.auth.getUser) return Promise.resolve();
+    return db.auth.getUser().then(function(res){
+      var u = res && res.data && res.data.user;
+      if(!u) return;
+      var cloud = (u.user_metadata && u.user_metadata[AI_KEY_META]) || "";
+      var local = getAIKey();
+      if(cloud && cloud !== local){
+        try{ localStorage.setItem("wb_cls_dashscope_key", cloud); }catch(e){}
+        toast("🔄 已从云端同步 Key（换设备登录自动可用）");
+        // 若当前在 AI 小助手页面，重新填充输入框
+        var inp=document.getElementById("aiKey"); if(inp) inp.value=cloud;
+        var ocr=document.getElementById("ocrKey"); if(ocr) ocr.value=cloud;
+      } else if(!cloud && local){
+        // 本地有云端无 → 推到云端，保证下次新设备登录也能拿到
+        return db.auth.updateUser({ data:{ dashscope_key: local } }).catch(function(){});
+      }
+    }).catch(function(e){ console.warn("拉取云端 AI Key 失败：", e); });
   }
   function qwenChat(text, apiKey){
     var url="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
@@ -6499,6 +6542,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }).catch(function(e){ setStatus("offline"); document.getElementById("authErr").textContent=(e&&e.message)?e.message:"注册失败"; });
   };
   document.getElementById("logoutBtn").onclick=function(){
+    // 登出时清空本地 AI Key 缓存，避免换账号时上一人的 key 残留（云端下次登录会被覆盖，无需手动清）
+    try{ localStorage.removeItem("wb_cls_dashscope_key"); }catch(e){}
     db.auth.signOut().then(function(){ location.reload(); });
   };
   function onSignedIn(user){
@@ -6506,6 +6551,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       curUid=user.id;
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
+      // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
+      syncAIKeyFromCloud();
       restoreView();       // 下拉刷新/重开后回到上次所在的栏目与模块
       renderSidebar();
       render();            // 立即渲染外壳，避免数据加载失败时整页空白
@@ -6526,7 +6573,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mallfix-2026-08-29";
+  var __APP_VERSION__ = "aicloudsync-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
