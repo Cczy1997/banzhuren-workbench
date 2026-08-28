@@ -611,6 +611,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .db-rmem{display:flex;align-items:center;gap:6px;background:#F4F1FB;border:1.5px solid #E4DCF2;border-radius:10px;padding:7px 9px;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;user-select:none;transition:.1s}
   .db-rmem:hover{border-color:var(--pink)}
   .db-rmem.sel{border-color:var(--pink);background:#FFE9F2;box-shadow:0 0 0 2px rgba(255,107,157,.25)}
+  .db-rmem .rn-no{font-size:11.5px;font-weight:600;color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:2px}
   .db-rn{font-weight:700}
   .db-rdel{margin-left:auto;border:none;background:transparent;color:#bdb2c4;font-size:13px;cursor:pointer;padding:2px 5px;border-radius:6px;line-height:1}
   .db-rdel:hover{color:#e0584f;background:#fdeaea}
@@ -1059,7 +1060,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       fields:[
         {name:"排号",type:"select",options:["讲台","1排","2排","3排","4排","5排","6排","7排","8排","9排","10排","11排","12排"]},
         {name:"列号",type:"select",options:["1列","2列","3列","4列","5列","6列","7列","8列","9列","10列","11列","12列","13列","14列"]},
-        {name:"学生姓名",type:"text",required:true,ph:"学生姓名"},
+        {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
         {name:"学号",type:"text",ph:"01"}
       ]
     },
@@ -1068,7 +1069,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       fields:[
         {name:"星期",type:"select",options:["周一","周二","周三","周四","周五","周六","周日"]},
         {name:"值日组",type:"text",ph:"如：第一组"},
-        {name:"学生姓名",type:"text",ph:"参与学生，逗号分隔"},
+        {name:"学生姓名",type:"text",ph:"参与学生，可关联或手输（逗号分隔）",link:"students",append:true},
+        {name:"学号",type:"text",ph:"自动填入"},
         {name:"内容",type:"text",ph:"分工内容（建议与值日看板中的分工名称一致）"},
         {name:"备注",type:"text",ph:"选填"}
       ]
@@ -1709,19 +1711,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
   }
   // 本地新增并返回持久化 promise（null / Promise / "dup"）
-  function dutyRosterAddLocal(g,name){
+  function dutyRosterAddLocal(g,name,no){
     name=(name||"").trim(); if(!name) return null;
     if(groupMembersLive(g).indexOf(name)>=0) return "dup";
+    no=(no||"")+"";
     var recs=(DATA.duty||[]).filter(function(r){return r["值日组"]===g;});
     var target= recs.length ? recs.slice().sort(function(a,b){ return (a["学生姓名"]||"").split(/[,，、]/).length - (b["学生姓名"]||"").split(/[,，、]/).length; })[0] : null;
     if(!target){
       var tname=DUTY_TASKS.length?DUTY_TASKS[0].name:"值日生";
-      var nrec={星期:"本周",值日组:g,学生姓名:name,内容:tname,备注:""};
-      return apiAdd("duty",nrec).then(function(o){ o["星期"]="本周";o["值日组"]=g;o["学生姓名"]=name;o["内容"]=tname; DATA.duty.push(o); return o; });
+      var nrec={星期:"本周",值日组:g,学生姓名:name,学号:no,内容:tname,备注:""};
+      return apiAdd("duty",nrec).then(function(o){ o["星期"]="本周";o["值日组"]=g;o["学生姓名"]=name;o["学号"]=no;o["内容"]=tname; DATA.duty.push(o); return o; });
     }
     var arr=(target["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
     arr.push(name); target["学生姓名"]=arr.join(",");
-    if(target._id) return apiUpdate("duty",target._id,{学生姓名:target["学生姓名"]});
+    var narr=(target["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    if(no) narr.push(no); target["学号"]=narr.join(",");
+    if(target._id) return apiUpdate("duty",target._id,{学生姓名:target["学生姓名"],学号:target["学号"]});
     return Promise.resolve();
   }
   function dutyRosterRemove(g,name){
@@ -1738,13 +1743,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     Promise.all(jobs).then(function(){ afterDutyRosterChange(false); }).catch(function(e){ toast("删除失败："+(e&&e.message||e)); });
   }
   function dutyRosterAdd(g){
-    var name=window.prompt("为「"+g+"」添加值日生姓名：");
-    if(name===null) return;
-    name=(name||"").trim();
-    if(!name) return;
-    if(groupMembersLive(g).indexOf(name)>=0){ toast(name+" 已在 "+g); return; }
-    var p=dutyRosterAddLocal(g,name);
-    Promise.resolve(p).then(function(){ afterDutyRosterChange(false); }).catch(function(e){ toast("添加失败："+(e&&e.message||e)); });
+    openStudentPicker(function(st){
+      var name=(st&&st["姓名"]||"").trim();
+      if(!name) return;
+      if(groupMembersLive(g).indexOf(name)>=0){ toast(name+" 已在 "+g); return; }
+      var no=(st&&st["学号"]||"")+"";
+      var p=dutyRosterAddLocal(g,name,no);
+      Promise.resolve(p).then(function(){ afterDutyRosterChange(false); }).catch(function(e){ toast("添加失败："+(e&&e.message||e)); });
+    });
   }
   function dutyRosterSwap(a,b){
     if(a.group===b.group){ dutyRosterSel=null; renderList("duty"); return; }
@@ -1903,8 +1909,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var mems = mem.length
         ? mem.map(function(n){
             var selCls=(dutyRosterSel && dutyRosterSel.group===g && dutyRosterSel.name===n)?' sel':'';
+            var st=(DATA.students||[]).filter(function(s){return s["姓名"]===n;})[0];
+            var no=st?st["学号"]:"";
             return '<div class="db-rmem'+selCls+'" data-rg="'+esc(g)+'" data-rn="'+esc(n)+'">'
               +'<span class="rn">'+esc(n)+'</span>'
+              + (no?'<span class="rn-no">'+esc(no)+'</span>':'')
               +'<button class="db-rdel" data-rdel="1" data-rg="'+esc(g)+'" data-rn="'+esc(n)+'" title="移除">✕</button></div>';
           }).join('')
         : '<div class="db-rcol-empty">未安排</div>';
@@ -3551,8 +3560,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           var lk=document.createElement("button"); lk.type="button"; lk.className="btn-link"; lk.textContent="🔗 关联学生档案";
           lk.addEventListener("click", function(){
             openStudentPicker(function(st){
-              var i1=document.querySelector('#form [data-f="'+f.name+'"]'); if(i1) i1.value=st["姓名"]||"";
-              var i2=document.querySelector('#form [data-f="学号"]'); if(i2) i2.value=st["学号"]||"";
+              var i1=document.querySelector('#form [data-f="'+f.name+'"]');
+              if(i1){ i1.value = f.append ? (i1.value ? i1.value.replace(/[,，]?\s*$/,"")+"，"+(st["姓名"]||"") : (st["姓名"]||"")) : (st["姓名"]||""); }
+              var i2=document.querySelector('#form [data-f="学号"]');
+              if(i2){ i2.value = f.append ? (i2.value ? i2.value.replace(/[,，]?\s*$/,"")+"，"+(st["学号"]||"") : (st["学号"]||"")) : (st["学号"]||""); }
               cacheForm(key);
             });
           });
@@ -4417,7 +4428,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
             var html=result.value||"";
             var doc=new DOMParser().parseFromString("<div>"+html+"</div>","text/html");
             var tables=doc.querySelectorAll("table");
-            if(!tables.length){ rej(new Error("Word 文档中未找到表格。请将名单/评语整理成表格（首行是列名）后再导入，或另存为 CSV(UTF-8)。")); return; }
+            if(!tables.length){
+              /* 纯文本 Word：把非空段落当行解析（支持每行一条名单），不再强制转表格或 CSV */
+              var paras=Array.prototype.map.call(doc.querySelectorAll("p"), function(p){return (p.textContent||"").trim();}).filter(function(t){return t;});
+              if(paras.length){
+                function sp(l){ if(l.indexOf("\t")>=0) return l.split("\t"); if(l.indexOf("，")>=0) return l.split("，"); if(l.indexOf(",")>=0) return l.split(","); var m=l.split(/\s{2,}/); return m.length>1?m:[l]; }
+                var aoa=paras.map(sp);
+                var hi=detectHeaderRow(aoa);
+                if(!(hi===0 && detectHeaderRowScore(aoa,0)===0)){
+                  var headers=aoa[hi].map(function(h,i){ return (h==null||h==="")?("列"+(i+1)):String(h).trim(); });
+                  var rows=aoa.slice(hi+1).filter(function(r){ return r && r.some(function(c){return c!=null&&String(c).trim()!=="";}); }).map(function(r){ var o={}; headers.forEach(function(h,i){ o[h]=(r[i]==null?"":String(r[i])); }); return o; });
+                  res({headers:headers, rows:rows}); return;
+                }
+              }
+              rej(new Error("Word 文档中未找到可识别的表格或名单。请用「表格」排版（首行是列名），或把名单整理成每行一条、字段用逗号 / 制表符 / 空格分隔后再导入。")); return;
+            }
             var trs=tables[0].querySelectorAll("tr");
             if(trs.length<2){ rej(new Error("Word 表格内容为空或只有表头，请填写数据行。")); return; }
             var headCells=trs[0].querySelectorAll("th,td");
@@ -4485,7 +4510,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function showImpError(err){
     console.error(err);
-    document.getElementById("impPreview").innerHTML='<div class="imp-empty">解析出错：'+esc(err&&err.message?err.message:err)+'<br><br>提示：可先把文件用 Excel/WPS 打开，另存为 <b>CSV(UTF-8)</b> 后再导入。</div>';
+    document.getElementById("impPreview").innerHTML='<div class="imp-empty">解析出错：'+esc(err&&err.message?err.message:err)+'<br><br>支持直接导入 Excel(.xlsx/.xls)、Word(.docx，表格或每行一条名单)、PDF、CSV，无需另存转换。若仍失败，请确认文件未损坏或重新导出。</div>';
     document.getElementById("impDo").disabled=true;
   }
   function showPreview(parsed){
@@ -4496,7 +4521,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var fieldNames=Object.keys(map);
     if(!fieldNames.length){
       var actual=(parsed.headers||[]).filter(function(h){return h && !/^列\d+$/.test(h);}).slice(0,12);
-      var hint=actual.length?('<br><br><span style="opacity:.7;font-size:12px">已识别到的表头（第 '+(parsed.headerRow==null?'?':(parsed.headerRow+1))+' 行）：</span><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:12px;opacity:.8">'+esc(actual.join(" · ") || "（无）")+'</div><br><span style="opacity:.7;font-size:12px">该模块需要 <b>'+esc(mainField)+'</b> 字段。若表头行不对，可先在 Excel/WPS 中删除上方标题行后另存为 CSV(UTF-8) 再导入。</span>'):"";
+      var hint=actual.length?('<br><br><span style="opacity:.7;font-size:12px">已识别到的表头（第 '+(parsed.headerRow==null?'?':(parsed.headerRow+1))+' 行）：</span><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:12px;opacity:.8">'+esc(actual.join(" · ") || "（无）")+'</div><br><span style="opacity:.7;font-size:12px">该模块需要 <b>'+esc(mainField)+'</b> 字段。若表头行不对，可先在 Excel/WPS 中删除上方标题行再导入（已支持 Excel / Word / PDF / CSV，无需另存为 CSV）。</span>'):"";
       document.getElementById("impPreview").innerHTML='<div class="imp-empty">未能将任何列匹配到本模块的字段。请检查表头是否包含如「姓名 / 分数 / 事由」等关键字。'+hint+'</div>';
       document.getElementById("impDo").disabled=true;
       return;
@@ -4742,7 +4767,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parphone-2026-08-28";
+  var __APP_VERSION__ = "linkrel-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
