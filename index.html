@@ -620,43 +620,52 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .db-radd:hover{border-color:var(--pink);color:var(--pink-d)}
   .db-swapbar{font-size:12.5px;color:var(--pink-d);font-weight:700;margin:4px 0 0;line-height:1.6}
   .db-rhint{font-size:12px;color:var(--ink-soft);margin:4px 0 0;line-height:1.6}
-  /* 值日表（按纸面表格重做）：项目/时间/负责人 三列 + 日期 tab + 班级备注 + 签名 */
+  /* 值日表（纸面周表）：行=值日小组，列=分工；每格可关联多人 */
   .duty-page{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px 16px;margin-top:2px}
-  .duty-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:2px solid #555;padding-bottom:9px;margin-bottom:11px}
+  .duty-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;border-bottom:2px solid #555;padding-bottom:9px;margin-bottom:11px}
   .duty-title{font-size:22px;font-weight:800;color:var(--ink);margin:0;letter-spacing:1px}
-  .duty-days{display:flex;gap:4px;flex-wrap:wrap}
-  .duty-day{padding:5px 12px;border:1.5px solid var(--line);background:#fff;border-radius:999px;font-size:13px;color:var(--ink);cursor:pointer;font-family:inherit;font-weight:700}
-  .duty-day:hover{border-color:var(--pink-d);color:var(--pink-d)}
-  .duty-day.cur{background:linear-gradient(180deg,var(--pink),var(--pink-d));color:#fff;border-color:var(--pink-d)}
-  .duty-tools{display:flex;gap:6px;flex-wrap:wrap}
+  .duty-sub{font-size:12.5px;color:var(--ink-soft);margin-top:3px;line-height:1.5}
+  .duty-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
   .duty-note{background:#FFF7E6;border:1.5px dashed #F0C36D;border-radius:10px;padding:8px 13px;font-size:13.5px;color:#8B6914;margin-bottom:12px;line-height:1.55;outline:none}
   .duty-note:focus{background:#FFF1D6;border-color:#E0A53A}
-  .duty-table{width:100%;border-collapse:collapse;font-size:14px}
-  .duty-table th{background:#EEF2FF;color:var(--ink);font-weight:800;padding:10px 8px;text-align:center;border:1.5px solid #555;font-size:14px;letter-spacing:1px}
-  .duty-table td{padding:9px 8px;border:1px solid var(--line);text-align:center;vertical-align:middle}
-  .duty-table tr:nth-child(even) td{background:#FBFBFD}
-  .duty-td{outline:none;min-height:24px}
-  .duty-td:focus{background:#FFF7E6;box-shadow:inset 0 0 0 2px #F0C36D}
-  .duty-td-proj{font-weight:700;color:var(--ink)}
-  .duty-td-time{color:#555}
-  .duty-td-per{display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 8px}
-  .duty-person{flex:1;outline:none;min-height:22px;font-weight:600}
-  .duty-person:focus{background:#FFF7E6;border-radius:6px}
-  .duty-person:empty:before{content:"（点击填写）";color:#bbb;font-weight:400}
-  .duty-person-no{font-size:11.5px;color:#888;background:#F4F1FB;border:1px solid var(--line);border-radius:999px;padding:1px 7px}
-  .duty-link{border:1px solid var(--line);background:#fff;color:var(--pink-d);border-radius:6px;padding:2px 6px;font-size:12px;cursor:pointer;font-family:inherit}
-  .duty-link:hover{border-color:var(--pink-d);background:#FFE9F2}
-  .duty-td-act{width:32px;padding:6px}
-  .duty-row-del{border:none;background:transparent;color:#bbb;cursor:pointer;font-size:14px;padding:3px 5px;border-radius:6px;font-family:inherit}
-  .duty-row-del:hover{color:#e0584f;background:#fdeaea}
-  .duty-empty-row td{padding:24px 12px;color:var(--ink-soft);font-size:13px;line-height:1.7}
+  .duty-week-wrap{overflow-x:auto;margin:0 -2px}
+  .duty-week-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;min-width:680px}
+  .duty-week-table th,.duty-week-table td{border:1px solid var(--line);padding:8px 6px;text-align:center;vertical-align:middle}
+  .duty-week-table thead th{background:#EEF2FF;color:var(--ink);font-weight:800;font-size:13.5px;letter-spacing:1px;border-bottom:2px solid #555}
+  .duty-week-table tbody tr:nth-child(even) td,.duty-week-table tbody tr:nth-child(even) th{background:#FBFBFD}
+  .dw-th-group{background:#FFE9D6 !important;width:90px}
+  .dw-th-leader{background:#E0F5E0 !important;width:96px}
+  .dw-row-th{background:#FFF7E6;font-weight:800;color:var(--ink);font-size:14px;width:90px;border-right:2px solid var(--line)}
+  .dw-cell{text-align:left;vertical-align:top;min-width:120px;padding:7px 7px 6px}
+  .dw-cell.dw-filled{background:#FAFCFF}
+  .dw-cell.dw-empty{background:#FAFAFC;text-align:center}
+  .dw-person{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1.5px solid #d2d6ef;border-radius:8px;padding:2px 5px 2px 8px;margin:2px 3px 2px 0;font-size:12.5px;max-width:100%}
+  .dw-pname{font-weight:600;color:var(--ink)}
+  .dw-pno{color:#888;font-size:11px;background:#F4F1FB;border:1px solid var(--line);border-radius:999px;padding:0 5px}
+  .dw-pdel{border:none;background:transparent;color:#bdb2c4;font-size:11px;cursor:pointer;padding:0 3px;border-radius:5px;line-height:1;font-family:inherit;margin-left:1px}
+  .dw-pdel:hover{color:#e0584f;background:#fdeaea}
+  .dw-add-btn{display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1.5px dashed #d2d6ef;color:var(--ink-soft);border-radius:8px;width:34px;height:30px;font-size:16px;cursor:pointer;font-family:inherit;margin-top:3px}
+  .dw-add-btn:hover{border-color:var(--pink-d);color:var(--pink-d);background:#FFE9F2}
+  .dw-cell.dw-empty .dw-add-btn{width:60px;height:42px}
+  .dw-add-btn-mini{width:22px !important;height:22px !important;font-size:13px;border-style:dotted;border-width:1.5px;margin-top:0;margin-left:3px;vertical-align:middle}
+  .dw-leader-cell{background:#F4FFF8 !important;text-align:center;vertical-align:middle}
+  .dw-leader-card{display:inline-flex;align-items:center;gap:5px;background:#E0F5E0;border:1.5px solid #A4D8A4;border-radius:8px;padding:5px 8px;flex-wrap:wrap;justify-content:center;max-width:100%}
+  .dw-leader-name{font-weight:800;color:#2E7D32;font-size:13.5px}
+  .dw-leader-no{color:#555;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:0 6px}
+  .dw-mini-btn{border:none;background:#fff;color:#888;border:1px solid var(--line);border-radius:6px;padding:1px 5px;font-size:11px;cursor:pointer;font-family:inherit;margin-left:2px}
+  .dw-mini-btn:hover{color:#2E7D32;border-color:#A4D8A4}
+  .dw-add-lnk{border:1.5px dashed #d2d6ef;background:#fff;color:var(--ink-soft);border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:600}
+  .dw-add-lnk:hover{border-color:#A4D8A4;color:#2E7D32;background:#F4FFF8}
   .duty-sign{margin-top:16px;text-align:right;color:#555;font-size:13px}
   .duty-sign-line{display:inline-block;border-bottom:1.5px solid #555;width:160px;margin-left:6px;vertical-align:bottom}
   @media print{
-    .duty-tools,.duty-link,.duty-row-del,.duty-td-act,#sidebar,.phead,#nav,#topbar{display:none !important}
+    .duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn,#sidebar,.phead,#nav,#topbar{display:none !important}
     .duty-page{border:none;padding:0}
-    .duty-day.cur{background:#333 !important;color:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .duty-table th{background:#EEF2FF !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .duty-week-table thead th{background:#EEF2FF !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .dw-row-th{background:#FFF7E6 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .dw-th-group{background:#FFE9D6 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .dw-th-leader{background:#E0F5E0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .dw-leader-cell,.dw-leader-card{background:#F4FFF8 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
   /* 总览 · 本周值日生 */
   .ov-duty{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:14px 15px;background:linear-gradient(135deg,#FFF7FA,#F7FAFF)}
@@ -1103,14 +1112,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       ]
     },
     duty:{
-      title:"🧹 值日安排", cat:"aff", unit:"条", main:"项目",
+      title:"🧹 值日安排", cat:"aff", unit:"组", main:"值日小组",
       fields:[
-        {name:"星期",type:"select",options:["周一","周二","周三","周四","周五","周六","周日"],required:true},
-        {name:"项目",type:"text",required:true,ph:"如：值日班长 / 一查"},
-        {name:"时间",type:"text",ph:"如：早读前 / 第一节课后"},
-        {name:"学生姓名",type:"text",required:true,ph:"负责人",link:"students"},
-        {name:"学号",type:"text",ph:"自动填入"},
-        {name:"备注",type:"text",ph:"选填"}
+        {name:"值日小组",type:"select",required:true,options:["第一组","第二组","第三组","第四组","第五组","第六组","第七组","第八组"]},
+        {name:"分工",type:"select",required:true,options:["黑板（含讲台）","室内地板（含桌椅）","走廊（含窗户）","倒垃圾（含卫生工具整理）","卫生区"]},
+        {name:"负责人",type:"text",required:true,ph:"关联学生档案 / 手输姓名（多人用逗号分隔）",link:"students",append:true},
+        {name:"学号",type:"text",ph:"关联时自动填入（多人用逗号分隔）"}
       ]
     },
     grades:{
@@ -1626,8 +1633,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       box.innerHTML=renderSeatGrid(key);
       return;
     }
-    // 成绩 / 值日 / 班务待办 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板 / 当天待办聚合）
-    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : (key==="rules" ? renderRuleCats() : ""));
+    // 成绩 / 班务待办 模块在列表上方注入专属面板（AI 分析条 / 当天待办聚合）
+    var extra = key==="grades" ? renderGradesAIBar() : (key==="rules" ? renderRuleCats() : "");
     if(!rows.length){
       box.innerHTML = attStrip + extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
       return;
@@ -1858,26 +1865,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function saveDutyRot(){ try{ localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){} }
   /* ---------- 值日表（按用户纸面表格重做）：项目/时间/负责人 三列，每天一张表 ---------- */
   var DUTYNOTE_LS = "wb_cls_dutynote";
-  var DUTYDAY_LS  = "wb_cls_dutyday";
   var DUTY_DEFAULT_NOTE = "教室内做作业的同学不参加";
-  var DUTY_WEEKDAYS = ["周一","周二","周三","周四","周五","周六","周日"];
-  var DUTY_DEFAULT_TASKS = [
-    {项目:"值日班长", 时间:"全天"},
-    {项目:"早读领读", 时间:"早读"},
-    {项目:"一查",     时间:"第一节课后"},
-    {项目:"二查",     时间:"第二节课后"},
-    {项目:"三查",     时间:"第三节课后"},
-    {项目:"四查",     时间:"第四节课后"}
-  ];
   function getDutyNote(){ var n=localStorage.getItem(DUTYNOTE_LS); return n==null ? DUTY_DEFAULT_NOTE : n; }
   function setDutyNote(t){ try{ localStorage.setItem(DUTYNOTE_LS, t||""); }catch(e){} }
-  function getDutySelDay(){
-    var d=localStorage.getItem(DUTYDAY_LS);
-    if(d && DUTY_WEEKDAYS.indexOf(d)>=0) return d;
-    var map=["周日","周一","周二","周三","周四","周五","周六"];
-    return map[new Date().getDay()];
-  }
-  function setDutySelDay(d){ try{ localStorage.setItem(DUTYDAY_LS, d||""); }catch(e){} }
   function dutyDerivedGroups(){
     var seen={}, out=[];
     (DATA.duty||[]).forEach(function(r){ var g=r["值日组"]; if(g&&!seen[g]){ seen[g]=1; out.push(g); } });
@@ -1999,188 +1989,248 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="db-roster-tip">成员为该组在各分工（室内/室外）中出现的全部学生；本周值日生也会同步显示在「总览」。</div>'
       +'</div>';
   }
-  /* ---------- 值日表（按纸面表格）：每天一张表，列：项目/时间/负责人 ---------- */
-  function renderDutyTable(){
-    var selDay=getDutySelDay();
-    var note=getDutyNote();
-    var rows=(DATA.duty||[]).filter(function(r){ return (r["星期"]||"")===selDay; });
-    var dayTabs=DUTY_WEEKDAYS.map(function(d){
-      var active=(d===selDay)?' cur':'';
-      return '<button type="button" class="duty-day'+active+'" data-dutyday="'+esc(d)+'">'+esc(d)+'</button>';
-    }).join('');
-    var tableRows;
-    if(!rows.length){
-      tableRows='<tr class="duty-empty-row"><td colspan="4">这一天还没有值日安排。点下方「＋ 一键默认任务」自动添加「值日班长 / 早读领读 / 一查-四查」六行，或手动「＋ 添加行」。</td></tr>';
-    } else {
-      tableRows=rows.map(function(r){
-        var project=(r["项目"]!=null&&r["项目"]!=="")?String(r["项目"]):(r["内容"]||"");
-        var time=r["时间"]||"";
-        var persons=(r["学生姓名"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
-        var person=persons[0]||"";
-        var st=(DATA.students||[]).filter(function(s){return s["姓名"]===person;})[0];
-        var no=st?st["学号"]:"";
-        var recNote=r["备注"]||"";
-        return '<tr data-did="'+esc(r._id)+'">'
-          +'<td class="duty-td duty-td-proj" contenteditable="true" data-df="项目" data-did="'+esc(r._id)+'" data-old="'+esc(project)+'">'+esc(project)+'</td>'
-          +'<td class="duty-td duty-td-time" contenteditable="true" data-df="时间" data-did="'+esc(r._id)+'" data-old="'+esc(time)+'">'+esc(time)+'</td>'
-          +'<td class="duty-td duty-td-per">'
-            +'<span class="duty-person" contenteditable="true" data-df="学生姓名" data-did="'+esc(r._id)+'" data-old="'+esc(person)+'">'+esc(person||"")+'</span>'
-            +(no?'<span class="duty-person-no">'+esc(no)+'</span>':'')
-            +'<button type="button" class="duty-link" data-dulink="'+esc(r._id)+'" title="关联学生档案（自动填姓名+学号）">🔗</button>'
-          +'</td>'
-          +'<td class="duty-td-act"><button type="button" class="duty-row-del" data-dudel="'+esc(r._id)+'" title="删除该行">✕</button></td>'
-          +'</tr>';
-      }).join('');
+  /* ---------- 值日表（按纸面周表）：行=小组，列=分工；每个格子可关联多名学生 ---------- */
+  var DUTY_WEEK_GROUPS=["第一组","第二组","第三组","第四组"];
+  var DUTY_WEEK_DIVISIONS=[
+    "黑板（含讲台）","室内地板（含桌椅）","走廊（含窗户）","倒垃圾（含卫生工具整理）","卫生区"
+  ];
+  function dutyWeekCellRecord(g,div){
+    return (DATA.duty||[]).filter(function(r){
+      return (r["值日小组"]||"")===g && (r["分工"]||"")===div;
+    })[0] || null;
+  }
+  function dutyWeekCellPersons(g,div){
+    var rec=dutyWeekCellRecord(g,div); if(!rec) return [];
+    var ns=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    var xs=(rec["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    return ns.map(function(n,i){ return {name:n, no:xs[i]||""}; });
+  }
+  function dutyWeekLeaderOf(g){
+    for(var i=0;i<DUTY_WEEK_DIVISIONS.length;i++){
+      var p=dutyWeekCellPersons(g,DUTY_WEEK_DIVISIONS[i])[0];
+      if(p) return p;
     }
+    return null;
+  }
+  function dutyWeekAddPerson(g,div,stu){
+    if(!stu || !stu["姓名"]) return Promise.resolve();
+    var name=stu["姓名"]||"", no=stu["学号"]||"";
+    var rec=dutyWeekCellRecord(g,div);
+    if(rec){
+      var persons=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      var nos=(rec["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      if(persons.indexOf(name)>=0){ toast(name+" 已在该格"); return Promise.resolve(); }
+      persons.push(name); nos.push(no);
+      var props={负责人:persons.join(","),学号:nos.join(",")};
+      return apiUpdate("duty",rec._id,props).then(function(){ rec["负责人"]=props.负责人; rec["学号"]=props.学号; });
+    }
+    var props={值日小组:g,分工:div,负责人:name,学号:no};
+    return apiAdd("duty",props).then(function(o){
+      Object.assign(o,props);
+      (DATA.duty=DATA.duty||[]).push(o);
+    });
+  }
+  function dutyWeekRemovePerson(g,div,idx){
+    var rec=dutyWeekCellRecord(g,div); if(!rec) return;
+    var persons=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    var nos=(rec["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    if(idx<0||idx>=persons.length) return;
+    persons.splice(idx,1); nos.splice(idx,1);
+    var props={负责人:persons.join(","),学号:nos.join(",")};
+    apiUpdate("duty",rec._id,props).then(function(){
+      rec["负责人"]=props.负责人; rec["学号"]=props.学号;
+      if(!persons.length){
+        apiDelete("duty",rec._id).then(function(){
+          DATA.duty=(DATA.duty||[]).filter(function(r){return r._id!==rec._id;});
+          renderList("duty");
+        });
+      } else { renderList("duty"); }
+    }).catch(function(e){ toast("删除失败："+(e&&e.message||e)); });
+  }
+  function dutyWeekOpenPicker(g,div){
+    // 多选模式：append=true 累积同一格多人
+    openStudentPicker(function(stu){
+      // 选完一人即追加一格（依次保存），异步列队
+      setStatus("syncing");
+      var jobs=[];
+      var p=Promise.resolve(stu);
+      // stu 可能是单个对象；为了支持批量，把 stu 当数组用，单选包装成单元素
+      var list=Array.isArray(stu)?stu:[stu];
+      list.reduce(function(prev,curr){
+        return prev.then(function(){
+          var rec=dutyWeekCellRecord(g,div);
+          var name=curr["姓名"]||"", no=curr["学号"]||"";
+          if(!name) return null;
+          if(rec){
+            var persons=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+            var nos=(rec["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+            if(persons.indexOf(name)>=0) return null;
+            persons.push(name); nos.push(no);
+            var props={负责人:persons.join(","),学号:nos.join(",")};
+            return apiUpdate("duty",rec._id,props).then(function(){ rec["负责人"]=props.负责人; rec["学号"]=props.学号; });
+          }
+          var props={值日小组:g,分工:div,负责人:name,学号:no};
+          return apiAdd("duty",props).then(function(o){ Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o); });
+        });
+      },Promise.resolve()).then(function(){ setStatus("ok"); toast("已添加 "+(Array.isArray(stu)?stu: [stu]).filter(function(s){return s&&s["姓名"];}).length+" 人 ✓"); renderList("duty"); })
+      .catch(function(e){ setStatus("offline"); toast("关联失败："+(e&&e.message||e)); renderList("duty"); });
+    }, {multi:true});
+  }
+  function dutyWeekSetLeader(g){
+    // 组长 = 该组的第一个关联学生；也允许指定（取该组黑板格的负责人数组首位）
+    // 这里点 + 直接打开学生选择器（单选），写入黑板分工的"负责人"字段（单值），并设该字段为组长
+    openStudentPicker(function(stu){
+      var name=stu["姓名"]||"", no=stu["学号"]||"";
+      var rec=dutyWeekCellRecord(g, DUTY_WEEK_DIVISIONS[0]);
+      setStatus("syncing");
+      var after=function(){
+        setStatus("ok"); toast(name+" 已设为 "+g+" 组长 ✓"); renderList("duty");
+      };
+      if(rec){
+        var props={负责人:name,学号:no};
+        apiUpdate("duty",rec._id,props).then(function(){ rec["负责人"]=name; rec["学号"]=no; after(); })
+          .catch(function(e){ setStatus("offline"); toast("设置失败："+(e&&e.message||e)); });
+      } else {
+        var props={值日小组:g,分工:DUTY_WEEK_DIVISIONS[0],负责人:name,学号:no};
+        apiAdd("duty",props).then(function(o){ Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o); after(); })
+          .catch(function(e){ setStatus("offline"); toast("设置失败："+(e&&e.message||e)); });
+      }
+    }, {multi:false});
+  }
+  function dutyWeekAddGroup(){
+    // 下一个组号：第一组/二/三...顺次；或在数据中找最大"第X组"+"组"
+    var cnMap=["","一","二","三","四","五","六","七","八","九","十"];
+    var max=0;
+    var pat=/^第(.)组$/;
+    (DATA.duty||[]).forEach(function(r){
+      var m=pat.exec(r["值日小组"]||"");
+      if(m){
+        var v=cnMap.indexOf(m[1]);
+        if(v>max) max=v;
+      }
+    });
+    var nextIdx=Math.max(max+1, DUTY_WEEK_GROUPS.length+1);
+    var name="第"+cnMap[nextIdx]+"组";
+    var props={值日小组:name,分工:DUTY_WEEK_DIVISIONS[0],负责人:"",学号:""};
+    setStatus("syncing");
+    apiAdd("duty",props).then(function(o){
+      Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o);
+      setStatus("ok"); toast("已新增 "+name+" ✓"); renderList("duty");
+    }).catch(function(e){ setStatus("offline"); toast("新建组失败："+(e&&e.message||e)); });
+  }
+  function dutyWeekReset(){
+    if(!confirm("确定清空本周值日表（删除所有值日安排记录）吗？此操作不可撤销。")) return;
+    var ids=(DATA.duty||[]).map(function(r){return r._id;}).filter(Boolean);
+    setStatus("syncing");
+    Promise.all(ids.map(function(id){ return apiDelete("duty",id); })).then(function(){
+      DATA.duty=[]; setStatus("ok"); toast("已清空本周 ✓"); renderList("duty");
+    }).catch(function(e){ setStatus("offline"); toast("清空失败："+(e&&e.message||e)); });
+  }
+  function renderDutyTable(){
+    var note=getDutyNote();
+    // 已使用的组（从数据中倒推），按出现顺序；缺的默认值 4 组前补
+    var used=[];
+    (DATA.duty||[]).forEach(function(r){
+      var g=(r["值日小组"]||"").trim();
+      if(g && used.indexOf(g)<0) used.push(g);
+    });
+    var groups=DUTY_WEEK_GROUPS.slice();
+    used.forEach(function(g){ if(groups.indexOf(g)<0) groups.push(g); });
+    var thead='<tr>'
+      +'<th class="dw-th-group">值日小组</th>'
+      +DUTY_WEEK_DIVISIONS.map(function(d){ return '<th class="dw-th-div">'+esc(d)+'</th>'; }).join('')
+      +'<th class="dw-th-leader">负责人<br><span style="font-size:11px;font-weight:500;opacity:.65">（每组组长）</span></th>'
+      +'</tr>';
+    var rows=groups.map(function(g){
+      var leader=dutyWeekLeaderOf(g);
+      var leaderCell;
+      if(leader){
+        leaderCell='<div class="dw-leader-card">'
+          +'<span class="dw-leader-name">'+esc(leader.name)+'</span>'
+          +'<span class="dw-leader-no">'+esc(leader.no||"")+'</span>'
+          +'<button type="button" class="dw-mini-btn" data-dwlset="'+esc(g)+'" title="更换组长">↺</button>'
+          +'</div>';
+      } else {
+        leaderCell='<button type="button" class="dw-add-lnk" data-dwlset="'+esc(g)+'">＋ 指定组长</button>';
+      }
+      var cells=DUTY_WEEK_DIVISIONS.map(function(div){
+        var persons=dutyWeekCellPersons(g,div);
+        var inner;
+        if(!persons.length){
+          inner='<button type="button" class="dw-add-btn" data-dwadd="'+esc(g)+'|'+esc(div)+'" title="关联学生 / 添加多名">＋</button>';
+        } else {
+          inner=persons.map(function(p,i){
+            return '<span class="dw-person">'
+              +'<span class="dw-pname">'+esc(p.name)+'</span>'
+              +(p.no?'<span class="dw-pno">'+esc(p.no)+'</span>':'')
+              +'<button type="button" class="dw-pdel" data-dwdel="'+esc(g)+'|'+esc(div)+'|'+i+'" title="从该格移除">✕</button>'
+              +'</span>';
+          }).join('')
+          +'<button type="button" class="dw-add-btn dw-add-btn-mini" data-dwadd="'+esc(g)+'|'+esc(div)+'" title="再关联一名">＋</button>';
+        }
+        return '<td class="dw-cell '+(persons.length?'dw-filled':'dw-empty')+'">'+inner+'</td>';
+      }).join('');
+      return '<tr><th class="dw-row-th">'+esc(g)+'</th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
+    }).join('');
     var html='';
     html+='<div class="duty-page">';
     html+='  <div class="duty-head">';
-    html+='    <h2 class="duty-title">📋 值日表</h2>';
-    html+='    <div class="duty-days">'+dayTabs+'</div>';
+    html+='    <div><h2 class="duty-title">📋 值日表</h2><div class="duty-sub">一周一变 · 全班统一；每个格子可关联多名学生，点 + 即可批量选人。</div></div>';
     html+='    <div class="duty-tools">';
-    html+='      <button type="button" class="btn-mini" data-dutyact="seed">＋ 一键默认任务</button>';
-    html+='      <button type="button" class="btn-mini" data-dutyact="add">＋ 添加行</button>';
-    html+='      <button type="button" class="btn-mini" data-dutyact="copy">← 复制昨日</button>';
+    html+='      <button type="button" class="btn-mini" data-dutyact="addGroup">＋ 添加新组</button>';
+    html+='      <button type="button" class="btn-mini" data-dutyact="reset">🧹 清空本周</button>';
     html+='      <button type="button" class="btn-mini" data-dutyact="print">🖨 打印</button>';
     html+='    </div>';
     html+='  </div>';
     html+='  <div class="duty-note" contenteditable="true" data-dutynote="1" title="点击编辑班级备注">'+esc(note)+'</div>';
-    html+='  <table class="duty-table">';
-    html+='    <thead><tr><th>项目</th><th>时间</th><th>负责人</th><th></th></tr></thead>';
-    html+='    <tbody>'+tableRows+'</tbody>';
-    html+='  </table>';
-    html+='  <div class="duty-sign">签名：<span class="duty-sign-line"></span></div>';
+    html+='  <div class="duty-week-wrap"><table class="duty-week-table">';
+    html+='    <thead>'+thead+'</thead>';
+    html+='    <tbody>'+rows+'</tbody>';
+    html+='  </table></div>';
+    html+='  <div class="duty-sign">值日班长签名：<span class="duty-sign-line"></span>　　　日期：<span class="duty-sign-line" style="width:120px"></span></div>';
     html+='</div>';
     return html;
   }
-  /* 值日表：单元格失焦保存（contenteditable） */
-  function dutyCellSave(td){
-    var id=td.getAttribute("data-did");
-    var field=td.getAttribute("data-df");
-    var oldV=td.getAttribute("data-old")||"";
-    if(!id||!field) return;
-    var val=(td.textContent||"").trim();
-    if(val===oldV) return;
-    var rec=(DATA.duty||[]).filter(function(r){return r._id===id;})[0];
-    if(!rec) return;
-    var props={};
-    props[field]=val;
-    td.setAttribute("data-old",val);
-    apiUpdate("duty",id,props).then(function(){
-      rec[field]=val;
-      // 负责人改了 → 刷新旁边的学号徽标
-      if(field==="学生姓名"){
-        var stu=(DATA.students||[]).filter(function(s){return s["姓名"]===val;})[0];
-        var tr=td.closest("tr"); if(tr){
-          var oldNo=tr.querySelector(".duty-person-no"); if(oldNo) oldNo.remove();
-          if(stu && stu["学号"]){
-            var noEl=document.createElement("span"); noEl.className="duty-person-no"; noEl.textContent=stu["学号"];
-            td.parentNode.insertBefore(noEl, td.nextSibling);
-          }
-        }
-      }
-    }).catch(function(e){ console.error(e); toast("保存失败："+(e&&e.message||e)); });
-  }
+  /* 值日表：班级备注失焦保存（contenteditable） */
   function dutyNoteSave(td){
     var t=(td.textContent||"").trim();
     setDutyNote(t);
     toast("班级备注已保存 ✓");
   }
-  /* 值日表：默认任务种子（6 行：值日班长/早读领读/一查-四查） */
-  function seedDutyDefaults(){
-    var day=getDutySelDay();
-    var existRows=(DATA.duty||[]).filter(function(r){return (r["星期"]||"")===day;});
-    if(existRows.length && !confirm(day+" 已有 "+existRows.length+" 条值日安排，仍要追加默认任务吗？")) return;
-    var jobs=DUTY_DEFAULT_TASKS.map(function(t){
-      return apiAdd("duty",{星期:day,项目:t.项目,时间:t.时间,学生姓名:"",学号:"",备注:""}).then(function(o){
-        o["星期"]=day; o["项目"]=t.项目; o["时间"]=t.时间; o["学生姓名"]=""; o["学号"]=""; o["备注"]="";
-        (DATA.duty=DATA.duty||[]).push(o);
-      });
-    });
-    setStatus("syncing");
-    Promise.all(jobs).then(function(){ setStatus("ok"); toast("已添加默认任务 "+jobs.length+" 行 ✓"); renderList("duty"); })
-      .catch(function(e){ console.error(e); setStatus("offline"); toast("添加失败："+(e&&e.message||e)); });
-  }
-  function addDutyRow(){
-    var day=getDutySelDay();
-    setStatus("syncing");
-    apiAdd("duty",{星期:day,项目:"新项目",时间:"",学生姓名:"",学号:"",备注:""}).then(function(o){
-      o["星期"]=day; o["项目"]="新项目"; o["时间"]=""; o["学生姓名"]=""; o["学号"]=""; o["备注"]="";
-      (DATA.duty=DATA.duty||[]).push(o);
-      setStatus("ok"); toast("已添加新行"); renderList("duty");
-      // 自动聚焦到新行的项目单元格
-      setTimeout(function(){
-        var tr=document.querySelector('.duty-page tr[data-did="'+o._id+'"]');
-        if(tr){ var cell=tr.querySelector(".duty-td-proj"); if(cell){ cell.focus(); /* select all */ var r=document.createRange(); r.selectNodeContents(cell); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } }
-      },50);
-    }).catch(function(e){ console.error(e); setStatus("offline"); toast("添加失败："+(e&&e.message||e)); });
-  }
-  function delDutyRow(id){
-    if(!confirm("确定删除这一行值日安排吗？")) return;
-    setStatus("syncing");
-    apiDelete("duty",id).then(function(){
-      DATA.duty=(DATA.duty||[]).filter(function(r){return r._id!==id;});
-      setStatus("ok"); toast("已删除"); renderList("duty");
-    }).catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败"); });
-  }
-  /* 值日表：复制昨日（前一天的安排追加到当前日） */
-  function copyDutyPrev(){
-    var cur=getDutySelDay();
-    var idx=DUTY_WEEKDAYS.indexOf(cur);
-    if(idx<0){ toast("请先选一个日期"); return; }
-    var prevIdx=(idx-1+DUTY_WEEKDAYS.length)%DUTY_WEEKDAYS.length;
-    var prev=DUTY_WEEKDAYS[prevIdx];
-    var prevRows=(DATA.duty||[]).filter(function(r){return (r["星期"]||"")===prev;});
-    if(!prevRows.length){ toast(prev+" 还没有值日安排可复制"); return; }
-    var curRows=(DATA.duty||[]).filter(function(r){return (r["星期"]||"")===cur;});
-    if(curRows.length && !confirm(cur+" 已有 "+curRows.length+" 条值日安排，仍要复制 "+prev+" 的安排吗？")) return;
-    var jobs=prevRows.map(function(r){
-      var proj=(r["项目"]!=null&&r["项目"]!=="")?r["项目"]:(r["内容"]||"");
-      var props={星期:cur,项目:proj,时间:r["时间"]||"",学生姓名:r["学生姓名"]||"",学号:r["学号"]||"",备注:r["备注"]||""};
-      return apiAdd("duty",props).then(function(o){
-        o["星期"]=cur; o["项目"]=proj; o["时间"]=props.时间; o["学生姓名"]=props.学生姓名; o["学号"]=props.学号; o["备注"]=props.备注;
-        (DATA.duty=DATA.duty||[]).push(o);
-      });
-    });
-    setStatus("syncing");
-    Promise.all(jobs).then(function(){ setStatus("ok"); toast("已复制 "+prev+" → "+cur+" 共"+jobs.length+"行 ✓"); renderList("duty"); })
-      .catch(function(e){ console.error(e); setStatus("offline"); toast("复制失败："+(e&&e.message||e)); });
-  }
   function printDutyTable(){
     var box=document.querySelector(".duty-page");
     if(!box){ toast("值日表未加载"); return; }
-    var w=window.open("","_blank","width=720,height=900");
+    var w=window.open("","_blank","width=900,height=900");
     if(!w){ toast("浏览器拦截了弹窗"); return; }
     var clsName=(DATA.cls&&DATA.cls.班级名称)||"班级";
     var note=getDutyNote();
-    var day=getDutySelDay();
-    // 复用原页面内联样式 + 适配打印
-    var html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(clsName)+' 值日表 - '+esc(day)+'</title>'
-      +'<style>body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:20px;color:#222}'
-      +'.duty-page{max-width:680px;margin:0 auto}'
-      +'.duty-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:2px solid #555;padding-bottom:8px;margin-bottom:10px}'
-      +'.duty-title{font-size:22px;font-weight:800;margin:0}'
-      +'.duty-day{padding:4px 10px;border:1px solid #888;border-radius:999px;font-size:13px;margin:0 2px}'
-      +'.duty-day.cur{background:#333;color:#fff;border-color:#333}'
+    var styles='body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding:20px;color:#222}'
+      +'.duty-page{max-width:780px;margin:0 auto}'
+      +'.duty-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;border-bottom:2px solid #555;padding-bottom:8px;margin-bottom:10px}'
+      +'.duty-title{font-size:22px;font-weight:800;margin:0 0 4px}'
+      +'.duty-sub{font-size:12px;color:#777}'
+      +'.duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn{display:none !important}'
       +'.duty-note{background:#FFF7E6;border:1px dashed #F0C36D;border-radius:6px;padding:8px 12px;font-size:13px;color:#8B6914;margin-bottom:12px}'
-      +'.duty-table{width:100%;border-collapse:collapse;font-size:14px}'
-      +'.duty-table th{background:#EEF2FF;color:#333;font-weight:700;padding:10px 8px;text-align:center;border:1.5px solid #555}'
-      +'.duty-table td{padding:10px 8px;border:1px solid #888;text-align:center}'
-      +'.duty-td-proj,.duty-td-time,.duty-person{outline:none}'
-      +'.duty-person-no{color:#888;font-size:12px;margin-left:4px}'
-      +'.duty-td-act{display:none}'
-      +'.duty-link,.duty-row-del{display:none !important}'
-      +'.duty-tools{display:none !important}'
-      +'.duty-sign{margin-top:18px;text-align:right;font-size:13px;color:#555}'
-      +'.duty-sign-line{display:inline-block;border-bottom:1.5px solid #555;width:160px;margin-left:6px}'
-      +'</style></head><body><div class="duty-page">'
-      +'<div class="duty-head">'
-      +'  <h2 class="duty-title">📋 '+esc(clsName)+' 值日表</h2>'
-      +'  <div class="duty-days">'+DUTY_WEEKDAYS.map(function(d){return '<span class="duty-day'+(d===day?' cur':'')+'">'+esc(d)+'</span>';}).join('')+'</div>'
-      +'</div>'
-      +'<div class="duty-note">'+esc(note)+'</div>'
-      + box.querySelector(".duty-table").outerHTML
-      +'<div class="duty-sign">签名：<span class="duty-sign-line"></span></div>'
+      +'.duty-week-table{width:100%;border-collapse:collapse;font-size:13px}'
+      +'.duty-week-table th,.duty-week-table td{border:1px solid #555;padding:8px 6px;text-align:center;vertical-align:middle}'
+      +'.duty-week-table thead th{background:#EEF2FF;font-weight:700}'
+      +'.dw-row-th{background:#FFF7E6;font-weight:700;width:80px}'
+      +'.dw-th-group{background:#FFE9D6;width:80px}'
+      +'.dw-th-leader{background:#E0F5E0;width:96px}'
+      +'.dw-leader-cell{background:#F4FFF4;text-align:center}'
+      +'.dw-cell{text-align:left;min-height:50px;vertical-align:top}'
+      +'.dw-person{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1px solid #d2d6ef;border-radius:6px;padding:2px 6px;margin:1px 2px;font-size:12px}'
+      +'.dw-pno{color:#888;font-size:11px}'
+      +'.dw-leader-card{display:inline-flex;align-items:center;gap:4px;background:#E0F5E0;border:1px solid #A4D8A4;border-radius:6px;padding:4px 6px}'
+      +'.dw-leader-name{font-weight:700;color:#2E7D32}'
+      +'.dw-leader-no{color:#555;font-size:11px}'
+      +'.duty-sign{margin-top:18px;font-size:13px;color:#555;text-align:right}'
+      +'.duty-sign-line{display:inline-block;border-bottom:1.5px solid #555;width:160px;margin:0 6px}';
+    var tbl=box.querySelector(".duty-week-table").outerHTML;
+    var html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(clsName)+' 值日表</title><style>'+styles+'</style></head><body><div class="duty-page">'
+      +'<div class="duty-head"><div><h2 class="duty-title">📋 '+esc(clsName)+' 值日表</h2><div class="duty-sub">一周一变 · 全班统一</div></div></div>'
+      +'<div class="duty-note">'+esc(note)+'</div>'+tbl
+      +'<div class="duty-sign">值日班长签名：<span class="duty-sign-line"></span>　　　日期：<span class="duty-sign-line" style="width:120px"></span></div>'
       +'</div></body></html>';
     w.document.open(); w.document.write(html); w.document.close();
     setTimeout(function(){ w.focus(); w.print(); }, 300);
@@ -4356,28 +4406,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rdel=e.target.closest("[data-rdel]"); if(rdel){ dutyRosterRemove(rdel.getAttribute("data-rg"), rdel.getAttribute("data-rn")); return; }
     var radd=e.target.closest("[data-radd]"); if(radd){ dutyRosterAdd(radd.getAttribute("data-rg")); return; }
     var rmem=e.target.closest(".db-rmem"); if(rmem){ onDutyRosterClick(rmem); return; }
-    // 值日表（新）：日tab / 工具按钮 / 删除行 / 关联学生
-    var dday=e.target.closest("[data-dutyday]"); if(dday){ setDutySelDay(dday.getAttribute("data-dutyday")); renderList("duty"); return; }
-    var dact=e.target.closest("[data-dutyact]"); if(dact){
-      var a=dact.getAttribute("data-dutyact");
-      if(a==="seed"){ seedDutyDefaults(); return; }
-      if(a==="add"){ addDutyRow(); return; }
-      if(a==="copy"){ copyDutyPrev(); return; }
-      if(a==="print"){ printDutyTable(); return; }
-    }
-    var dudel=e.target.closest("[data-dudel]"); if(dudel){ delDutyRow(dudel.getAttribute("data-dudel")); return; }
-    var dulink=e.target.closest("[data-dulink]"); if(dulink){
-      var lid=dulink.getAttribute("data-dulink");
-      openStudentPicker(function(st){
-        var nm=st["姓名"]||"", no=st["学号"]||"";
-        apiUpdate("duty",lid,{学生姓名:nm,学号:no}).then(function(){
-          var rec=(DATA.duty||[]).filter(function(r){return r._id===lid;})[0];
-          if(rec){ rec["学生姓名"]=nm; rec["学号"]=no; }
-          toast("已关联 "+nm+" ✓");
-          renderList("duty");
-        }).catch(function(e){ console.error(e); toast("关联失败："+(e&&e.message||e)); });
-      });
+    // 值日表：格子 +关联 / -移除 / 组长指定 / 工具按钮
+    var dwadd=e.target.closest("[data-dwadd]");
+    if(dwadd){
+      var p=dwadd.getAttribute("data-dwadd").split("|");
+      dutyWeekOpenPicker(p[0],p[1]);
       return;
+    }
+    var dwdel=e.target.closest("[data-dwdel]");
+    if(dwdel){
+      var pd=dwdel.getAttribute("data-dwdel").split("|");
+      dutyWeekRemovePerson(pd[0],pd[1],parseInt(pd[2],10)||0);
+      return;
+    }
+    var dwlset=e.target.closest("[data-dwlset]");
+    if(dwlset){ dutyWeekSetLeader(dwlset.getAttribute("data-dwlset")); return; }
+    var dact=e.target.closest("[data-dutyact]");
+    if(dact){
+      var a=dact.getAttribute("data-dutyact");
+      if(a==="addGroup"){ dutyWeekAddGroup(); return; }
+      if(a==="reset"){ dutyWeekReset(); return; }
+      if(a==="print"){ printDutyTable(); return; }
     }
     var rcadd=e.target.closest("[data-rulecat-add]"); if(rcadd){ onRuleCatAdd(); return; }
     var rcdel=e.target.closest("[data-rulecat-del]"); if(rcdel){ onRuleCatDel(rcdel.getAttribute("data-rulecat-del")); return; }
@@ -4394,21 +4443,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
   });
 
-  /* 值日表：单元格 / 备注 失焦保存（contenteditable） */
+  /* 值日表：班级备注 失焦保存（contenteditable） */
   document.addEventListener("blur", function(e){
     var t=e.target;
     if(!t || !t.getAttribute) return;
-    if(t.hasAttribute && t.hasAttribute("data-df")){ dutyCellSave(t); return; }
     if(t.hasAttribute && t.hasAttribute("data-dutynote")){ dutyNoteSave(t); return; }
-  }, true);
-  /* 值日表：单元格回车不换行（直接保存退出编辑） */
-  document.addEventListener("keydown", function(e){
-    var t=e.target;
-    if(!t || !t.getAttribute) return;
-    if((t.hasAttribute && t.hasAttribute("data-df")) && (e.key==="Enter" || e.keyCode===13)){
-      e.preventDefault();
-      t.blur();
-    }
   }, true);
 
   document.getElementById("formClose").addEventListener("click",closeForm);
@@ -5098,7 +5137,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "dutytbl-2026-08-28";
+  var __APP_VERSION__ = "weektbl-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
