@@ -4222,9 +4222,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
       loadAllFiles().catch(function(){});
-      // 后台预热 Excel 解析库（自部署副本 + 多个 CDN 并行竞速），导入时无需等待
+      // 后台预热 Excel 解析库（多源竞速 + 缓存）：页面加载 1.5s 后开始，不阻塞首屏；
+      // 成功后写入 Cache API，之后成绩 Excel 导入秒开（首次较慢，约 1–2 分钟，取决于网络）
       if(typeof window.__xlsxPreload==="undefined"){
-        window.__xlsxPreload=loadScript(LIB.xlsx, {timeoutMs:5000}).then(function(){}).catch(function(){});
+        window.__xlsxPreload=null;
+        setTimeout(function(){ ensureXLSX().catch(function(e){ console.warn("xlsx 预加载失败，导入时将重试", e); }); }, 1500);
       }
       return failed;
     });
@@ -5207,6 +5209,74 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     pdf:["/banzhuren-workbench/pdf.min.js","https://lib.baomitu.com/pdf.js/3.11.174/pdf.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"],
     pdfWorker:"https://lib.baomitu.com/pdf.js/3.11.174/pdf.worker.min.js"
   };
+  /* xlsx 加载策略（解决「成绩 Excel 传不上去」）：
+     GitHub Pages 自部署副本在境内被严重限速（951KB 约需 1–2 分钟），原 5s 超时必失败；
+     境内多数 CDN 也不通。改为「fetch 多源竞速 + Cache API 缓存」：
+     - 多个来源并行竞速，最先下载完的胜出（CDN 通则快，不通则回退自部署副本）；
+     - 首次成功后写入 Cache API，之后永久秒开（不再受限）；
+     - 页面加载后后台预热（见下方 ensureXLSX 预加载调用）。 */
+  function _anyP(list){
+    return new Promise(function(res,rej){
+      var errs=[], done=false, n=list.length;
+      list.forEach(function(p){
+        Promise.resolve(p).then(function(v){ if(!done){ done=true; res(v); } })
+          .catch(function(e){ errs.push(e); if(errs.length>=n && !done) rej(errs); });
+      });
+    });
+  }
+  function _fetchXLSXOne(url){
+    return new Promise(function(res,rej){
+      var ctrl=null; try{ ctrl=new AbortController(); }catch(e){}
+      var to=setTimeout(function(){ if(ctrl && ctrl.abort) ctrl.abort(); }, 150000);
+      var req = ctrl ? fetch(url,{signal:ctrl.signal,cache:"reload"}) : fetch(url,{cache:"reload"});
+      req.then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+        .then(function(txt){
+          clearTimeout(to);
+          if(!txt || txt.length<50000 || !/SheetNames|XLSX/.test(txt.slice(0,400))) throw new Error("内容不像 xlsx 库");
+          res(txt);
+        })
+        .catch(function(e){ clearTimeout(to); rej(e); });
+    });
+  }
+  function _injectXLSX(txt){
+    return new Promise(function(res,rej){
+      try{
+        var blob=new Blob([txt],{type:"text/javascript"}); var url=URL.createObjectURL(blob);
+        var s=document.createElement("script"); s.src=url;
+        s.onload=function(){ try{ URL.revokeObjectURL(url); }catch(e){} res(); };
+        s.onerror=function(){ try{ URL.revokeObjectURL(url); }catch(e){} rej(new Error("xlsx 脚本执行失败")); };
+        document.head.appendChild(s);
+      }catch(e){ rej(e); }
+    });
+  }
+  function _loadXLSXNet(){
+    var hosts=[
+      "https://npm.elemecdn.com/xlsx@0.20.3/dist/xlsx.full.min.js",
+      "https://lib.baomitu.com/xlsx/0.20.3/xlsx.full.min.js",
+      (typeof SITE_ROOT!=="undefined" && SITE_ROOT) ? SITE_ROOT+"/xlsx.full.min.js" : null,
+      "https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js",
+      "https://unpkg.com/xlsx@0.20.3/dist/xlsx.full.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.3/xlsx.full.min.js",
+      "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+    ].filter(function(u){ return u && u!=="/"; });
+    var proms=hosts.map(_fetchXLSXOne);
+    return _anyP(proms).then(function(txt){
+      try{ if(window.caches){ caches.open("wb-libs").then(function(c){ try{ c.put("wb-xlsx", new Response(txt)); }catch(e){} }).catch(function(){}); } }catch(e){}
+      return _injectXLSX(txt);
+    });
+  }
+  function ensureXLSX(){
+    if(typeof XLSX!=="undefined" && XLSX.read) return Promise.resolve();
+    try{
+      if(window.caches && caches.match){
+        return caches.match("wb-xlsx").then(function(resp){
+          if(resp) return resp.text().then(function(txt){ return _injectXLSX(txt); });
+          return _loadXLSXNet();
+        }).catch(function(){ return _loadXLSXNet(); });
+      }
+    }catch(e){}
+    return _loadXLSXNet();
+  }
   var _libCache={};
   function loadScript(urls, opts){
     if(typeof urls==="string") urls=[urls];
@@ -5307,7 +5377,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return null;
   }
   function parseXLSX(file){
-    return loadScript(LIB.xlsx).then(function(){
+    return ensureXLSX().then(function(){
       return new Promise(function(res,rej){
         var reader=new FileReader();
         reader.onerror=function(){ rej(new Error("文件读取失败")); };
@@ -5500,7 +5570,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       reader.readAsText(file,"UTF-8");
       return;
     }
-    prev.innerHTML='<div class="imp-empty">⏳ 正在解析 '+esc(file.name)+' …（首次需加载解析组件，请稍候）</div>';
+    prev.innerHTML='<div class="imp-empty">⏳ 正在解析 '+esc(file.name)+' …（首次需加载 Excel 解析组件，境内网络较慢，约需 1–2 分钟，加载一次后会自动缓存，之后秒开）</div>';
     var p = t==="xlsx"?parseXLSX(file) : t==="docx"?parseDOCX(file) : t==="pdf"?parsePDF(file) : Promise.reject(new Error("不支持的文件类型"));
     p.then(function(parsed){ showPreview(parsed); }).catch(function(err){ showImpError(err); });
   }
@@ -5744,7 +5814,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "navtoggle-2026-08-28";
+  var __APP_VERSION__ = "xlsxload-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
