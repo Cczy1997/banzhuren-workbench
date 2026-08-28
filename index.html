@@ -2805,7 +2805,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     // 讲台左右两侧的两个座位（始终展示，独立于网格布局，按名单排座不会清空/覆盖；不参与网格交换）
     var flank=(DATA.seats||[]).filter(function(r){ return r["排号"]==="讲台"; });
     function flankCell(col){
-      var rec=flank.filter(function(r){ return String(r["列号"])===col; })[0];
+      var rec=flank.filter(function(r){ return String(r["列号"]).replace(/\D/g,"")===col; })[0];
       var rid=rec?rec._id:"", name=rec?rec["学生姓名"]:"";
       return '<div class="seatcell flank '+(rec?"":"empty")+'" data-rc="r_'+col+'" data-rid="'+esc(rid)+'">'
         +'<div class="seatname">'+esc(name)+'</div>'
@@ -2870,7 +2870,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rid=cell.getAttribute("data-rid");
     // 讲台左右两侧座位：点空位→新增（预填排号=讲台）；点已占→编辑。不参与网格交换
     if(rc && rc.indexOf("r_")===0){
-      if(!rid){ openAdd("seats", {排号:"讲台", 列号:rc.split("_")[1]}); }
+      if(!rid){ openAdd("seats", {排号:"讲台", 列号:rc.split("_")[1]+"列"}); }
       else { openEdit("seats", rid); }
       return;
     }
@@ -2928,7 +2928,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(rr&&cc) map[rr+"_"+cc]=r;
     });
     var flank={};
-    (DATA.seats||[]).forEach(function(r){ if(r["排号"]==="讲台"){ flank[String(r["列号"])]=r; } });
+    (DATA.seats||[]).forEach(function(r){ if(r["排号"]==="讲台"){ flank[String(r["列号"]).replace(/\D/g,"")]=r; } });
     var clsName=(DATA.cls&&DATA.cls.班级名称)||"班级";
     var rowsHtml="";
     var r1=flank["1"], r2=flank["2"];
@@ -3022,7 +3022,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       }
       return Promise.all(addJobs);
     }).then(function(){
-      setStatus("ok"); toast("已按名单排座 "+st.length+" 人 ✓"); renderList("seats");
+      // 排座后去重：同一学生若同时出现在讲台与网格，保留后填入的（网格），删先填入的（讲台）
+      return dedupeSeatsKeepLatest().then(function(){
+        setStatus("ok"); toast("已按名单排座 "+st.length+" 人 ✓"); renderList("seats");
+      });
     }).catch(function(e){ console.error(e); setStatus("offline"); toast("排座失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
   }
   function swapSeats(a,b){
@@ -3043,6 +3046,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(recB){ ups.push(apiUpdate("seats", b.rid, seatPayload(recB))); }
     Promise.all(ups).then(function(){ setStatus("ok"); toast("已换座并保存 ✓"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
+  }
+  /* 座位去重：同一学生不能重复出现。保存某座位后，删除其它同名学生（保留刚保存的 keepId）。 */
+  function dedupeSeatDuplicate(keepId, name){
+    name=(name||"").trim(); if(!name) return Promise.resolve();
+    var dups=(DATA.seats||[]).filter(function(r){ return r._id!==keepId && (r["学生姓名"]||"").trim()===name; });
+    if(!dups.length) return Promise.resolve();
+    var jobs=dups.map(function(r){ return apiDelete("seats", r._id).catch(function(){}); });
+    return Promise.all(jobs).then(function(){
+      DATA.seats=(DATA.seats||[]).filter(function(r){ return !(r._id!==keepId && (r["学生姓名"]||"").trim()===name); });
+    });
+  }
+  /* 按名单排座后去重：保留最后出现（后填入）的座位，删除先填入的同名学生。 */
+  function dedupeSeatsKeepLatest(){
+    var lastIdx={};
+    (DATA.seats||[]).forEach(function(r,i){ var n=(r["学生姓名"]||"").trim(); if(n) lastIdx[n]=i; });
+    var delIds={};
+    (DATA.seats||[]).forEach(function(r,i){ var n=(r["学生姓名"]||"").trim(); if(n && lastIdx[n]!==i) delIds[r._id]=true; });
+    var ids=Object.keys(delIds); if(!ids.length) return Promise.resolve();
+    return Promise.all(ids.map(function(id){ return apiDelete("seats", id).catch(function(){}); })).then(function(){
+      DATA.seats=(DATA.seats||[]).filter(function(r){ return !delIds[r._id]; });
+    });
   }
 
   /* ---------- 总览：班级课表 + 当天待办任务 + 荣誉榜 ---------- */
@@ -3750,12 +3774,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     chain.then(function(){
       // 编辑时合并已有字段，避免整体替换 data 列清空「已兑换」等自动维护字段
       var propsFull = props;
+      // 座位「列号」规范化：裸数字（如讲台旧数据 "1"）补上「列」，与 select 选项一致
+      if(key==="seats" && props["列号"]){
+        var sd=String(props["列号"]).replace(/\D/g,"");
+        if(sd && !/列$/.test(String(props["列号"]))) props["列号"]=sd+"列";
+      }
       if(current.id){
         var rec=(DATA[key]||[]).filter(function(r){return r._id===current.id;})[0];
         if(rec){ propsFull={}; Object.keys(rec).forEach(function(k){ if(k!=="_id") propsFull[k]=rec[k]; }); Object.keys(props).forEach(function(k){ propsFull[k]=props[k]; }); }
       }
       var p = current.id ? apiUpdate(key, current.id, propsFull) : apiAdd(key, props);
-      return p;
+      return p.then(function(saved){
+        // 座位去重：同一学生不能同时出现，删掉「先填入的」（其它同名学生），保留刚保存的
+        var after=Promise.resolve();
+        if(key==="seats"){
+          var keepId = current.id ? current.id : (saved && saved._id);
+          var nm = (propsFull["学生姓名"]!==undefined ? propsFull["学生姓名"] : props["学生姓名"]||"");
+          nm=(nm||"").trim();
+          if(keepId && nm) after = dedupeSeatDuplicate(keepId, nm);
+        }
+        return after.then(function(){ return saved; });
+      });
     }).then(function(){
       closeForm();
       if(!current.id){ localStorage.removeItem("wb_cls_form_"+key); }
@@ -4767,7 +4806,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "linkrel-2026-08-28";
+  var __APP_VERSION__ = "seatdup-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
