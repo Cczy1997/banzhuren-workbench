@@ -725,6 +725,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .ov-duty-list{display:flex;flex-wrap:wrap;gap:7px}
   .ov-duty-mem{background:#fff;border:1.5px solid var(--pink);color:var(--pink-d);border-radius:999px;padding:4px 13px;font-size:13.5px;font-weight:700}
   .ov-duty-empty{color:var(--ink-soft);font-style:italic}
+  .ov-duty-grp-block{margin:0 0 10px}
+  .ov-duty-grp-block:last-child{margin-bottom:0}
+  .ov-duty-grp-block .ov-duty-grp{display:block;font-size:13px;font-weight:800;color:var(--pink-d);margin:0 0 6px}
+  .ov-duty-no{font-style:normal;font-weight:500;font-size:11px;opacity:.7;margin-left:1px}
   .btn-ok{background:#1f9d5b;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
   .btn-ok:hover{background:#178a4e}
   .btn-bad{background:#e0584f;color:#fff;border:none;border-radius:12px;padding:9px 13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -2476,16 +2480,36 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     w.document.open(); w.document.write(html); w.document.close();
     setTimeout(function(){ w.focus(); w.print(); }, 300);
   }
-  // 总览：本周值日生（当前轮值组 + 其成员）
+  // 总览：本周值日生 —— 直接汇总「值日安排」横向周表（值日小组 × 分工 × 负责人），与之同源同步
   function renderDutyWeek(){
-    var groups=dutyRot.groups;
-    if(!groups.length){
-      return '<div class="ov-duty"><h2>🧹 本周值日生</h2><div class="empty">尚未设置值日小组，去「值日安排」填写轮值小组即可自动显示。</div></div>';
+    // 按 值日小组 汇总本周（当前周表）全部值日生（同一学生在同组多个分工里去重）
+    var gmap={}, order=[];
+    (DATA.duty||[]).forEach(function(r){
+      var g=(r["值日小组"]||"").trim(); if(!g) return;
+      var ns=(r["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      var xs=(r["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      if(!gmap[g]){ gmap[g]={names:{}, order:[]}; order.push(g); }
+      ns.forEach(function(n,i){
+        if(!(n in gmap[g].names)){ gmap[g].names[n]=xs[i]||""; gmap[g].order.push(n); }
+      });
+    });
+    if(!order.length){
+      return '<div class="ov-duty"><h2>🧹 本周值日生</h2><div class="empty">尚未安排值日，去「值日安排」填写横向周表即可自动显示。</div></div>';
     }
-    var cur=currentDutyGroup();
-    var mem=groupMembersLive(cur);
-    var chips=mem.length?mem.map(function(n){return '<span class="ov-duty-mem">'+esc(n)+'</span>';}).join(''):'<span class="ov-duty-empty">本周值日生尚未安排</span>';
-    return '<div class="ov-duty"><h2>🧹 本周值日生 · <span class="ov-duty-grp">'+esc(cur)+'</span></h2><div class="ov-duty-list">'+chips+'</div></div>';
+    // 首选固定组序（第一组~第四组），其余按数据中出现顺序追加
+    var seq=DUTY_WEEK_GROUPS.filter(function(g){return order.indexOf(g)>=0;});
+    order.forEach(function(g){ if(seq.indexOf(g)<0) seq.push(g); });
+    var blocks=seq.map(function(g){
+      var mem=gmap[g].order;
+      var chips=mem.length
+        ? mem.map(function(n){
+            var no=gmap[g].names[n];
+            return '<span class="ov-duty-mem" data-profile="'+esc(n)+'">'+esc(n)+(no?' <i class="ov-duty-no">'+esc(no)+'</i>':'')+'</span>';
+          }).join('')
+        : '<span class="ov-duty-empty">未安排</span>';
+      return '<div class="ov-duty-grp-block"><div class="ov-duty-grp">'+esc(g)+'</div><div class="ov-duty-list">'+chips+'</div></div>';
+    }).join('');
+    return '<div class="ov-duty"><h2>🧹 本周值日生</h2>'+blocks+'</div>';
   }
   // 把值日表草稿写回 DATA.duty（按 值日组+内容 upsert；星期统一记「本周」）
   function saveDutyGrid(){
@@ -5547,7 +5571,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "gradefolder-2026-08-28";
+  var __APP_VERSION__ = "ovdutysync-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
