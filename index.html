@@ -138,7 +138,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     padding:16px 16px 8px;margin-bottom:16px;box-shadow:var(--shadow);
   }
   .today h2{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:16px;font-weight:800}
-  .today h2 .badge{margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:3px 10px}
+  .today h2 .badge{margin-left:6px;font-size:12px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:3px 10px}
+  .today h2 .ov-go{margin-left:auto;font-size:13px;font-weight:700;color:var(--pink-d);text-decoration:none;cursor:pointer}
+  .today h2 .ov-go:active{opacity:.6}
   .today .empty{color:var(--ink-soft);font-size:13.5px;padding:8px 2px 12px}
   .tcard{
     background:#fff;border-radius:16px;padding:11px 13px;margin-bottom:10px;
@@ -1386,7 +1388,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     renderSidebar();
     syncMobileTitle();
     var box=document.getElementById("content");
-    if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadToday(); renderScheduleInto("class","overviewSched"); return; }
+    if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadOverviewAffairs(); renderScheduleInto("class","overviewSched"); return; }
     if(state.mod==="sched_hwk"){ box.innerHTML='<div class="phead"><h3>📚 个人功课表</h3><span class="hint">按星期×节次记录每节课要布置的功课 / 个人教学安排；支持本周调课，下周自动还原</span></div>'+renderScheduleHTML("hwk"); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
@@ -1402,7 +1404,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 视图持久化：把当前栏目+模块存到 localStorage，iOS Safari 原生下拉刷新(location.reload)后仍能回到当前页 */
   var __VIEW_KEY = "bzr_view_v1";
   function saveView(){
-    try{ localStorage.setItem(__VIEW_KEY, JSON.stringify({ cat: state.cat, mod: state.mod })); }catch(e){}
+    try{ localStorage.setItem(__VIEW_KEY, JSON.stringify({ cat: state.cat, mod: state.mod, open: state.open })); }catch(e){}
   }
   function restoreView(){
     var raw;
@@ -1414,6 +1416,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(v.cat==="overview"){ state.cat="overview"; state.mod=v.mod||"students"; return; }
       if(!ORDER[v.cat] || ORDER[v.cat].indexOf(v.mod)<0) return;   // 模块不属于该栏目则不恢复，避免错乱
       state.cat=v.cat; state.mod=v.mod;
+      // 还原侧边栏展开状态：否则刷新后「班级事务」等栏目会折叠「消失」，只剩一个收起的标题
+      if(v.open && typeof v.open==="object"){ for(var _k in v.open){ if(v.open[_k]) state.open[_k]=true; } }
     }catch(e){}
   }
   function syncMobileTitle(){
@@ -1481,7 +1485,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return;
     }
     // 成绩 / 值日 / 班务待办 模块在列表上方注入专属面板（AI 分析条 / 每周值日看板 / 当天待办聚合）
-    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : (key==="rules" ? renderRuleCats() : (key==="affairs" ? renderAffairsTodayAside() : "")));
+    var extra = key==="grades" ? renderGradesAIBar() : (key==="duty" ? renderDutyBoard()+renderDutyRoster() : (key==="rules" ? renderRuleCats() : ""));
     var attStrip = renderModAttachments(key);
     if(!rows.length){
       box.innerHTML = attStrip + extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
@@ -2806,12 +2810,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div id="overviewSched"></div>'
       +'</div>'
       +'<div class="today">'
-      +'<h2>'
-      +'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B9D" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v9l6 3"/><circle cx="12" cy="12" r="9"/></svg>'
-      +'当天待办任务'
-      +'<span class="badge" id="todayCount">0</span>'
+      +'<h2>📋 班务待办'
+      +'<span class="badge" id="affCount">0</span>'
+      +'<a class="ov-go" data-gomod="affairs">去管理 ›</a>'
       +'</h2>'
-      +'<div id="todayList"></div>'
+      +'<div id="affList"></div>'
       +'</div>'
       +renderDutyWeek();
   }
@@ -3102,45 +3105,26 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var sum=0; names.forEach(function(n){ sum+=studentPoints(n); });
     return sum/names.length;
   }
-  /* ---------- 今日要处理 ---------- */
-  /* 纯计算：把班务待办按「逾期 / 今天截止 / 即将到期(3天内)」三分，总览与班务待办模块共用同一份数据 */
-  function buildTodaySections(){
-    var rows=DATA.affairs||[], t=todayStr();
-    var overdue=[], todayI=[], soon=[];
-    rows.forEach(function(r){
-      if(r["状态"]==="已完成") return;
-      var d=(r["截止日期"]||"").slice(0,10);
-      if(!d){ soon.push(r); return; }
-      if(d<t) overdue.push(r);
-      else if(d===t) todayI.push(r);
-      else if(dayDiff(t,d)<=3) soon.push(r);
+  /* ---------- 总览「班务待办」：直接复用班务待办数据（与「班级事务→班务待办」同源同表），不再另算子集 ---------- */
+  function affairTag(r){
+    var d=(r["截止日期"]||"").slice(0,10);
+    if(!d) return {cls:"soon", tag:"无截止"};
+    var t=todayStr();
+    if(d<t) return {cls:"overdue", tag:"已逾期"};
+    if(d===t) return {cls:"", tag:"今天截止"};
+    if(dayDiff(t,d)<=3) return {cls:"soon", tag:"即将到期"};
+    return {cls:"", tag:""};
+  }
+  function loadOverviewAffairs(){
+    var box=document.getElementById("affList"); if(!box) return;
+    var rows=(DATA.affairs||[]).slice().filter(function(r){ return (r["状态"]||"")!=="已完成"; });
+    rows.sort(function(a,b){
+      var da=(a["截止日期"]||"").slice(0,10), db=(b["截止日期"]||"").slice(0,10);
+      return (da||"9999").localeCompare(db||"9999");
     });
-    return { overdue:overdue, todayI:todayI, soon:soon, total:overdue.length+todayI.length+soon.length };
-  }
-  function loadToday(){
-    var box=document.getElementById("todayList");
-    if(!box) return;
-    var s=buildTodaySections();
-    var bc=document.getElementById("todayCount"); if(bc) bc.textContent=s.total;
-    if(!s.total){ box.innerHTML='<div class="empty">🎉 今天没有待处理的班务，轻松一下吧～</div>'; return; }
-    var html="";
-    s.overdue.forEach(function(r){ html+=todayCard(r,"overdue","已逾期"); });
-    s.todayI.forEach(function(r){ html+=todayCard(r,"","今天截止"); });
-    s.soon.forEach(function(r){ html+=todayCard(r,"soon","即将到期"); });
-    box.innerHTML=html;
-  }
-  /* 班务待办模块顶部聚合区：与总览「当天待办任务」同源同步，在「班级事务」下也能一眼看到当天/逾期的待办 */
-  function renderAffairsTodayAside(){
-    if(state.mod!=="affairs") return "";
-    var s=buildTodaySections();
-    if(!s.total) return "";
-    var html='<div class="today aside">'
-      +'<h2>📌 当天 &amp; 逾期待办 <span class="badge">'+s.total+'</span></h2>'
-      +'<div class="today-aside-list">';
-    s.overdue.forEach(function(r){ html+=todayCard(r,"overdue","已逾期"); });
-    s.todayI.forEach(function(r){ html+=todayCard(r,"","今天截止"); });
-    html+='</div></div>';
-    return html;
+    var bc=document.getElementById("affCount"); if(bc) bc.textContent=rows.length;
+    if(!rows.length){ box.innerHTML='<div class="empty">📋 暂无待办，去「班级事务 → 班务待办」添加一条吧～</div>'; return; }
+    box.innerHTML = rows.map(function(r){ var t=affairTag(r); return todayCard(r, t.cls, t.tag); }).join("");
   }
   function todayCard(r, cls, tag){
     var d=(r["截止日期"]||"").slice(0,10);
@@ -3149,7 +3133,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(r["优先级"]) meta.push("优先级："+r["优先级"]);
     if(d) meta.push("截止："+fmtDate(d));
     return '<div class="tcard '+cls+'" data-sp-bindable="database" data-sp-database-id="1eAilZ5CzNY7U9z1qOYdIN">'
-      +'<div class="t-top"><span class="t-title">'+esc(r["事项"]||"（未填写）")+'</span><span class="tag">'+tag+'</span></div>'
+      +'<div class="t-top"><span class="t-title">'+esc(r["事项"]||"（未填写）")+'</span>'+(tag?'<span class="tag">'+tag+'</span>':'')+'</div>'
       +'<div class="t-meta">'+meta.map(function(x){return '<span>'+esc(x)+'</span>';}).join("")+'</div>'
       +'<div class="t-act"><button class="mini done" data-act="done" data-id="'+r._id+'">完成</button>'
       +'<button class="mini edit" data-act="edit" data-mod="affairs" data-id="'+r._id+'">详情</button></div>'
@@ -3217,7 +3201,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       loadRuleCats();
       loadMeetings();
       loadWeekly();
-      try { render(); loadToday(); }
+      try { render(); loadOverviewAffairs(); }
       catch(e){ console.error(e); showFatal(e); }
       checkMondayRedFlag();
       loadAllFiles().catch(function(){});
@@ -3690,6 +3674,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   });
   document.getElementById("content").addEventListener("click",function(e){
     var g=e.target.closest(".ov-mod"); if(g){ return; }
+    var goMod=e.target.closest("[data-gomod]"); if(goMod){ switchMod(goMod.getAttribute("data-gomod")); closeDrawer(); return; }
     var sd=e.target.closest("[data-sched]"); if(sd){ onSchedAction(sd); return; }
     var seatBtn=e.target.closest("[data-seat]"); if(seatBtn){ onSeatTool(seatBtn.getAttribute("data-seat")); return; }
     var cell=e.target.closest(".seatcell"); if(cell){ onSeatClick(cell); return; }
@@ -4341,7 +4326,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "viewsync-2026-08-28";
+  var __APP_VERSION__ = "afftodo-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
