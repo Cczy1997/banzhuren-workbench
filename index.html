@@ -636,15 +636,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .boot-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46vh;color:var(--ink-soft);font-size:15px;font-weight:700}
   .spinner{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:spin .8s linear infinite;flex:none}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .fatal-err{position:sticky;top:0;z-index:60;margin:0 0 14px;padding:14px 16px;border-radius:12px;background:#FFF1F1;border:1px solid #F3C0C0;color:#B3261E;box-shadow:0 4px 14px rgba(190,40,40,.12)}
+  .fatal-err{position:fixed;left:14px;right:14px;top:14px;z-index:2147483647;padding:14px 16px;border-radius:14px;background:rgba(255,241,241,.97);border:1px solid #F3C0C0;color:#B3261E;box-shadow:0 8px 24px rgba(190,40,40,.25);backdrop-filter:blur(10px);max-height:50vh;overflow:auto;font-size:13px}
   .fatal-err.hide{display:none}
+  /* 折叠后的浮窗按钮：右下角小红点 + 标签 */
+  .fatal-fab{position:fixed;right:16px;bottom:16px;z-index:2147483647;background:#FF6B6B;color:#fff;border:none;border-radius:999px;padding:10px 14px;font-weight:800;font-size:12.5px;box-shadow:0 6px 18px rgba(255,107,107,.45);cursor:pointer;display:flex;align-items:center;gap:6px;letter-spacing:.5px}
+  .fatal-fab:hover{filter:brightness(.94)}
+  .fatal-fab .pulse{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.4)}}
   .fe-h{font-size:14px;font-weight:800;margin-bottom:6px}
   .fe-m{font-size:13px;line-height:1.55;word-break:break-word;white-space:pre-wrap}
   .fe-s{margin-top:8px;font-size:12px}
   .fe-s summary{cursor:pointer;color:#9a3b35;font-weight:700}
   .fe-s pre{margin:6px 0 0;max-height:180px;overflow:auto;background:#fff;color:#7a2b27;padding:8px;border-radius:8px;white-space:pre-wrap;word-break:break-word;font-size:11.5px}
-  .fe-actions{margin-top:10px;display:flex;gap:10px}
-  .fe-actions button{border:none;background:#fff;color:#B3261E;font-weight:800;padding:7px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .fe-actions{margin-top:10px;display:flex;gap:10px;flex-wrap:wrap}
+  .fe-actions button{border:none;background:#fff;color:#B3261E;font-weight:800;padding:7px 14px;border-radius:9px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:12.5px}
+  /* 顶部版本徽章：让用户能直接看到当前 commit hash 与时间，确认是否拿到新版本 */
+  .ver-badge{position:fixed;left:12px;bottom:12px;z-index:2147483646;font-size:11px;color:#7E88A6;background:rgba(255,255,255,.85);padding:3px 8px;border-radius:999px;border:1px solid var(--line);font-family:'SF Mono','Menlo','Consolas',monospace;letter-spacing:.3px;backdrop-filter:blur(8px);box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer}
+  .ver-badge:hover{background:rgba(255,255,255,.96);color:var(--ink)}
 
   /* 微班会 · AI 主题 + 收集区 */
   .meet-gen-card{background:linear-gradient(135deg,#FFF6FB,#F3F0FF);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
@@ -4365,11 +4373,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
   }
 
-  /* 防白屏：全局错误边界——任何未捕获异常都显示到页面顶部，而非纯白屏；便于诊断与反馈 */
+  /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
+  var __APP_VERSION__ = "8d05cc5-2026-08-28";
+  var __errLog = [];   // 最近 10 条错误，按时间倒序
+  function __pushErr(e){
+    var errObj = (e && e.error) || (e && e.reason) || (e instanceof Error ? e : null);
+    var msg = (errObj && errObj.message) || (e && (e.message || (e.reason && (e.reason.message||e.reason)) || e.reason)) || String(e);
+    var stack = (errObj && errObj.stack) || (e && e.reason && e.reason.stack) || "";
+    var src = (errObj && errObj.filename) ? (errObj.filename + ":" + (errObj.lineno||0) + ":" + (errObj.colno||0)) : "";
+    __errLog.unshift({ when:new Date().toLocaleString("zh-CN"), msg:String(msg), stack:String(stack), src:String(src) });
+    if(__errLog.length>10) __errLog.length=10;
+  }
   function showFatal(e){
+    __pushErr(e);
     var box=document.getElementById("fatalErr");
-    if(!box){ box=document.createElement("div"); box.id="fatalErr"; box.className="fatal-err"; var wrap=document.querySelector(".wrap"); (wrap||document.body).insertBefore(box, (wrap?wrap.firstChild:null)); }
-    box.className="fatal-err";
+    if(!box){ box=document.createElement("div"); box.id="fatalErr"; box.className="fatal-err hide"; (document.body||document.documentElement).appendChild(box); }
+    var fab=document.getElementById("fatalFab");
+    if(!fab){ fab=document.createElement("button"); fab.id="fatalFab"; fab.className="fatal-fab hide"; fab.setAttribute("type","button"); document.body.appendChild(fab);
+      fab.onclick=function(){ box.classList.remove("hide"); fab.classList.add("hide"); };
+    }
+    fab.innerHTML='<span class="pulse"></span> 页面异常 '+__errLog.length+' 条';
+    fab.classList.remove("hide");
     var errObj = (e && e.error) || (e && e.reason) || (e instanceof Error ? e : null);
     var msg = (errObj && errObj.message) || (e && (e.message || (e.reason && (e.reason.message||e.reason)) || e.reason)) || String(e);
     var stack = (errObj && errObj.stack) || (e && e.reason && e.reason.stack) || "";
@@ -4377,21 +4401,46 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var low = String(msg).toLowerCase();
     var hint = "";
     if (/unexpected token|syntaxerror|not valid json|json\.parse|json parse/i.test(low)) {
-      hint = "\n提示：这通常是网络/接口返回了非 JSON（如网关 HTML 拦截页），或某个脚本加载损坏。请：① 硬刷新（Mac ⌘+Shift+R；iPhone 长按刷新→重新载入）；② 若开了代理/VPN 请先关闭；③ 点「复制错误」把下方完整信息发我，可精确定位。";
+      hint = "通常是 JSON.parse 把非 JSON 字符串（如网关 HTML 拦截页）当 JSON 解析。网络/代理不稳、防火墙拦截、企业网关都可能出现。";
     } else if (msg === "Script error.") {
-      hint = "\n提示：多为跨域组件（xlsx/pdf/word）加载失败，请硬刷新或换网络再试。";
+      hint = "多为跨域组件（xlsx/pdf/word）加载失败或缓存损坏，请强刷或换网络再试。";
+    } else if (/failed to fetch|networkerror|load failed/i.test(low)) {
+      hint = "可能是网络/防火墙拦截了请求，请检查 VPN/代理后重试。";
     }
     var when = new Date().toLocaleString("zh-CN");
-    var detail = msg + src + (stack ? ("\n堆栈：" + stack) : "") + hint;
-    box.innerHTML='<div class="fe-h">⚠️ 页面运行出错（已捕获，顶部其它功能一般仍可正常使用）</div>'
-      +'<div class="fe-m">'+esc(msg)+'</div>'
-      + (src ? '<div class="fe-m" style="opacity:.7;margin-top:4px">'+esc(src)+'</div>' : '')
-      +'<div class="fe-m" style="opacity:.7;margin-top:4px">时间：'+esc(when)+'</div>'
-      +'<div class="fe-m" style="opacity:.85;margin-top:6px;white-space:pre-wrap">'+esc(hint)+'</div>'
-      + (stack ? '<details class="fe-s" open><summary>技术详情（点「复制错误」可发我定位）</summary><pre>'+esc(stack)+'</pre></details>' : '')
-      + '<div class="fe-actions"><button id="feRetry">重试加载</button><button id="feCopy">复制错误</button></div>';
-    var rb=document.getElementById("feRetry"); if(rb) rb.onclick=function(){ box.classList.add("hide"); try{ refreshAll().then(function(){ render(); }); }catch(_){} };
-    var cb=document.getElementById("feCopy"); if(cb) cb.onclick=function(){ try{ if(navigator.clipboard) navigator.clipboard.writeText(detail); toast("错误已复制，可发给我定位"); }catch(_){ var ta=document.createElement("textarea"); ta.value=detail; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); toast("错误已复制，可发给我定位"); }catch(__){} document.body.removeChild(ta); } };
+    var ua = (navigator.userAgent||"").replace(/Mozilla\/[\d.]+\s*/,"").slice(0,80);
+    var detail = "【版本】" + __APP_VERSION__ + "\n【时间】" + when + "\n【位置】" + location.href + "\n【设备】" + ua + "\n【错误】" + msg + src + (stack ? ("\n【堆栈】\n" + stack) : "") + (hint ? ("\n【提示】" + hint) : "");
+    box.innerHTML='<div class="fe-h">⚠️ 页面运行出错（已捕获，主体功能一般仍可正常使用）</div>'
+      +'<div class="fe-m" style="font-weight:800">'+esc(msg)+'</div>'
+      + (src ? '<div class="fe-m" style="opacity:.7;margin-top:4px;font-size:12px">'+esc(src)+'</div>' : '')
+      +'<div class="fe-m" style="opacity:.7;margin-top:4px;font-size:12px">时间：'+esc(when)+'  ·  版本 '+esc(__APP_VERSION__)+'  ·  最近 '+__errLog.length+' 条</div>'
+      + (hint ? '<div class="fe-m" style="margin-top:8px;padding:9px 12px;background:rgba(255,255,255,.6);border-radius:9px;font-size:12.5px">💡 '+esc(hint)+'</div>' : '')
+      + (stack ? '<details class="fe-s"><summary>技术详情（点「复制完整诊断」可发我定位）</summary><pre>'+esc(stack)+'</pre></details>' : '')
+      + '<div class="fe-actions">'
+      +   '<button id="feCopyFull">复制完整诊断</button>'
+      +   '<button id="feRetry">重试加载</button>'
+      +   '<button id="feHardReload">清缓存强刷</button>'
+      +   '<button id="feDismiss">忽略（关闭）</button>'
+      + '</div>';
+    var rb=document.getElementById("feRetry"); if(rb) rb.onclick=function(){ box.classList.add("hide"); fab.classList.remove("hide"); try{ refreshAll().then(function(){ render(); }); }catch(_){} };
+    var cb=document.getElementById("feCopyFull"); if(cb) cb.onclick=function(){ copyToClipboard(detail, "完整诊断已复制，可发给我定位"); };
+    var hb=document.getElementById("feHardReload"); if(hb) hb.onclick=function(){ try{ if(window.caches){ caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); }); } }catch(_){} try{ if(navigator.serviceWorker){ navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); }); } }catch(_){} setTimeout(function(){ location.reload(); }, 80); };
+    var db=document.getElementById("feDismiss"); if(db) db.onclick=function(){ box.classList.add("hide"); fab.classList.remove("hide"); };
+  }
+  /* 浏览器剪贴板 fallback：兼容非 https / 老 Safari */
+  function copyToClipboard(text, okMsg){
+    function done(){ toast(okMsg || "已复制"); }
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(text).then(done, function(){
+          var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select();
+          try{ document.execCommand("copy"); done(); }catch(_){ toast("复制失败，请手动框选"); } document.body.removeChild(ta);
+        });
+      } else {
+        var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand("copy"); done(); }catch(_){ toast("复制失败，请手动框选"); } document.body.removeChild(ta);
+      }
+    }catch(_){ toast("复制失败，请手动框选"); }
   }
   window.addEventListener("error", function(ev){ try{ showFatal(ev.error || ev.message); }catch(_){} });
   window.addEventListener("unhandledrejection", function(ev){ try{ showFatal(ev.reason); }catch(_){} });
