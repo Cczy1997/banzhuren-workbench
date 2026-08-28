@@ -169,6 +169,53 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .stu-sub{font-size:11.5px;color:var(--ink-soft);margin-top:3px;line-height:1.3}
   .stu-tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
   .stu-tags .chip{font-size:10px;padding:1px 6px}
+  /* 学生头像：照片（按年份保留历史）覆盖默认首字头像 */
+  .stu-av-img{overflow:hidden;padding:0}
+  .stu-av-img img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+  /* 关联学生档案按钮（低调，不抢眼） */
+  .btn-link{margin-left:8px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-size:12px;font-weight:700;border-radius:999px;padding:5px 10px;cursor:pointer}
+  .btn-link:active{transform:scale(.97)}
+  /* 学生照片上传控件 */
+  .photos-widget{margin-top:4px}
+  .photos-list{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+  .photos-empty{font-size:12.5px;color:var(--ink-soft);background:#FAFBFC;border:1px dashed var(--line);border-radius:12px;padding:10px 12px;width:100%}
+  .photo-item{position:relative;width:62px;height:62px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#F6F6F8}
+  .photo-item img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo-item .photo-yr{position:absolute;left:0;bottom:0;right:0;font-size:9.5px;font-weight:700;color:#fff;background:rgba(51,55,92,.62);text-align:center;line-height:1.6}
+  .photo-item .photo-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border:none;border-radius:50%;background:rgba(255,107,107,.92);color:#fff;font-size:12px;line-height:1;cursor:pointer}
+  .photos-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .photo-year{width:84px;padding:7px 8px;border:1px solid var(--line);border-radius:9px;font-size:13px}
+  .btn-photo-add{border:none;cursor:pointer;font-weight:800;font-size:13px;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint-d));border-radius:999px;padding:8px 14px}
+  .btn-photo-add:active{transform:scale(.97)}
+  /* 家长通讯卡片墙 */
+  .par-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+  .par-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(255,107,157,.16);border-color:var(--pink)}
+  .par-av{width:46px;height:46px;flex:0 0 46px;border-radius:50%;overflow:hidden;background:#EEF3FF;color:var(--pink-d);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800}
+  .par-av img{width:100%;height:100%;object-fit:cover;display:block}
+  .par-main{flex:1;min-width:0}
+  .par-name{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:baseline;gap:7px}
+  .par-no{font-size:11.5px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 8px}
+  .par-rel{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+  .par-tel{display:inline-block;margin-top:6px;font-size:13.5px;font-weight:700;color:var(--mint-d);text-decoration:none}
+  .par-tel.off{color:var(--ink-soft);font-weight:600;font-size:12.5px}
+  /* 关联学生选择器弹层 */
+  .stu-picker-mask{position:fixed;inset:0;background:rgba(40,46,78,.42);display:flex;align-items:center;justify-content:center;z-index:80;padding:18px}
+  .stu-picker{width:min(440px,100%);max-height:78vh;background:#fff;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(40,46,78,.3)}
+  .sp-head{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px}
+  .sp-q{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13.5px}
+  .sp-close{border:none;background:#F0F0F4;color:var(--ink-soft);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer}
+  .sp-list{overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+  .sp-item{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;text-align:left;font:inherit}
+  .sp-item:hover{background:#EEF3FF;border-color:var(--pink)}
+  .sp-item:active{transform:scale(.98)}
+  .sp-av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;overflow:hidden;background:#EEF3FF;color:var(--pink-d);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+  .sp-av img{width:100%;height:100%;object-fit:cover;display:block}
+  .sp-name{font-size:13.5px;font-weight:700;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sp-no{font-size:11px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 7px}
+  /* 一生一档头像照片 + 班委任职 */
+  .pf-av{width:60px;height:60px;flex:0 0 60px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,var(--pink),var(--pink-d));color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .pf-av img{width:100%;height:100%;object-fit:cover;display:block}
+  .pf-role{background:#FFF6F0;border-color:var(--coral)}
 
   /* sub chips (now unused on desktop but kept for safety) */
   .subchips{display:none}
@@ -930,6 +977,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function tbl(key){ return "hr_"+key; }   // 模块 key → 表名 hr_<key>
   var BUCKET="classfiles";                 // 文件存储桶（Supabase Storage）
   var formFiles={};                        // 表单内文件字段的运行时状态：{字段名:{kept:[url],pending:[File]}}
+  var formPhotos=[];                       // 学生照片运行时状态：[{url,year,ts}]（按年份保留历史）
 
   var MODULES = {
     students:{
@@ -942,24 +990,27 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"学习小组",type:"select",options:["第1组","第2组","第3组","第4组","第5组","第6组","第7组","第8组"]},
         {name:"关注标签",type:"multi_select",options:["班干部","活跃分子","内向文静","特长生","需重点关怀","进步明显"]},
         {name:"综合表现",type:"select",options:["优秀","良好","待提升"]},
-        {name:"备注",type:"text",multiline:true,ph:"性格 / 特长 / 注意事项（选填）"}
+        {name:"备注",type:"text",multiline:true,ph:"性格 / 特长 / 注意事项（选填）"},
+        {name:"班干部",type:"text",multiline:true,ph:"由「班委成员」自动记录，无需手填"},
+        {name:"照片",type:"photos",label:"学生照片（每年可更换，保留历史）"}
       ]
     },
     committee:{
       title:"🏅 班委成员", cat:"stu", unit:"人", main:"学生姓名",
       fields:[
-        {name:"学生姓名",type:"text",required:true,ph:"学生姓名"},
-        {name:"职务",type:"select",options:["班长","副班长","学习委员","纪律委员","卫生委员","体育委员","文艺委员","生活委员","宣传委员","课代表","小组长"]},
-        {name:"学号",type:"text",ph:"01"},
+        {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
+        {name:"职务",type:"select",free:true,options:["班长","副班长","学习委员","纪律委员","卫生委员","体育委员","文艺委员","生活委员","宣传委员","课代表","小组长","电教委员","心理委员","安全委员"]},
+        {name:"学号",type:"text",ph:"从学生档案自动填入"},
+        {name:"任职时间",type:"date"},
         {name:"负责事项",type:"text",ph:"如：收发作业"},
         {name:"备注",type:"text",ph:"选填"}
       ]
     },
     parents:{
-      title:"📞 家长通讯", cat:"stu", unit:"条", main:"学生姓名",
+      title:"📞 家长通讯", cat:"stu", unit:"条", main:"学生姓名", grid:true,
       fields:[
-        {name:"学生姓名",type:"text",required:true,ph:"学生姓名"},
-        {name:"关系",type:"select",options:["父亲","母亲","祖父","祖母","外祖父","外祖母","其他监护人"]},
+        {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
+        {name:"关系",type:"select",free:true,options:["父亲","母亲","祖父","祖母","外祖父","外祖母","其他监护人"]},
         {name:"家长姓名",type:"text",ph:"家长称呼"},
         {name:"电话",type:"text",ph:"手机号"},
         {name:"微信",type:"text",ph:"选填"},
@@ -1126,7 +1177,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
-    students:["学号","asc"], committee:["职务","asc"], parents:["学生姓名","asc"],
+    students:["学号","asc"], committee:["学号","asc"], parents:["学号","asc"],
     affairs:["截止日期","asc"], rules:["类别","asc"], attendance:["日期","desc"],
     seats:["排号","asc"], duty:["星期","asc"], grades:["考试","asc"],
     points:["日期","desc"], honor:["日期","desc"], talk:["日期","desc"],
@@ -1151,7 +1202,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   Object.keys(ORDER).forEach(function(cat){
     (ORDER[cat]||[]).forEach(function(k){ if(!DATA.hasOwnProperty(k)) DATA[k]=[]; });
   });
-  var state = { cat:"overview", mod:"students", grid:{seats:true, students:true}, open:{}, stuQ:"" };
+  var state = { cat:"overview", mod:"students", grid:{seats:true, students:true, parents:true}, open:{}, stuQ:"", parQ:"" };
   /* 座位布局：行×列（默认 8×7=56，可容纳 55 人），本地持久化 */
   var SEAT_LS_KEY = "wb_cls_seat_layout";
   function loadSeatLayout(){
@@ -1462,6 +1513,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<button class="btn-add" data-add="'+key+'">+ 添加</button>'
       +'</div>'
       + (key==="students" ? '<div class="stu-search-wrap"><input class="stu-search" id="stuSearch" placeholder="🔍 搜索姓名 / 学号 / 标签 / 小组…" value="'+esc(state.stuQ||"")+'"></div>' : '')
+      + (key==="parents" ? '<div class="stu-search-wrap"><input class="stu-search" id="parSearch" placeholder="🔍 搜索学生姓名 / 学号 / 家长…" value="'+esc(state.parQ||"")+'"></div>' : '')
       +'<div id="list-'+key+'"></div>';
   }
 
@@ -1506,10 +1558,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           || (Array.isArray(r["关注标签"])?r["关注标签"].join(""):(r["关注标签"]||"")).toLowerCase().indexOf(q)>=0;
       });
     }
+    // 家长通讯：按搜索词过滤（学生姓名 / 学号 / 家长姓名 / 电话），便于快速找到某生家长
+    if(key==="parents" && state.parQ){
+      var pq=state.parQ.trim().toLowerCase();
+      if(pq) rows = rows.filter(function(r){
+        return (r["学生姓名"]||"").toLowerCase().indexOf(pq)>=0
+          || (r["学号"]||"").toLowerCase().indexOf(pq)>=0
+          || (r["家长姓名"]||"").toLowerCase().indexOf(pq)>=0
+          || (r["电话"]||"").toLowerCase().indexOf(pq)>=0;
+      });
+    }
     var attStrip = renderModAttachments(key);
-    // 网格视图优先：座位表（含空位）直接画出；学生档案则画「一格一格」的卡片墙，方便快速浏览
+    // 网格视图优先：座位表（含空位）直接画出；学生档案 / 家长通讯则画「一格一格」的卡片墙，方便快速浏览
     if(m.grid && state.grid[key]){
       if(key==="students"){ box.innerHTML=attStrip + renderStudentCards(rows); return; }
+      if(key==="parents"){ box.innerHTML=attStrip + renderParentCards(rows); return; }
       box.innerHTML=renderSeatGrid(key);
       return;
     }
@@ -2531,17 +2594,117 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return '<div class="stu-grid">'+rows.map(function(r){
       var name=String(r["姓名"]||"（未填写）");
       var col=avatarColor(name);
+      var photo=studentPhoto(r);
       var sub=[];
       if(r["学号"]) sub.push("学号 "+r["学号"]);
       if(r["性别"]) sub.push(r["性别"]);
       if(r["学习小组"]) sub.push(r["学习小组"]);
       var tags=(r["关注标签"]&&(Array.isArray(r["关注标签"])?r["关注标签"]:[r["关注标签"]]).filter(Boolean))||[];
       return '<div class="stu-card" data-profile="'+esc(name)+'">'
-        +'<div class="stu-av" style="background:'+col.bg+';color:'+col.fg+'">'+esc(name.slice(0,1)||"?")+'</div>'
+        +'<div class="'+(photo?"stu-av stu-av-img":"stu-av")+'"'+(photo?'':' style="background:'+col.bg+';color:'+col.fg+'"')+'>'+(photo?'<img src="'+esc(photo)+'" alt="">':esc(name.slice(0,1)||"?"))+'</div>'
         +'<div class="stu-name">'+esc(name)+'</div>'
         + (sub.length?'<div class="stu-sub">'+sub.map(function(s){return esc(s);}).join(" · ")+'</div>':'')
         + (tags.length?'<div class="stu-tags">'+tags.map(function(t){return '<i class="chip lav">'+esc(t)+'</i>';}).join("")+'</div>':'')
         +'</div>';
+    }).join("")+'</div>';
+  }
+  /* 取学生最新年份的照片（按年份降序、同年按上传时间降序）；无照片返回 null */
+  function studentPhoto(r){
+    var ph=(r&&r["照片"]); if(!Array.isArray(ph)||!ph.length) return null;
+    var arr=ph.slice().sort(function(a,b){
+      var ya=Number(a&&a.year||0), yb=Number(b&&b.year||0);
+      if(ya!==yb) return yb-ya;
+      return (b&&b.ts||0)-(a&&a.ts||0);
+    });
+    return arr[0]&&arr[0].url ? arr[0].url : null;
+  }
+  /* 照片控件缩略图列表（可删除单张，保留其余历史照片） */
+  function renderPhotosList(name){
+    var box=document.getElementById("photos-list-"+name); if(!box) return;
+    if(!formPhotos.length){ box.innerHTML='<div class="photos-empty">暂无照片，添加后每年可更换并保留历史照片。</div>'; return; }
+    box.innerHTML=formPhotos.map(function(p,i){
+      return '<div class="photo-item"><img src="'+esc(p.url)+'" alt=""><span class="photo-yr">'+(p.year||"")+'</span><button type="button" class="photo-del" data-photodel="'+i+'">×</button></div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll('[data-photodel]'), function(b){
+      b.addEventListener('click', function(){ formPhotos.splice(+b.getAttribute('data-photodel'),1); renderPhotosList(name); });
+    });
+  }
+  /* 关联学生档案：弹出按号数排序的学生选择器，选中后回调（自动回填姓名+学号） */
+  function openStudentPicker(onPick){
+    var sorted=(DATA.students||[]).slice().sort(function(a,b){
+      var na=parseFloat(a["学号"]), nb=parseFloat(b["学号"]);
+      if(!isNaN(na)&&!isNaN(nb)) return na-nb;
+      return String(a["姓名"]||"").localeCompare(String(b["姓名"]||""),"zh-Hans-CN");
+    });
+    var ov=document.createElement("div"); ov.className="stu-picker-mask"; ov.id="stuPickerMask";
+    var listHtml = sorted.length ? sorted.map(function(s){
+      var ph=studentPhoto(s);
+      return '<button type="button" class="sp-item" data-spick="'+esc(s["姓名"]||"")+'">'
+        +'<span class="sp-av">'+(ph?'<img src="'+esc(ph)+'">':esc((s["姓名"]||"?").slice(0,1)))+'</span>'
+        +'<span class="sp-name">'+esc(s["姓名"]||"（未填）")+'</span>'
+        + (s["学号"]?'<span class="sp-no">'+esc(s["学号"])+'</span>':'')
+        +'</button>';
+    }).join("") : '<div class="photos-empty">还没有学生档案，请先在「学生档案」中添加。</div>';
+    ov.innerHTML='<div class="stu-picker"><div class="sp-head">🐣 关联学生档案（按号数）<input class="sp-q" placeholder="搜索姓名 / 学号"><button type="button" class="sp-close">×</button></div><div class="sp-list">'+listHtml+'</div></div>';
+    document.body.appendChild(ov);
+    var q=ov.querySelector(".sp-q");
+    q.addEventListener("input", function(){
+      var t=q.value.trim().toLowerCase();
+      Array.prototype.forEach.call(ov.querySelectorAll(".sp-item"), function(b){
+        var nm=(b.getAttribute("data-spick")||"").toLowerCase(), no=(b.querySelector(".sp-no")?b.querySelector(".sp-no").textContent.toLowerCase():"");
+        b.style.display=(!t||nm.indexOf(t)>=0||no.indexOf(t)>=0)?"":"none";
+      });
+    });
+    ov.addEventListener("click", function(e){ if(e.target===ov || e.target.classList.contains("sp-close")) ov.remove(); });
+    ov.querySelector(".sp-list").addEventListener("click", function(e){
+      var b=e.target.closest("[data-spick]"); if(!b) return;
+      var nm=b.getAttribute("data-spick");
+      var st=sorted.filter(function(s){return (s["姓名"]||"")===nm;})[0];
+      ov.remove(); if(st) onPick(st);
+    });
+  }
+  /* ---------- 班委任职回写学生档案 ---------- */
+  function tagList(v){ if(Array.isArray(v)) return v.slice(); if(v==null||v==="") return []; return String(v).split(","); }
+  function ensureTag(v){ var t=tagList(v); if(t.indexOf("班干部")<0) t.push("班干部"); return t; }
+  function stripTag(v){ return tagList(v).filter(function(x){return x!=="班干部";}); }
+  /* 依据「班委成员」表，重算每个学生档案的「班干部」字段（职务+任职时间）与「关注标签·班干部」；
+     学生无班委记录则清空，保证双向一致；仅更新有变化的学生的档案。 */
+  function regenAllCommittee(){
+    var rows=(DATA.committee||[]).filter(function(r){return r["学生姓名"];});
+    var byName={};
+    rows.forEach(function(r){ var n=r["学生姓名"]; (byName[n]=byName[n]||[]).push(r); });
+    var jobs=[];
+    (DATA.students||[]).forEach(function(st){
+      var n=st["姓名"]; if(!n) return;
+      var matched=byName[n];
+      var newData=Object.assign({}, st); delete newData._id;
+      if(!matched){
+        var hasTag=tagList(newData["关注标签"]).indexOf("班干部")>=0;
+        if(!hasTag && !newData["班干部"]) return;   // 本就无班委信息，无需写入
+        newData["班干部"]="";
+        newData["关注标签"]=stripTag(newData["关注标签"]);
+      } else {
+        newData["班干部"]=matched.map(function(r){ return r["职务"]+(r["任职时间"]?(" "+r["任职时间"]):""); }).join("\n");
+        newData["关注标签"]=ensureTag(newData["关注标签"]);
+      }
+      jobs.push(apiUpdate("students", st._id, newData));
+    });
+    return jobs.length ? Promise.all(jobs).then(function(){}) : Promise.resolve();
+  }
+  /* 家长通讯卡片墙：按号数排列，点开跳学生「一生一档」，电话可直拨 */
+  function renderParentCards(rows){
+    if(!rows.length) return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有家长通讯，点右上角「+ 添加」或「关联学生档案」开始吧～</div></div>';
+    return '<div class="stu-grid">'+rows.map(function(r){
+      var st=(DATA.students||[]).filter(function(s){return s["姓名"]===r["学生姓名"];})[0];
+      var photo=studentPhoto(st);
+      var phone=String(r["电话"]||"");
+      return '<div class="par-card" data-profile="'+esc(r["学生姓名"]||"")+'">'
+        +'<div class="par-av">'+(photo?'<img src="'+esc(photo)+'" alt="">':'<span>'+esc((r["学生姓名"]||"?").slice(0,1))+'</span>')+'</div>'
+        +'<div class="par-main">'
+        +'<div class="par-name">'+esc(r["学生姓名"]||"（未填）")+(r["学号"]?' <span class="par-no">'+esc(r["学号"])+'</span>':'')+'</div>'
+        +'<div class="par-rel">'+(r["关系"]?esc(r["关系"])+' · ':'')+esc(r["家长姓名"]||"家长未填")+'</div>'
+        + (phone?'<a class="par-tel" href="tel:'+esc(phone)+'">📞 '+esc(phone)+'</a>':'<div class="par-tel off">无电话</div>')
+        +'</div></div>';
     }).join("")+'</div>';
   }
   /* 班级制度：可增减「大方向」面板 + 各方向计分概览 */
@@ -3073,8 +3236,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(st["关注标签"]){ var tg=Array.isArray(st["关注标签"])?st["关注标签"]:[st["关注标签"]]; info.push(["关注标签",tg.join("、")]); }
     }
     var total=studentTotal(name), cur=studentPoints(name);
+    var ph=studentPhoto(st);
     var html='<div class="pf-head">'
-      +'<div class="pf-av">'+esc(name.slice(0,1)||"?")+'</div>'
+      +'<div class="pf-av">'+(ph?'<img src="'+esc(ph)+'" alt="">':esc(name.slice(0,1)||"?"))+'</div>'
       +'<div class="pf-id"><div class="pf-name">'+esc(name)+'</div>'
       + (info.length?'<div class="pf-tags">'+info.map(function(p){return '<span class="pf-tag"><i>'+esc(p[0])+'</i>'+esc(p[1])+'</span>';}).join("")+'</div>':'')
       +'</div>'
@@ -3082,6 +3246,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="pf-pt"><b class="'+(cur>=0?'pos':'neg')+'">'+fmtPts(cur)+'</b><span>可用积分</span></div></div>'
       +'</div>';
     if(st && st["备注"]) html+='<div class="pf-note">📝 '+esc(st["备注"])+'</div>';
+    if(st && st["班干部"] && String(st["班干部"]).trim()){
+      html+='<div class="pf-note pf-role">🏅 班委任职：<br>'+esc(String(st["班干部"]).replace(/\n/g,"<br>"))+'</div>';
+    }
     html+='<div class="pf-ai-bar"><button class="btn-add" id="profileAIBtn">🤖 AI 分析 & 给方向</button></div>';
     html+='<div id="profileAI" class="pf-ai" style="display:none"></div>';
     PF_SECTIONS.forEach(function(sec){
@@ -3269,6 +3436,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function buildForm(key, rec){
     var m=MODULES[key], form=document.getElementById("form");
     form.innerHTML="";
+    formPhotos=[];   // 每次构建表单重置照片运行时状态
     m.fields.forEach(function(f){
       var wrap=document.createElement("div"); wrap.className="field";
       var lbl=document.createElement("label");
@@ -3288,13 +3456,44 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         });
         wrap.appendChild(box);
       } else if(f.type==="select"){
-        var sel=document.createElement("select"); sel.setAttribute("data-f",f.name);
-        var ph=document.createElement("option"); ph.value=""; ph.textContent="请选择"; sel.appendChild(ph);
         var selOpts=(f.dyn==="ruleCats")?RULE_CATS.slice():(f.options||[]);
-        selOpts.forEach(function(o){
-          var op=document.createElement("option"); op.value=o; op.textContent=o; if(val===o) op.selected=true; sel.appendChild(op);
+        if(f.free){
+          // 可手输的下拉：input + datalist（常规选项之外允许自定义，如自定义职务/关系）
+          var dlid="dl_"+key+"_"+f.name;
+          var fin=document.createElement("input"); fin.setAttribute("list",dlid); fin.setAttribute("data-f",f.name); fin.placeholder=f.ph||"选择或输入"; if(val) fin.value=val;
+          var dl=document.createElement("datalist"); dl.id=dlid;
+          selOpts.forEach(function(o){ var op=document.createElement("option"); op.value=o; dl.appendChild(op); });
+          wrap.appendChild(fin); wrap.appendChild(dl);
+        } else {
+          var sel=document.createElement("select"); sel.setAttribute("data-f",f.name);
+          var ph=document.createElement("option"); ph.value=""; ph.textContent="请选择"; sel.appendChild(ph);
+          selOpts.forEach(function(o){
+            var op=document.createElement("option"); op.value=o; op.textContent=o; if(val===o) op.selected=true; sel.appendChild(op);
+          });
+          wrap.appendChild(sel);
+        }
+      } else if(f.type==="photos"){
+        formPhotos = (rec && Array.isArray(rec[f.name])) ? rec[f.name].map(function(o){return {url:o.url, year:o.year, ts:o.ts};}) : [];
+        var pwrap=document.createElement("div"); pwrap.className="photos-widget";
+        var plist=document.createElement("div"); plist.className="photos-list"; plist.id="photos-list-"+f.name;
+        var pbar=document.createElement("div"); pbar.className="photos-bar";
+        var pyn=document.createElement("input"); pyn.type="number"; pyn.className="photo-year"; pyn.placeholder="年份"; pyn.value=new Date().getFullYear();
+        var pfile=document.createElement("input"); pfile.type="file"; pfile.multiple=true; pfile.accept="image/*"; pfile.className="photo-file"; pfile.setAttribute("data-photofile",f.name);
+        var padd=document.createElement("button"); padd.type="button"; padd.className="btn-photo-add"; padd.textContent="＋ 添加照片";
+        pbar.appendChild(document.createTextNode("年份")); pbar.appendChild(pyn); pbar.appendChild(pfile); pbar.appendChild(padd);
+        pwrap.appendChild(plist); pwrap.appendChild(pbar);
+        wrap.appendChild(pwrap);
+        renderPhotosList(f.name);
+        padd.addEventListener("click", function(){
+          if(!pfile.files.length){ toast("请先选择照片文件"); return; }
+          var yr=pyn.value||String(new Date().getFullYear());
+          setStatus("syncing");
+          var ch=Promise.resolve();
+          Array.prototype.forEach.call(pfile.files, function(file){
+            ch=ch.then(function(){ return uploadOne(key, file).then(function(url){ formPhotos.push({url:url, year:yr, ts:Date.now()}); }); });
+          });
+          ch.then(function(){ pfile.value=""; renderPhotosList(f.name); setStatus("ok"); }).catch(function(e){ console.error(e); setStatus("offline"); toast("照片上传失败"); });
         });
-        wrap.appendChild(sel);
       } else if(f.multiline){
         var ta=document.createElement("textarea"); ta.setAttribute("data-f",f.name); ta.placeholder=f.ph||""; if(val) ta.value=val;
         wrap.appendChild(ta);
@@ -3315,6 +3514,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       } else {
         var inp=document.createElement("input"); inp.type=(f.type==="date")?"date":((f.type==="number")?"number":"text"); inp.setAttribute("data-f",f.name); inp.placeholder=f.ph||""; if(val) inp.value=val;
         wrap.appendChild(inp);
+        if(f.link){
+          var lk=document.createElement("button"); lk.type="button"; lk.className="btn-link"; lk.textContent="🔗 关联学生档案";
+          lk.addEventListener("click", function(){
+            openStudentPicker(function(st){
+              var i1=document.querySelector('#form [data-f="'+f.name+'"]'); if(i1) i1.value=st["姓名"]||"";
+              var i2=document.querySelector('#form [data-f="学号"]'); if(i2) i2.value=st["学号"]||"";
+              cacheForm(key);
+            });
+          });
+          wrap.appendChild(lk);
+        }
       }
       form.appendChild(wrap);
     });
@@ -3440,6 +3650,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!props[MODULES[key].main]){ toast("请填写"+MODULES[key].main); return; }
     // 加减分记录自动写入当前时间，便于按「记录时间」查询
     if(key==="points" && !props["时间"]){ props["时间"]=nowHMS(); }
+    // 照片字段（学生头像，按年份保留历史）：写入当前 formPhotos，并清理被删除的旧照片文件
+    if(MODULES[key].fields.some(function(f){return f.type==="photos";})){
+      props["照片"]=formPhotos.map(function(p){return {url:p.url, year:p.year, ts:p.ts};});
+      if(current.id){
+        var orec=(DATA[key]||[]).filter(function(r){return r._id===current.id;})[0];
+        if(orec && Array.isArray(orec["照片"])){
+          var keep=new Set(formPhotos.map(function(p){return p.url;}));
+          orec["照片"].forEach(function(p){ var u=p&&p.url; if(u && !keep.has(u)) removeStorageFile(u); });
+        }
+      }
+    }
     // 文件字段：先上传 pending，再与 kept 合并写入
     var fileFields=MODULES[key].fields.filter(function(f){return f.type==="file";});
     var chain=Promise.resolve();
@@ -3467,8 +3688,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       closeForm();
       if(!current.id){ localStorage.removeItem("wb_cls_form_"+key); }
       formFiles={};
+      formPhotos=[];
       toast("已保存 ✓");
       return refreshAll();
+    }).then(function(){
+      // 班委成员增删改后，把职务+任职时间回写学生档案的「班干部」字段并维护「关注标签」
+      if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll(); }); }
     }).then(function(){ setStatus("ok"); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败：上传或写入出错"); });
   }
@@ -3478,6 +3703,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     setStatus("syncing");
     apiDelete(key,id)
       .then(function(){ toast("已删除"); return refreshAll(); })
+      .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshAll(); }); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败"); });
   }
@@ -3726,6 +3952,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   });
   document.getElementById("content").addEventListener("input",function(e){
     if(e.target && e.target.id==="stuSearch"){ state.stuQ=e.target.value; renderList("students"); }
+    if(e.target && e.target.id==="parSearch"){ state.parQ=e.target.value; renderList("parents"); }
   });
   document.getElementById("content").addEventListener("click",function(e){
     var g=e.target.closest(".ov-mod"); if(g){ return; }
@@ -4285,6 +4512,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       chain=chain.then(function(){ return apiAdd(key, props).then(function(){ n++; }); });
     });
     chain.then(function(){ closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
+      .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshAll(); }); })
       .then(function(){ setStatus("ok"); })
       .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
   }
@@ -4437,7 +4665,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "stugrid-2026-08-28";
+  var __APP_VERSION__ = "comms-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
