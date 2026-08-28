@@ -876,9 +876,36 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var SUPABASE_URL = "https://ffuslbsknqqsjqjbvpjr.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_gpIn1xpywnjQnxP-OM_s-Q_Gz9Gj6L-";
   var db = null;
+  /* 网络拦截层：给 Supabase 客户端包一层自定义 fetch，避免网关/代理返回的非 JSON 拦截页
+     直接命中内部 JSON.parse 抛出 "Unexpected token ':'" 拖崩整页。
+     仅对非 2xx 且非 JSON 的响应做转换（网关拦截页典型为 502/403 的 HTML）；
+     用 r.clone() 读取原响应体，不消费真正的 body，不影响正常 JSON 解析。 */
+  function supaFetch(url, init){
+    try {
+      return fetch(url, init).then(function(r){
+        var ct = (r.headers && r.headers.get && r.headers.get("content-type")) || "";
+        var isJson = /json/i.test(ct);
+        if(!isJson && (r.status < 200 || r.status >= 300)){
+          return r.clone().text().then(function(txt){
+            var errJson = JSON.stringify({
+              message: "网络/网关拦截：收到非 JSON 响应(" + r.status + ")，疑似代理或防火墙拦截，请检查网络或关闭代理/VPN 后重试",
+              code: "NETWORK_BLOCKED",
+              hint: String(txt || "").slice(0, 240)
+            });
+            return new Response(errJson, {
+              status: r.status,
+              statusText: r.statusText || "Network Blocked",
+              headers: { "content-type": "application/json" }
+            });
+          }).catch(function(){ return r; });
+        }
+        return r;
+      });
+    } catch(e){ return fetch(url, init); }
+  }
   try {
     if (window.supabase && SUPABASE_URL && SUPABASE_URL.indexOf("__")!==0) {
-      db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { fetch: supaFetch });
     }
   } catch(e) {
     console.error("[Supabase] 客户端初始化失败（已降级为离线模式）：", e);
@@ -4278,7 +4305,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "rmchat-2026-08-28";
+  var __APP_VERSION__ = "netfix-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -4319,7 +4346,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var src = (errObj && errObj.filename) ? ("\n来源：" + errObj.filename + ":" + (errObj.lineno||0) + ":" + (errObj.colno||0)) : "";
     var low = String(msg).toLowerCase();
     var hint = "";
-    if (/unexpected token|syntaxerror|not valid json|json\.parse|json parse/i.test(low)) {
+    if (/network_blocked|网络\/网关拦截|非\s*json\s*响应/i.test(low)) {
+      hint = "检测到网关/代理拦截了后端请求（返回了非 JSON 的拦截页）。请：① 切换 Wi-Fi / 蜂窝网络；② 关闭代理或 VPN；③ 稍后重试。若仍出现，点右下角⚠「复制完整诊断」发我可精确定位。";
+    } else if (/unexpected token|syntaxerror|not valid json|json\.parse|json parse/i.test(low)) {
       hint = "通常是 JSON.parse 把非 JSON 字符串（如网关 HTML 拦截页）当 JSON 解析。网络/代理不稳、防火墙拦截、企业网关都可能出现。";
     } else if (msg === "Script error.") {
       hint = "多为跨域组件（xlsx/pdf/word）加载失败或缓存损坏，请强刷或换网络再试。";
