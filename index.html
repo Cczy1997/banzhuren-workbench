@@ -390,7 +390,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .mini.del{background:#FFF0F0;color:#E08A8A}
   .mini.pos{background:#E7F8F1;color:var(--mint-d)}
   .mini.neg{background:#FFF0F0;color:#E08A8A}
+  .mini.restore{background:#F6F0F4;color:var(--ink-soft)}
   .mini:active{transform:scale(.96)}
+  /* 班务待办：已完成归档区（可折叠，方便后续查看） */
+  .aff-arch{margin:10px 0 14px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .aa-head{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:#F4F5F9;border:none;cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink-soft);text-align:left;font-family:inherit}
+  .aa-head:active{transform:scale(.995)}
+  .aa-caret{font-size:11px;opacity:.7;width:10px}
+  .aa-cnt{margin-left:auto;font-weight:600;font-size:12px;opacity:.75}
+  .aa-body{padding:10px 12px}
+  .aa-tip{padding:9px 12px;color:var(--ink-soft);font-size:12.5px}
   .empty-state{text-align:center;color:var(--ink-soft);padding:34px 10px;font-size:14px}
   .empty-state svg{width:64px;height:64px;opacity:.7;margin-bottom:8px}
 
@@ -1861,11 +1870,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     // 成绩 / 班务待办 模块在列表上方注入专属面板（AI 分析条 / 当天待办聚合）
     var extra = key==="grades" ? renderGradesAIBar() : (key==="rules" ? renderRuleCats() : "");
+    // 班务待办：已完成的事项移入「已完成归档」区，主列表只留未完成的，便于完成后也能随时翻看
+    var archiveHTML = "";
+    if(key==="affairs"){
+      var doneRows=rows.filter(function(r){ return (r["状态"]||"")==="已完成"; });
+      rows=rows.filter(function(r){ return (r["状态"]||"")!=="已完成"; });
+      if(cnt) cnt.textContent="共 "+rows.length+" "+m.unit;
+      archiveHTML=renderAffArchive(doneRows);
+    }
     if(!rows.length){
-      box.innerHTML = attStrip + extra + '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有数据，点右上角「+ 添加」开始吧～</div></div>';
+      box.innerHTML = attStrip + extra + archiveHTML
+        +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>'
+        +(key==="affairs" && archiveHTML ? "待办都清空啦 🎉 已完成的事项都在上方「已完成归档」里" : "还没有数据，点右上角「+ 添加」开始吧～")
+        +'</div></div>';
       return;
     }
-    box.innerHTML = attStrip + extra + rows.map(function(r){ return cardHTML(key,r); }).join("");
+    box.innerHTML = attStrip + extra + archiveHTML + rows.map(function(r){ return cardHTML(key,r); }).join("");
   }
 
   /* ---------- 成绩 AI 分析 ---------- */
@@ -3224,6 +3244,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(key==="affairs" && r["状态"]!=="已完成"){
       acts+='<button class="mini done" data-act="done" data-id="'+id+'">完成</button>';
     }
+    // 班务待办：已归档（已完成）事项给一个低调的「恢复待办」，便于误点时撤销
+    if(key==="affairs" && r["状态"]==="已完成"){
+      acts+='<button class="mini restore" data-act="undone" data-id="'+id+'" title="撤销完成，移回待办列表">↺ 恢复待办</button>';
+    }
     if(key==="committee" && !r["卸任时间"]){
       acts+='<button class="mini resign" data-act="resign" data-mod="committee" data-id="'+id+'">卸任</button>';
     }
@@ -3239,6 +3263,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return '<div class="card" >'
       +'<div class="card-main">'+mainHTML+' '+badge+'</div>'
       +(key==="committee"?('<div class="row"><span class="lbl">任期</span><span class="val">'+((r["任职时间"]?fmtDate(r["任职时间"]):"—")+(r["卸任时间"]?(" 至 "+fmtDate(r["卸任时间"])+"（已卸任）"):" 起（在任）"))+'</span></div>'):"")
+      +(key==="affairs" && r["状态"]==="已完成" && r["完成时间"]?('<div class="row"><span class="lbl">完成于</span><span class="val">'+esc(fmtDate(r["完成时间"]))+'</span></div>'):"")
       +subs
       +'<div class="card-actions">'+acts+'</div>'
       +'</div>';
@@ -4533,12 +4558,49 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败"); });
   }
+  /* 取一条记录的「全量字段副本」（去掉 _id），用于 apiUpdate 整体覆盖前保留原有字段，避免清空其它字段 */
+  function recordProps(key, id, extra){
+    var rec=(DATA[key]||[]).filter(function(r){return r._id===id;})[0];
+    var props = rec ? (function(){ var o={}; Object.keys(rec).forEach(function(k){ if(k!=="_id") o[k]=rec[k]; }); return o; })() : {};
+    if(extra) Object.keys(extra).forEach(function(k){ props[k]=extra[k]; });
+    return props;
+  }
+  /* 已完成归档：保留事项/分类/优先级/截止日期/备注等全部字段，仅追加 状态=已完成 + 完成时间 */
   function doDone(id){
     setStatus("syncing");
-    apiUpdate("affairs", id, {状态:"已完成"})
-      .then(function(){ toast("已完成 🎉"); return refreshAll(); })
+    var props=recordProps("affairs", id, {状态:"已完成", 完成时间:todayStr()});
+    apiUpdate("affairs", id, props)
+      .then(function(){ toast("已完成 🎉 已归档，可在上方「已完成归档」里查看"); return refreshAll(); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败"); });
+  }
+  /* 撤销完成：把归档事项移回待办列表（清除完成时间） */
+  function undoDone(id){
+    setStatus("syncing");
+    var props=recordProps("affairs", id, {状态:"待办", 完成时间:""});
+    apiUpdate("affairs", id, props)
+      .then(function(){ toast("已恢复为待办 ↺"); return refreshAll(); })
+      .then(function(){ setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("恢复失败"); });
+  }
+  /* 班务待办：已完成归档区（默认折叠，点标题展开查看历史） */
+  var affArchiveOpen = false;
+  function renderAffArchive(list){
+    if(!list || !list.length) return "";
+    var sorted=list.slice().sort(function(a,b){
+      return String(b["完成时间"]||"").localeCompare(String(a["完成时间"]||""));
+    });
+    var body = affArchiveOpen
+      ? '<div class="aa-body">'+sorted.map(function(r){ return cardHTML("affairs", r); }).join("")+'</div>'
+      : '';
+    return '<div class="aff-arch">'
+      +'<button type="button" class="aa-head" data-aff-arch="1">'
+      +'<span class="aa-caret">'+(affArchiveOpen?"▾":"▸")+'</span>'
+      +'<span class="aa-title">📦 已完成归档</span>'
+      +'<span class="aa-cnt">'+list.length+' 项</span>'
+      +'</button>'
+      +body
+      +'</div>';
   }
   function clearModule(key){
     if(!confirm("确定清空【"+stripEmoji(MODULES[key].title)+"】的全部数据吗？\n此操作不可恢复！")) return;
@@ -4853,7 +4915,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       else if(act==="del") doDelete(mod,id);
       else if(act==="resign") resignCommittee(id);
       else if(act==="ruleapply") ruleApplyToStudent(id);
+      else if(act==="undone") undoDone(id);
     }
+    // 班务待办：展开 / 收起「已完成归档」
+    var aarch=e.target.closest("[data-aff-arch]");
+    if(aarch){ affArchiveOpen=!affArchiveOpen; renderList("affairs"); return; }
   });
 
   /* 值日表：班级备注 失焦保存（contenteditable） */
@@ -5671,7 +5737,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "ruleapply-2026-08-28";
+  var __APP_VERSION__ = "affarch-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
