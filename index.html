@@ -1412,12 +1412,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!raw) return;
     try{
       var v = JSON.parse(raw);
-      if(!v || !v.cat || !CAT_META[v.cat]) return;
-      if(v.cat==="overview"){ state.cat="overview"; state.mod=v.mod||"students"; return; }
-      if(!ORDER[v.cat] || ORDER[v.cat].indexOf(v.mod)<0) return;   // 模块不属于该栏目则不恢复，避免错乱
-      state.cat=v.cat; state.mod=v.mod;
-      // 还原侧边栏展开状态：否则刷新后「班级事务」等栏目会折叠「消失」，只剩一个收起的标题
+      if(!v || !v.cat || !CAT_META[v.cat]) return;            // 连栏目都不认识：保持默认总览
+      // 先还原侧边栏展开状态：任何栏目都先展开，否则刷新后该栏目会折叠「消失」，只剩一个收起的标题
       if(v.open && typeof v.open==="object"){ for(var _k in v.open){ if(v.open[_k]) state.open[_k]=true; } }
+      if(v.cat==="overview"){ state.cat="overview"; state.mod=v.mod||"students"; return; }
+      if(!ORDER[v.cat]) return;                               // 栏目已不存在：保持默认总览
+      // 关键修复：模块必须属于该栏目；若已失效（如旧版字段被删/改名、或 mod 为空），
+      // 落到该栏目「首个模块」而不是跳回总览——避免下拉刷新后整列「消失 / 数据看不见」。
+      state.cat=v.cat;
+      state.mod = (v.mod && ORDER[v.cat].indexOf(v.mod)>=0) ? v.mod : ORDER[v.cat][0];
     }catch(e){}
   }
   function syncMobileTitle(){
@@ -4326,7 +4329,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "afftodo-2026-08-28";
+  var __APP_VERSION__ = "refreshfix-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
