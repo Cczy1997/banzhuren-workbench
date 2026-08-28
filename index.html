@@ -5173,7 +5173,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function closeImp(){ document.getElementById("impMask").classList.remove("show"); }
   /* ---------- 站点根路径解析（无论部署在仓库根还是 /xxx/ 子路径，副本都能命中） ---------- */
-  // GitHub Pages / CloudStudio 的站点根 = URL pathname 第一段（仓库名或项目名）。
+  // GitHub Pages 的站点根 = URL pathname 第一段（仓库名）。
   // 比如 /banzhuren-workbench/7vsfx3 → 根 = /banzhuren-workbench/
   //     /banzhuren-workbench/         → 根 = /banzhuren-workbench/
   //     /                              → 根 = /
@@ -5737,7 +5737,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "affarch-2026-08-28";
+  var __APP_VERSION__ = "gponly-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
