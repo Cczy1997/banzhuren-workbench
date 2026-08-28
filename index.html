@@ -196,7 +196,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .par-name{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:baseline;gap:7px}
   .par-no{font-size:11.5px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 8px}
   .par-rel{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
-  .par-tel{display:inline-block;margin-top:6px;font-size:13.5px;font-weight:700;color:var(--mint-d);text-decoration:none}
+  .par-tel{display:inline-block;max-width:100%;margin-top:6px;font-size:13.5px;font-weight:700;color:var(--mint-d);text-decoration:none;word-break:break-all;overflow-wrap:anywhere;white-space:normal}
   .par-tel.off{color:var(--ink-soft);font-weight:600;font-size:12.5px}
   /* 关联学生选择器弹层 */
   .stu-picker-mask{position:fixed;inset:0;background:rgba(40,46,78,.42);display:flex;align-items:center;justify-content:center;z-index:80;padding:18px}
@@ -4727,7 +4727,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "comms2-2026-08-28";
+  var __APP_VERSION__ = "pardial-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
