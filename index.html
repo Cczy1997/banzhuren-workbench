@@ -388,6 +388,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   .mini.done{background:#E7F8F1;color:var(--mint-d)}
   .mini.del{background:#FFF0F0;color:#E08A8A}
+  .mini.pos{background:#E7F8F1;color:var(--mint-d)}
+  .mini.neg{background:#FFF0F0;color:#E08A8A}
   .mini:active{transform:scale(.96)}
   .empty-state{text-align:center;color:var(--ink-soft);padding:34px 10px;font-size:14px}
   .empty-state svg{width:64px;height:64px;opacity:.7;margin-bottom:8px}
@@ -3226,6 +3228,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       acts+='<button class="mini resign" data-act="resign" data-mod="committee" data-id="'+id+'">卸任</button>';
     }
     acts+='<button class="mini edit" data-act="edit" data-mod="'+key+'" data-id="'+id+'">编辑</button>';
+    if(key==="rules"){
+      var rdir=r["方向"];
+      if(rdir==="扣分" || rdir==="得分"){
+        acts+='<button class="mini '+(rdir==="扣分"?"neg":"pos")+'" data-act="ruleapply" data-id="'+id+'" title="按此班规对一名学生'+(rdir==="扣分"?"扣分":"加分")+'（记入加减分 & 一生一档）">'+(rdir==="扣分"?"对某人扣分":"对某人加分")+'</button>';
+      }
+    }
     acts+='<button class="mini del" data-act="del" data-mod="'+key+'" data-id="'+id+'">删除</button>';
 
     return '<div class="card" >'
@@ -3234,6 +3242,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +subs
       +'<div class="card-actions">'+acts+'</div>'
       +'</div>';
+  }
+  /* 班级制度：点班规卡片上的「对某人扣分 / 对某人加分」→ 选学生 → 写入加减分（自动同步一生一档） */
+  function ruleApplyToStudent(rid){
+    var r=(DATA.rules||[]).filter(function(x){return x._id===rid;})[0];
+    if(!r){ toast("找不到该班规记录"); return; }
+    var dir=r["方向"]==="得分" ? "加分" : "减分";
+    var score=Number(r["分值"])||0; if(score<=0) score=1;
+    var cat=String(r["类别"]||"").trim();
+    var content=String(r["内容"]||"").trim().slice(0,40);
+    var reason=(cat?cat+"·":"")+content+(String(r["内容"]||"").trim().length>40?"…":"");
+    if(!reason.trim()) reason="班规登记";
+    var typeLabel=dir==="加分"?"加分":"扣分";
+    toast("请选择要"+typeLabel+"的学生…");
+    openStudentPicker(function(st){
+      var name=st["姓名"]||"", no=st["学号"]||"";
+      if(!name){ return; }
+      var rec={日期:todayStr(), 学生姓名:name, 学号:no, 类型:dir, 分值:score, 时间:nowHMS(), 原因:reason};
+      setStatus("syncing");
+      apiAdd("points", rec).then(function(o){
+        Object.assign(o, rec); (DATA.points=DATA.points||[]).push(o);
+        setStatus("ok");
+        toast("已为 "+name+" "+typeLabel+score+" 分 ✓（记入加减分 & 一生一档）");
+      }).catch(function(e){ setStatus("offline"); toast(typeLabel+"失败："+(e&&e.message||e)); });
+    });
   }
   /* 学生档案「一格一格」卡片墙：头像首字 + 姓名 + 关键信息，点击打开「一生一档」；便于五六十人快速浏览定位 */
   function avatarColor(name){
@@ -4820,6 +4852,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       else if(act==="edit") openEdit(mod,id);
       else if(act==="del") doDelete(mod,id);
       else if(act==="resign") resignCommittee(id);
+      else if(act==="ruleapply") ruleApplyToStudent(id);
     }
   });
 
@@ -5638,7 +5671,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "dutynote-2026-08-28";
+  var __APP_VERSION__ = "ruleapply-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
