@@ -335,6 +335,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .imp-pick{display:inline-block;font:inherit;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d));border:none;cursor:pointer;border-radius:14px;padding:11px 18px;box-shadow:0 4px 12px rgba(255,107,157,.25)}
   .imp-pick:active{transform:scale(.97)}
   .imp-preview{margin-top:12px}
+  .imp-grade-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FFF7E6;border:1px solid #F2D9A6;border-radius:12px;padding:9px 12px;margin-top:10px;font-size:13px;color:#8B6914}
+  .imp-grade-bar label{font-weight:800}
+  .imp-grade-bar select{font:inherit;font-size:13px;font-weight:700;color:var(--ink);border:1px solid #E0A53A;border-radius:9px;padding:5px 9px;background:#fff}
+  .imp-grade-hint{font-size:11.5px;color:#A07A35;line-height:1.4}
+  .imp-grade-note{font-size:12.5px;background:#EAFBF5;border:1px solid #CDEFE4;border-radius:10px;padding:8px 11px;margin-bottom:9px;color:#2E8B73;line-height:1.5}
+  .imp-grade-note b{color:var(--ink)}
   .imp-empty{font-size:13px;color:var(--ink-soft);text-align:center;padding:16px;background:#FAF5F8;border-radius:14px}
   .imp-stats{font-size:13px;margin-bottom:8px;color:var(--ink)}
   .imp-stats b{color:var(--pink-d)}
@@ -920,6 +926,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <p class="imp-tip">支持 <b>Excel(.xlsx/.xls)</b>、<b>Word(.docx)</b>、<b>PDF(.pdf)</b> 与 <b>CSV/TSV</b>。<br>自动识别表格/表头并匹配字段（如「姓名」→学生姓名、「分数」→分数）。Word 请整理成表格（首行是列名）；PDF 为近似识别，<b>建议优先用 Excel/Word</b>。<br>也可直接选 <b>相册里的截图</b>：将以图片形式保存到本模块（不参与表格解析）。</p>
     <input type="file" id="impFile" accept=".xlsx,.xls,.docx,.pdf,.csv,.tsv,.txt,image/*" style="display:none">
     <button class="imp-pick" id="impPick">📁 选择文件…</button>
+    <div id="impGradeBar" class="imp-grade-bar" style="display:none">
+      <label>📚 本次导入的学科：</label>
+      <select id="impGradeSubj">
+        <option value="">（请选择学科）</option>
+      </select>
+      <span class="imp-grade-hint">单科成绩表（如「数学」列）请选对应学科，系统会把分数列自动填入「分数」字段</span>
+    </div>
     <div id="impPreview" class="imp-preview"></div>
     <div class="actions">
       <button class="btn-cancel" id="impCancel">取消</button>
@@ -4517,6 +4530,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("impClose").addEventListener("click",closeImp);
   document.getElementById("impCancel").addEventListener("click",closeImp);
   document.getElementById("impMask").addEventListener("click",function(e){ if(e.target===this) closeImp(); });
+  document.getElementById("impGradeSubj").addEventListener("change",function(e){
+    impGradeSubj=e.target.value || "";
+    if(impParsed) showPreview(impParsed);
+  });
   document.getElementById("impPick").addEventListener("click",function(){ document.getElementById("impFile").click(); });
   document.getElementById("impFile").addEventListener("change",handleImpFile);
   document.getElementById("impDo").addEventListener("click",confirmImport);
@@ -4552,7 +4569,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* ---------- 导入 / 导出 ---------- */
-  var impKey=null, impData=null, impImgFile=null;
+  var impKey=null, impData=null, impImgFile=null, impGradeSubj="", impParsed=null;
   var FIELD_ALIAS = {
     "姓名":"学生姓名","名字":"学生姓名","学生":"学生姓名","同学":"学生姓名",
     "手机":"电话","手机号":"电话","联系电话":"电话","tel":"电话","手机电话":"电话",
@@ -4595,6 +4612,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
     return map;
   }
+  /* 成绩导入：识别分数列。优先已 alias 映射的「分数」；否则取与所选学科同名列；再否则取首个数值列 */
+  function detectScoreCol(parsed, map){
+    if(map && map["分数"]) return map["分数"];
+    var used={};
+    if(map){ for(var k in map){ if(map[k]) used[map[k]]=1; } }
+    if(impGradeSubj){
+      for(var i=0;i<parsed.headers.length;i++){
+        var h=parsed.headers[i];
+        if(used[h]) continue;
+        if(normalize(h)===normalize(impGradeSubj)) return h;
+      }
+    }
+    for(var j=0;j<parsed.headers.length;j++){
+      var hh=parsed.headers[j];
+      if(used[hh]) continue;
+      if(!hh || /^列\d+$/.test(hh)) continue;
+      var num=0, tot=0;
+      (parsed.rows||[]).forEach(function(r){ var v=(r[hh]||"").trim(); if(v==="") return; tot++; if(/^\d+(\.\d+)?$/.test(v)) num++; });
+      if(tot>0 && num/tot>=0.5) return hh;
+    }
+    return null;
+  }
   function splitCsvLine(line){
     var out=[],cur="",q=false;
     for(var i=0;i<line.length;i++){ var ch=line[i];
@@ -4626,8 +4665,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     return v;
   }
   function openImport(key){
-    impKey=key; impData=null;
+    impKey=key; impData=null; impParsed=null; impGradeSubj="";
     document.getElementById("impTitle").textContent="导入 · "+stripEmoji(MODULES[key].title);
+    // 成绩模块导入：先选学科（单科成绩表如「数学」列 → 自动填「分数」）
+    var gbar=document.getElementById("impGradeBar");
+    var gsel=document.getElementById("impGradeSubj");
+    if(key==="grades"){
+      var gopts=[]; (MODULES.grades.fields||[]).forEach(function(f){ if(f.name==="科目" && f.options) gopts=f.options; });
+      gsel.innerHTML='<option value="">（请选择学科）</option>'+gopts.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+'</option>';}).join("");
+      gbar.style.display="";
+    } else {
+      gbar.style.display="none";
+    }
     document.getElementById("impPreview").innerHTML='<div class="imp-empty">请选择 Excel / Word / PDF / CSV 文件，预览会自动出现在下方。</div>';
     document.getElementById("impFile").value="";
     document.getElementById("impDo").disabled=true;
@@ -4885,8 +4934,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function showPreview(parsed){
     parsed=parsed||{headers:[],rows:[]};
+    impParsed=parsed;
     if(!parsed.headers.length){ document.getElementById("impPreview").innerHTML='<div class="imp-empty">未能识别到表头，请确认文件第一行是列名（CSV/Excel 首行、Word/PDF 表格首行）。</div>'; document.getElementById("impDo").disabled=true; return; }
     var map=buildMapping(impKey, parsed.headers);
+    /* 成绩模块：自动把分数列（数学列 / 分数列 / 数值列）识别为「分数」 */
+    if(impKey==="grades" && !map["分数"]){ var sc=detectScoreCol(parsed, map); if(sc) map["分数"]=sc; }
     var mainField=MODULES[impKey].main;
     var fieldNames=Object.keys(map);
     if(!fieldNames.length){
@@ -4908,8 +4960,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var mapHtml=fieldNames.map(function(fn){ return '<span class="mp"><b>'+esc(fn)+'</b> ← '+esc(map[fn])+'</span>'; }).join("");
     var headHtml=parsed.headers.map(function(h){ var hit=fieldNames.some(function(fn){return map[fn]===h;}); return '<span class="hp'+(hit?" hit":"")+'">'+esc(h)+'</span>'; }).join("");
     var samp=valid.slice(0,3).map(function(r){ return '<div class="srow">'+fieldNames.map(function(fn){return '<span>'+esc(r[map[fn]]||"")+'</span>';}).join("")+'</div>'; }).join("");
+    var gradeNote="";
+    if(impKey==="grades"){
+      gradeNote='<div class="imp-grade-note">';
+      if(impGradeSubj){
+        gradeNote+='📚 学科将统一设为：<b>'+esc(impGradeSubj)+'</b>（可在上方下拉修改）';
+        gradeNote+='　🧮 分数列：<b>'+(map["分数"]?esc(map["分数"]):"（未识别到，请确认该列含分数数字）")+'</b>';
+      } else {
+        gradeNote+='⚠️ 请先在上方选择 <b>学科</b>，否则导入的记录将缺少「科目」字段';
+      }
+      gradeNote+='</div>';
+    }
     document.getElementById("impPreview").innerHTML=
-      '<div class="imp-stats">共识别 <b>'+valid.length+'</b> 行 · 匹配字段 <b>'+fieldNames.length+'/'+parsed.headers.length+'</b>'+(parsed.sheetNote?("<br>"+esc(parsed.sheetNote)):"")+(parsed.pdfNote?("<br>"+esc(parsed.pdfNote)):"")+'</div>'
+      gradeNote
+      +'<div class="imp-stats">共识别 <b>'+valid.length+'</b> 行 · 匹配字段 <b>'+fieldNames.length+'/'+parsed.headers.length+'</b>'+(parsed.sheetNote?("<br>"+esc(parsed.sheetNote)):"")+(parsed.pdfNote?("<br>"+esc(parsed.pdfNote)):"")+'</div>'
       +'<div class="imp-map">'+mapHtml+'</div>'
       +'<div class="imp-head">'+headHtml+'</div>'
       +'<div class="imp-samp"><div class="srow head">'+fieldNames.map(function(fn){return '<span>'+esc(fn)+'</span>';}).join("")+'</div>'+samp+'</div>';
@@ -4970,12 +5034,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     /* 学生档案：按姓名合并（同名行互相结合；与已有档案合并），不出现重复姓名 */
     if(key==="students") return confirmImportStudents();
     var fields=MODULES[key].fields, map=impData.map, mainF=MODULES[key].main;
+    /* 成绩模块：强制科目=所选学科；分数列自动识别（数学列 / 分数列 / 数值列） */
+    var fmap=map, forceProps={};
+    if(key==="grades"){
+      if(!impGradeSubj){ toast("请先在上方选择学科"); return; }
+      forceProps["科目"]=impGradeSubj;
+      var sc=detectScoreCol(impData, map);
+      if(!sc){ toast("未能识别到分数列，请确认文件中含分数数字列（如 数学 / 分数 / 成绩）"); return; }
+      fmap=Object.assign({}, map, {"分数":sc});
+    }
     setStatus("syncing");
     var chain=Promise.resolve(), n=0;
     impData.rows.forEach(function(r){
-      var props={};
+      var props=Object.assign({}, forceProps);
       fields.forEach(function(f){
-        var h=map[f.name]; if(!h) return;
+        var h=fmap[f.name]; if(!h) return;
         var v=wrapVal(f, r[h]); if(v) props[f.name]=v;
       });
       if(Object.keys(props).length===0) return;
@@ -5137,7 +5210,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "weektbl-2026-08-28";
+  var __APP_VERSION__ = "gradeimp-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
