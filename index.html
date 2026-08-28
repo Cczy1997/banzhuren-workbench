@@ -709,8 +709,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .dw-add-lnk:hover{border-color:#A4D8A4;color:#2E7D32;background:#F4FFF8}
   .duty-sign{margin-top:16px;text-align:right;color:#555;font-size:13px}
   .duty-sign-line{display:inline-block;border-bottom:1.5px solid #555;width:160px;margin-left:6px;vertical-align:bottom}
+  .dw-grp-del{float:right;margin:-2px 0 0 6px;border:1px solid var(--line);background:#fff;color:#c9bccf;font-size:11px;line-height:1;cursor:pointer;font-family:inherit;border-radius:6px;padding:2px 6px;font-weight:700}
+  .dw-grp-del:hover{color:#e0584f;border-color:#e9b4ae;background:#fdeaea}
+  .duty-rf-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:linear-gradient(135deg,#FFF3F8,#F2F7FF);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:12px;font-size:13.5px;color:var(--ink)}
+  .rf-cur{font-weight:600}
+  .rf-cur b{color:var(--pink-d);font-size:15px}
+  .rf-wk{color:var(--ink-soft)}
+  .rf-wk b{color:var(--ink);font-size:15px}
+  .rf-done{color:#2E7D32;font-weight:800}
+  .rf-btn{font-weight:700}
   @media print{
-    .duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn,#sidebar,.phead,#nav,#topbar{display:none !important}
+    .duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn,.dw-grp-del,.duty-rf-bar,#sidebar,.phead,#nav,#topbar{display:none !important}
     .duty-page{border:none;padding:0}
     .duty-week-table thead th{background:#EEF2FF !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .dw-row-th{background:#FFF7E6 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -2123,7 +2132,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     (DATA.duty||[]).forEach(function(r){ if(r["值日组"]!==g) return; String(r["学生姓名"]||"").split(/[,，、]/).forEach(function(n){ n=n.trim(); if(n) m[n]=1; }); });
     return Object.keys(m);
   }
-  function currentDutyGroup(){ return dutyRot.groups.length ? dutyRot.groups[dutyRot.cursor] : ""; }
+  function currentDutyGroup(){ var g=getDutyGroups(); if(!g.length) return ""; if(dutyRot.cursor>=g.length) dutyRot.cursor=0; return g[dutyRot.cursor]; }
   // 史迪奇风小图标（内联 SVG，零外部依赖）
   var STITCH_EAR='<svg class="db-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19C3.5 13 4 6 6.5 4 8 7 9.5 12 11.5 15M18 19c2.5-6 2-13-0.5-15-1.5 3-3 8-5 11" fill="none" stroke="var(--stitch-d)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var STITCH_PAW='<svg class="db-ico" viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--stitch-l)"><circle cx="7" cy="9" r="2"/><circle cx="12" cy="6.5" r="2"/><circle cx="17" cy="9" r="2"/><ellipse cx="12" cy="16" rx="4.6" ry="3.8"/></g></svg>';
@@ -2239,6 +2248,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var DUTY_WEEK_DIVISIONS=[
     "黑板（含讲台）","室内地板（含桌椅）","走廊（含窗户）","倒垃圾（含卫生工具整理）","卫生区"
   ];
+  // 值日小组（行）权威列表：持久化；含数据中已出现的组，保证导入/历史组不丢
+  var DUTY_GROUPS_LS="wb_cls_dutygroups";
+  function getDutyGroups(){
+    var base=null;
+    try{ var s=JSON.parse(localStorage.getItem(DUTY_GROUPS_LS)||"null"); if(Array.isArray(s)) base=s; }catch(e){}
+    if(!base||!base.length) base=DUTY_WEEK_GROUPS.slice();
+    var used=[];
+    (DATA.duty||[]).forEach(function(r){ var g=(r["值日小组"]||"").trim(); if(g&&used.indexOf(g)<0) used.push(g); });
+    var out=base.slice();
+    used.forEach(function(g){ if(out.indexOf(g)<0) out.push(g); });
+    try{ localStorage.setItem(DUTY_GROUPS_LS, JSON.stringify(out)); }catch(e){}
+    return out;
+  }
+  function setDutyGroups(arr){
+    try{ localStorage.setItem(DUTY_GROUPS_LS, JSON.stringify(arr)); }catch(e){}
+  }
   function dutyWeekCellRecord(g,div){
     return (DATA.duty||[]).filter(function(r){
       return (r["值日小组"]||"")===g && (r["分工"]||"")===div;
@@ -2249,6 +2274,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var ns=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
     var xs=(rec["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
     return ns.map(function(n,i){ return {name:n, no:xs[i]||""}; });
+  }
+  // 某值日小组的全部成员（跨分工去重，保留学号）——流动红旗加减分用
+  function dutyWeekGroupMembers(g){
+    var m={}, order=[];
+    (DATA.duty||[]).forEach(function(r){
+      if((r["值日小组"]||"").trim()!==g) return;
+      var ns=(r["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      var xs=(r["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+      ns.forEach(function(n,i){ if(!(n in m)){ m[n]=xs[i]||""; order.push(n); } });
+    });
+    return order.map(function(n){ return {name:n, no:m[n]}; });
   }
   function dutyWeekLeaderOf(g){
     for(var i=0;i<DUTY_WEEK_DIVISIONS.length;i++){
@@ -2343,25 +2379,49 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }, {multi:false});
   }
   function dutyWeekAddGroup(){
-    // 下一个组号：第一组/二/三...顺次；或在数据中找最大"第X组"+"组"
+    // 在持久化组列表中追加新组（不再写空值日记录）
     var cnMap=["","一","二","三","四","五","六","七","八","九","十"];
+    var grps=getDutyGroups();
     var max=0;
-    var pat=/^第(.)组$/;
-    (DATA.duty||[]).forEach(function(r){
-      var m=pat.exec(r["值日小组"]||"");
-      if(m){
-        var v=cnMap.indexOf(m[1]);
-        if(v>max) max=v;
-      }
+    grps.forEach(function(g){
+      var m=/^第(.)组$/.exec(g);
+      if(m){ var v=cnMap.indexOf(m[1]); if(v>max) max=v; }
     });
-    var nextIdx=Math.max(max+1, DUTY_WEEK_GROUPS.length+1);
-    var name="第"+cnMap[nextIdx]+"组";
-    var props={值日小组:name,分工:DUTY_WEEK_DIVISIONS[0],负责人:"",学号:""};
+    max=Math.max(max, DUTY_WEEK_GROUPS.length);
+    var nextIdx=max+1;
+    var name="第"+(cnMap[nextIdx]||nextIdx)+"组";
+    setDutyGroups(grps.concat([name]));
+    toast("已新增 "+name+" ✓"); renderList("duty"); render();
+  }
+  function dutyWeekDelGroup(g){
+    if(!g) return;
+    var grps=getDutyGroups();
+    if(grps.length<=1){ toast("至少保留一个值日小组"); return; }
+    if(!confirm("删除值日小组「"+g+"」？\n该组所有分工与负责人记录都会一并删除，不可撤销。")) return;
+    var ids=(DATA.duty||[]).filter(function(r){ return (r["值日小组"]||"")===g; }).map(function(r){ return r._id; }).filter(Boolean);
     setStatus("syncing");
-    apiAdd("duty",props).then(function(o){
-      Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o);
-      setStatus("ok"); toast("已新增 "+name+" ✓"); renderList("duty");
-    }).catch(function(e){ setStatus("offline"); toast("新建组失败："+(e&&e.message||e)); });
+    Promise.all(ids.map(function(id){ return apiDelete("duty",id); })).then(function(){
+      DATA.duty=(DATA.duty||[]).filter(function(r){ return (r["值日小组"]||"")!==g; });
+      setDutyGroups(getDutyGroups().filter(function(x){ return x!==g; }));
+      if(dutyRot.cursor>=getDutyGroups().length) dutyRot.cursor=Math.max(0,getDutyGroups().length-1);
+      saveDutyRot();
+      setStatus("ok"); toast("已删除 "+g+" ✓"); renderList("duty"); render();
+    }).catch(function(e){ setStatus("offline"); toast("删除失败："+(e&&e.message||e)); });
+  }
+  // 值日表页内的流动红旗状态条 + 记录入口（与周表同源）
+  function renderDutyRedFlagBar(){
+    var grps=getDutyGroups();
+    if(!grps.length) return "";
+    var cur=currentDutyGroup();
+    if(!cur) return "";
+    var wkNow=isoWeek().key;
+    var done=dutyRot.checkedWeek===wkNow;
+    var info='<span class="rf-cur">本周值日组：<b>'+esc(cur)+'</b></span>'
+      +'<span class="rf-wk">已值日 <b>'+dutyRot.servedWeeks+'</b> 周</span>';
+    var act = done
+      ? '<span class="rf-done">✅ 本周流动红旗已记录</span>'
+      : '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>';
+    return '<div class="duty-rf-bar">'+info+act+'</div>';
   }
   function dutyWeekReset(){
     if(!confirm("确定清空本周值日表（删除所有值日安排记录）吗？此操作不可撤销。")) return;
@@ -2373,14 +2433,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function renderDutyTable(){
     var note=getDutyNote();
-    // 已使用的组（从数据中倒推），按出现顺序；缺的默认值 4 组前补
-    var used=[];
-    (DATA.duty||[]).forEach(function(r){
-      var g=(r["值日小组"]||"").trim();
-      if(g && used.indexOf(g)<0) used.push(g);
-    });
-    var groups=DUTY_WEEK_GROUPS.slice();
-    used.forEach(function(g){ if(groups.indexOf(g)<0) groups.push(g); });
+    var groups=getDutyGroups();   // 权威组列表（持久化；含数据中已用组）
     var thead='<tr>'
       +'<th class="dw-th-group">值日小组</th>'
       +DUTY_WEEK_DIVISIONS.map(function(d){ return '<th class="dw-th-div">'+esc(d)+'</th>'; }).join('')
@@ -2415,7 +2468,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         }
         return '<td class="dw-cell '+(persons.length?'dw-filled':'dw-empty')+'">'+inner+'</td>';
       }).join('');
-      return '<tr><th class="dw-row-th">'+esc(g)+'</th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
+      return '<tr><th class="dw-row-th">'+esc(g)+'<button type="button" class="dw-grp-del" data-dutyact="delGroup" data-grp="'+esc(g)+'" title="删除该值日小组（含其分工与负责人）">✕</button></th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
     }).join('');
     var html='';
     html+='<div class="duty-page">';
@@ -2427,6 +2480,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     html+='      <button type="button" class="btn-mini" data-dutyact="print">🖨 打印</button>';
     html+='    </div>';
     html+='  </div>';
+    html+=renderDutyRedFlagBar();
     html+='  <div class="duty-note" contenteditable="true" data-dutynote="1" title="点击编辑班级备注">'+esc(note)+'</div>';
     html+='  <div class="duty-week-wrap"><table class="duty-week-table">';
     html+='    <thead>'+thead+'</thead>';
@@ -2454,7 +2508,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'.duty-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;border-bottom:2px solid #555;padding-bottom:8px;margin-bottom:10px}'
       +'.duty-title{font-size:22px;font-weight:800;margin:0 0 4px}'
       +'.duty-sub{font-size:12px;color:#777}'
-      +'.duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn{display:none !important}'
+      +'.duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn,.dw-grp-del,.duty-rf-bar{display:none !important}'
       +'.duty-note{background:#FFF7E6;border:1px dashed #F0C36D;border-radius:6px;padding:8px 12px;font-size:13px;color:#8B6914;margin-bottom:12px}'
       +'.duty-week-table{width:100%;border-collapse:collapse;font-size:13px}'
       +'.duty-week-table th,.duty-week-table td{border:1px solid #555;padding:8px 6px;text-align:center;vertical-align:middle}'
@@ -2594,7 +2648,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function resolveRedFlag(won){
     var cur=currentDutyGroup();
     if(!cur) return;
-    var members=dutyGroupMembers(cur);
+    var members=dutyWeekGroupMembers(cur).map(function(p){ return p.name; });
+    if(!members.length){ toast("本周值日组「"+cur+"」尚未安排成员，无法加减分"); return; }
     var wkNow=isoWeek().key;
     var jobs=members.map(function(nm){
       var st=(DATA.students||[]).filter(function(s){return s["姓名"]===nm;})[0];
@@ -2606,7 +2661,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       });
     });
     Promise.all(jobs).then(function(){
-      if(won){ dutyRot.cursor=(dutyRot.cursor+1)%dutyRot.groups.length; dutyRot.servedWeeks=1; }
+      if(won){ dutyRot.cursor=(dutyRot.cursor+1)%getDutyGroups().length; dutyRot.servedWeeks=1; }
       else { dutyRot.servedWeeks=(dutyRot.servedWeeks||1)+1; }
       dutyRot.checkedWeek=wkNow;
       saveDutyRot();
@@ -2632,7 +2687,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(redflagAskedThisWeek) return;
     var d=new Date();
     if(d.getDay()!==1) return;            // 仅周一
-    if(!dutyRot.groups.length) return;
+    if(!getDutyGroups().length) return;
     if(dutyRot.checkedWeek===isoWeek().key) return;
     redflagAskedThisWeek=true;
     askRedFlag();
@@ -4738,6 +4793,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(dact){
       var a=dact.getAttribute("data-dutyact");
       if(a==="addGroup"){ dutyWeekAddGroup(); return; }
+      if(a==="delGroup"){ dutyWeekDelGroup(dact.getAttribute("data-grp")); return; }
+      if(a==="redflag"){ askRedFlag(); return; }
       if(a==="reset"){ dutyWeekReset(); return; }
       if(a==="print"){ printDutyTable(); return; }
     }
@@ -5571,7 +5628,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "ovdutysync-2026-08-28";
+  var __APP_VERSION__ = "dutyrf-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
