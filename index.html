@@ -1586,11 +1586,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       });
       sub+='</div>';
     }
-    return '<div class="sec" data-sec="'+cat+'">'+head+sub+'</div>';
+    return '<div class="sec'+(show?'':' collapsed')+'" data-sec="'+cat+'">'+head+sub+'</div>';
   }
   function onSecHead(cat){
+    // 有子栏目的分组（学生管理/班级事务/德育心理/我的功课/班会与周报/AI）：
+    // 点击大标题仅展开/收起，不再跳转栏目；进入具体模块请点子项。
+    if(ORDER[cat]){
+      state.open[cat]=!state.open[cat];
+      renderSidebar();
+      return;
+    }
+    // 无子分组的栏目（总览）：保持跳转
     state.cat=cat; state.open[cat]=true;
-    if(cat!=="overview") state.mod=ORDER[cat][0];
     render(); closeDrawer();
   }
 
@@ -5737,7 +5744,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "gponly-2026-08-28";
+  var __APP_VERSION__ = "navtoggle-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
