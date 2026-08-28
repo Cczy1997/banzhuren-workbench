@@ -704,31 +704,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rc-meta{color:var(--ink-soft);font-size:11.5px}
   .rc-del{border:none;background:none;color:var(--danger);font-size:15px;line-height:1;cursor:pointer;padding:0 2px;opacity:.5}
   .rc-del:hover{opacity:1}
-  /* 📥 聊天导入：iPhone 微信快捷指令收件箱 */
-  .cf-setup{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 16px}
-  .cf-setup-h{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:8px}
-  .cf-steps{margin:0 0 0 18px;padding:0;color:var(--ink-soft);font-size:12.5px;line-height:1.7}
-  .cf-steps li{margin-bottom:4px}
-  .cf-steps code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11.5px;color:var(--ink);word-break:break-all}
-  .cf-copy{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-  .cf-cp{border:1px solid var(--line);background:var(--bg);color:var(--lav);font-size:12px;font-weight:700;border-radius:8px;padding:5px 10px;cursor:pointer}
-  .cf-cp:active{opacity:.6}
-  .cf-list{display:flex;flex-direction:column;gap:8px}
-  .cf-loading,.cf-empty{padding:18px;text-align:center;color:var(--ink-soft);font-size:13px;background:var(--card);border:1px dashed var(--line);border-radius:12px}
-  .cf-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
-  .cf-ico{font-size:20px;flex:0 0 auto}
-  .cf-meta{flex:1 1 auto;min-width:0}
-  .cf-name{font-weight:800;color:var(--ink);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .cf-sub{color:var(--ink-soft);font-size:11.5px;margin-top:2px}
-  .cf-acts{display:flex;align-items:center;gap:14px;flex:0 0 auto}
-  /* 导入弹窗内的「从聊天导入」 */
-  .imp-pick-chat{margin-left:8px;border-color:var(--lav);color:var(--lav)}
-  .imp-chat{margin:10px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px}
-  .imp-chat-loading,.imp-chat-empty{padding:10px;color:var(--ink-soft);font-size:12.5px;text-align:center}
-  .imp-chat-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:none;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:6px;cursor:pointer;color:var(--ink);font-size:13px;font-weight:700}
-  .imp-chat-item:last-child{margin-bottom:0}
-  .imp-chat-item:active{opacity:.6}
-  .imp-chat-sub{color:var(--ink-soft);font-size:11.5px;font-weight:500}
   /* 相册截图导入：图片预览 + 各模块附件条 */
   .imp-img-wrap{margin:8px 0;text-align:center}
   .imp-img{max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--line)}
@@ -830,8 +805,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <p class="imp-tip">支持 <b>Excel(.xlsx/.xls)</b>、<b>Word(.docx)</b>、<b>PDF(.pdf)</b> 与 <b>CSV/TSV</b>。<br>自动识别表格/表头并匹配字段（如「姓名」→学生姓名、「分数」→分数）。Word 请整理成表格（首行是列名）；PDF 为近似识别，<b>建议优先用 Excel/Word</b>。<br>也可直接选 <b>相册里的截图</b>：将以图片形式保存到本模块（不参与表格解析）。</p>
     <input type="file" id="impFile" accept=".xlsx,.xls,.docx,.pdf,.csv,.tsv,.txt,image/*" style="display:none">
     <button class="imp-pick" id="impPick">📁 选择文件…</button>
-    <button class="imp-pick imp-pick-chat" id="impChatBtn">📥 从聊天导入（iPhone 微信）</button>
-    <div id="impChat" class="imp-chat" style="display:none"></div>
     <div id="impPreview" class="imp-preview"></div>
     <div class="actions">
       <button class="btn-cancel" id="impCancel">取消</button>
@@ -915,8 +888,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function tbl(key){ return "hr_"+key; }   // 模块 key → 表名 hr_<key>
   var BUCKET="classfiles";                 // 文件存储桶（Supabase Storage）
   var formFiles={};                        // 表单内文件字段的运行时状态：{字段名:{kept:[url],pending:[File]}}
-  var CHAT_BUCKET="chatfiles";             // 聊天导入专用公开桶（免登录上传，由 x-cap 能力密钥保护）
-  var CHAT_CAP="BZR-CHAT-UPLOAD-7F3A";     // 快捷指令上传能力密钥（与 Supabase RLS 策略一致，勿外泄）
 
   var MODULES = {
     students:{
@@ -974,10 +945,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         {name:"内容",type:"text",required:true,multiline:true,ph:"制度内容"},
         {name:"说明",type:"text",multiline:true,ph:"补充说明（选填）"}
       ]
-    },
-    chatfiles:{
-      title:"📥 聊天导入", cat:"aff", unit:"个", main:"", fields:[],
-      help:"从 iPhone 微信/聊天里「分享 → 快捷指令」直接存到云端，这里查看与下载"
     },
     attendance:{
       title:"🕒 考勤记录", cat:"aff", unit:"条", main:"学生姓名",
@@ -1098,7 +1065,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   var ORDER = {
     stu:["students","committee","parents"],
-    aff:["affairs","rules","chatfiles","attendance","seats","duty","grades","points","honor","honorboard"],
+    aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard"],
     mor:["talk","comm","comment"],
     mine:["sched_hwk"],
     meet:["meeting","weekly"],
@@ -1397,7 +1364,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
     if(state.mod==="meeting"){ box.innerHTML=renderMeeting(); renderMeetingInto(); return; }
     if(state.mod==="weekly"){ box.innerHTML=renderWeekly(); renderWeeklyInto(); return; }
-    if(state.mod==="chatfiles"){ box.innerHTML=renderChatFiles(); loadChatFiles(); return; }
     if(ORDER[state.cat].indexOf(state.mod)<0) state.mod=ORDER[state.cat][0];
     try { box.innerHTML=renderModule(state.mod); }
     catch(e){ box.innerHTML='<div class="empty">「'+(MODULES[state.mod]?esc(MODULES[state.mod].title):esc(state.mod))+'」界面渲染失败：'+(esc(e&&e.message||e))+'</div>'; console.error(e); return; }
@@ -2510,77 +2476,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     RULE_CATS=RULE_CATS.filter(function(c){return c!==name;}); saveRuleCats(); renderList("rules"); toast("已删除方向："+name);
   }
 
-  /* ---------- 📥 聊天导入（iPhone 快捷指令免登录直传 Supabase） ---------- */
-  function chatFileUrl(path){ return SUPABASE_URL+"/storage/v1/object/public/"+CHAT_BUCKET+"/"+encodeURIComponent(path); }
-  function fmtSize(b){ b=Number(b)||0; if(b<1024) return b+" B"; if(b<1048576) return (b/1024).toFixed(1)+" KB"; return (b/1048576).toFixed(1)+" MB"; }
-  function fmtDate(s){ try{ var d=new Date(s); if(isNaN(d)) return ""; var p=function(n){return (n<10?"0":"")+n;}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); }catch(e){ return ""; } }
-  function extClass(name){ var e=(String(name).split(".").pop()||"").toLowerCase(); if(["png","jpg","jpeg","gif","webp","heic"].indexOf(e)>=0) return "img"; if(["pdf"].indexOf(e)>=0) return "pdf"; if(["doc","docx"].indexOf(e)>=0) return "doc"; if(["xls","xlsx","csv"].indexOf(e)>=0) return "xls"; if(["ppt","pptx"].indexOf(e)>=0) return "ppt"; if(["mp4","mov","m4v"].indexOf(e)>=0) return "vid"; if(["zip","rar","7z"].indexOf(e)>=0) return "zip"; return "file"; }
-  function loadChatFiles(){
-    var box=document.getElementById("cfList"); if(!box) return;
-    box.innerHTML='<div class="cf-loading">加载中…</div>';
-    apiQuery("files").then(function(out){
-      DATA.files=(out&&out.results)||[];
-      renderChatFilesList();
-    }).catch(function(e){
-      box.innerHTML='<div class="cf-empty">加载失败：'+(esc(e&&e.message||e))+'</div>';
-    });
-  }
-  function renderChatFilesList(){
-    var box=document.getElementById("cfList"); if(!box) return;
-    var rows=(DATA.files||[]).filter(function(r){ return !r.mod; });  // 仅显示「从聊天导入」收件箱（模块附件单独在各模块展示）
-    if(!rows.length){ box.innerHTML='<div class="cf-empty">还没有从聊天导入的文件。在 iPhone 上用「快捷指令」把微信/聊天里的文件分享过来即可。</div>'; return; }
-    box.innerHTML=rows.map(function(r){
-      var d=r; var path=d.path||""; var name=d.name||"未命名文件"; var ec=extClass(name);
-      var openUrl=d.url || chatFileUrl(path);
-      return '<div class="cf-item">'
-        +'<span class="cf-ico cf-ico-'+ec+'">'+( ({img:"🖼️",pdf:"📕",doc:"📄",xls:"📊",ppt:"📑",vid:"🎞️",zip:"🗜️",file:"📎"})[ec] || "📎") +'</span>'
-        +'<div class="cf-meta"><div class="cf-name">'+esc(name)+'</div>'
-        +'<div class="cf-sub">'+fmtSize(d.size)+' · '+fmtDate(d.created_at||r.created_at)+' · '+esc(d.mime||"")+'</div></div>'
-        +'<div class="cf-acts">'
-        +'<a class="lnk" href="'+esc(openUrl)+'" target="_blank" rel="noopener">打开</a>'
-        +'<button class="lnk lnk-del" data-cfdel="'+esc(r._id)+'" data-cfpath="'+esc(path)+'">删除</button>'
-        +'</div></div>';
-    }).join("");
-  }
-  function deleteChatFile(id, path){
-    if(!confirm("确定删除该导入文件？（同时删除云端存储）")) return;
-    var jobs=[];
-    if(path) jobs.push(db.storage.from(CHAT_BUCKET).remove([path]).then(function(){}, function(){}));
-    jobs.push(apiDelete("files", id));
-    Promise.all(jobs).then(function(){ toast("已删除 ✓"); loadChatFiles(); }).catch(function(e){ toast("删除失败："+(esc(e&&e.message||e))); });
-  }
-  function copyCfVal(btn){
-    var v=btn.getAttribute("data-cfval")||"";
-    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(v).then(function(){ toast("已复制 ✓"); }, function(){ prompt("复制以下值：", v); }); }
-    else { prompt("复制以下值：", v); }
-  }
-  function renderChatFiles(){
-    var uploadUrl=SUPABASE_URL+"/storage/v1/object/"+CHAT_BUCKET+"/";
-    var metaUrl=SUPABASE_URL+"/rest/v1/hr_files";
-    return ''
-      +'<div class="phead"><h3>📥 聊天导入</h3>'
-      +'<span class="hint">从 iPhone 微信/聊天里「分享 → 快捷指令」直接存到云端，这里查看与下载</span>'
-      +'<span class="spacer"></span>'
-      +'<button class="btn-imp" id="cfRefresh">刷新</button>'
-      +'</div>'
-      +'<div class="cf-setup">'
-      +'<div class="cf-setup-h">📱 iPhone 快捷指令一键配置（只需设一次）</div>'
-      +'<ol class="cf-steps">'
-      +'<li>打开 iPhone「<b>快捷指令 App</b>」→ 新建自动化/快捷指令，添加「<b>获取 URL 的内容</b>」动作。</li>'
-      +'<li>方法选 <b>POST</b>；请求体选「<b>收到的文件</b>」。URL 填：<code>'+esc(uploadUrl)+'</code> ＋ 文件名（如 <code>cap/'+esc(dateStamp())+'-作业.png</code>）。</li>'
-      +'<li>在「请求头」里加三项：<code>x-cap</code>=<code id="cfCap">'+esc(CHAT_CAP)+'</code>、<code>apikey</code>=<code>'+esc(SUPABASE_ANON_KEY)+'</code>、<code>Authorization</code>=<code>Bearer '+esc(SUPABASE_ANON_KEY)+'</code>。</li>'
-      +'<li>再添加一个「获取 URL 的内容」：方法 POST，URL=<code>'+esc(metaUrl)+'</code>，请求体=JSON <code>{"data":{"name":"文件原名","path":"cap/...","mime":"类型","size":大小}}</code>，同样加上面三个标头。</li>'
-      +'<li>在微信里长按文件 →「分享」→ 选这个快捷指令，即可自动上传并出现在下方列表。</li>'
-      +'</ol>'
-      +'<div class="cf-copy">'
-      +'<button class="cf-cp" data-cfval="'+esc(uploadUrl)+'">复制 上传URL</button>'
-      +'<button class="cf-cp" data-cfval="'+esc(metaUrl)+'">复制 元数据URL</button>'
-      +'<button class="cf-cp" data-cfval="'+esc(CHAT_CAP)+'">复制 能力密钥</button>'
-      +'<button class="cf-cp" data-cfval="'+esc(SUPABASE_ANON_KEY)+'">复制 anonKey</button>'
-      +'</div></div>'
-      +'<div id="cfList" class="cf-list"><div class="cf-loading">加载中…</div></div>';
-  }
-  function dateStamp(){ var d=new Date(), p=function(n){return (n<10?"0":"")+n;}; return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
 
   function renderSeatGrid(key){
     var rows=DATA[key];
@@ -3756,10 +3651,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var rmem=e.target.closest(".db-rmem"); if(rmem){ onDutyRosterClick(rmem); return; }
     var rcadd=e.target.closest("[data-rulecat-add]"); if(rcadd){ onRuleCatAdd(); return; }
     var rcdel=e.target.closest("[data-rulecat-del]"); if(rcdel){ onRuleCatDel(rcdel.getAttribute("data-rulecat-del")); return; }
-    var cfref=e.target.closest("#cfRefresh"); if(cfref){ loadChatFiles(); return; }
-    var cfdel=e.target.closest("[data-cfdel]"); if(cfdel){ deleteChatFile(cfdel.getAttribute("data-cfdel"), cfdel.getAttribute("data-cfpath")); return; }
     var attdel=e.target.closest("[data-attdel]"); if(attdel){ deleteAttachment(attdel.getAttribute("data-attdel"), attdel.getAttribute("data-attpath")); return; }
-    var cfcp=e.target.closest(".cf-cp"); if(cfcp){ copyCfVal(cfcp); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
@@ -3840,8 +3732,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   document.getElementById("impMask").addEventListener("click",function(e){ if(e.target===this) closeImp(); });
   document.getElementById("impPick").addEventListener("click",function(){ document.getElementById("impFile").click(); });
   document.getElementById("impFile").addEventListener("change",handleImpFile);
-  document.getElementById("impChatBtn").addEventListener("click",openImpChat);
-  document.getElementById("impChat").addEventListener("click",function(e){ var it=e.target.closest(".imp-chat-item"); if(it){ pickChatFile(it.getAttribute("data-cfid")); } });
   document.getElementById("impDo").addEventListener("click",confirmImport);
   document.getElementById("impPreview").addEventListener("click",function(e){ var b=e.target.closest("[data-impimg]"); if(b){ if(b.getAttribute("data-impimg")==="save") saveScreenshot(impImgFile); } });
   document.getElementById("ocrClose").addEventListener("click",closeOCR);
@@ -3954,7 +3844,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     document.getElementById("impPreview").innerHTML='<div class="imp-empty">请选择 Excel / Word / PDF / CSV 文件，预览会自动出现在下方。</div>';
     document.getElementById("impFile").value="";
     document.getElementById("impDo").disabled=true;
-    var ic=document.getElementById("impChat"); if(ic){ ic.style.display="none"; ic.innerHTML=""; }
     document.getElementById("impMask").classList.add("show");
   }
   function closeImp(){ document.getElementById("impMask").classList.remove("show"); }
@@ -4032,25 +3921,58 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(/\.(png|jpe?g|gif|webp|heic|bmp|heif|avif)$/.test(n) || (file.type&&file.type.indexOf("image/")===0)) return "img";
     return "csv";
   }
-  /* 自动定位表头行：扫描前若干行，选「命中字段关键字最多」的那一行当表头。
-     解决很多成绩表/花名册第 1 行是标题（如「英语」「三年16班」）、真正表头在第 3 行的问题。 */
+  /* 自动定位表头行：扫描前若干行，选「独立命中字段最多」的那一行当表头。
+     解决很多成绩表/花名册第 1 行是标题（如「英语」「三年16班」）、真正表头在第 3 行的问题。
+     用「唯一字段数」而不是「命中次数」打分，避免一行里多个相似别名把统计标题行误判为表头。 */
   function detectHeaderRow(aoa){
     var allFields=detectHeaderRow._cache;
     if(!allFields){ allFields=[]; for(var k in MODULES){ (MODULES[k].fields||[]).forEach(function(f){ allFields.push(f); }); } detectHeaderRow._cache=allFields; }
-    function sc(row){ if(!row) return 0; var s=0; for(var i=0;i<row.length;i++){ var v=(row[i]==null?"":String(row[i])).trim(); if(!v) continue; if(findField(allFields,v)) s++; } return s; }
-    var lim=Math.min(aoa.length,20), best=-1, bestIdx=0;
-    for(var r=0;r<lim;r++){ var c=sc(aoa[r]); if(c>=2 && c>best){ best=c; bestIdx=r; } }
-    if(best<0){ for(var r2=0;r2<lim;r2++){ var c2=sc(aoa[r2]); if(c2>=1 && c2>best){ best=c2; bestIdx=r2; } } }
-    return best<0?0:bestIdx;
+    function uniqCount(row){
+      if(!row) return 0;
+      var seen={};
+      for(var i=0;i<row.length;i++){
+        var v=(row[i]==null?"":String(row[i])).trim();
+        if(!v) continue;
+        var f=findField(allFields, v);
+        if(f && !seen[f.name]) seen[f.name]=1;
+      }
+      var n=0; for(var k in seen) n++; return n;
+    }
+    var lim=Math.min(aoa.length,20), bestIdx=0, bestU=0;
+    for(var r=0;r<lim;r++){ var u=uniqCount(aoa[r]); if(u>bestU){ bestU=u; bestIdx=r; } }
+    return bestU>=1?bestIdx:0;
   }
   function detectHeaderRowScore(aoa,r){ if(!aoa[r]) return 0; var allFields=detectHeaderRow._cache; if(!allFields){ allFields=[]; for(var k in MODULES){ (MODULES[k].fields||[]).forEach(function(f){ allFields.push(f); }); } detectHeaderRow._cache=allFields; } var s=0; for(var i=0;i<aoa[r].length;i++){ var v=(aoa[r][i]==null?"":String(aoa[r][i])).trim(); if(!v) continue; if(findField(allFields,v)) s++; } return s; }
   function aoa2hr(aoa){
-    if(!aoa||!aoa.length) return {headers:[],rows:[]};
+    if(!aoa||!aoa.length) return {headers:[],rows:[],_aoa:aoa};
     var hi=detectHeaderRow(aoa);
     var headers=aoa[hi].map(function(h,i){ return (h==null||h==="")?("列"+(i+1)):String(h).trim(); });
     var rows=aoa.slice(hi+1).filter(function(r){ return r && r.some(function(c){return c!=null&&String(c).trim()!=="";}); })
       .map(function(r){ var o={}; headers.forEach(function(h,i){ o[h]=(r[i]==null?"":String(r[i])); }); return o; });
-    return {headers:headers, rows:rows};
+    return {headers:headers, rows:rows, headerRow:hi, _aoa:aoa};
+  }
+  /* 回退找表头：若 aoa2hr 的默认表头一个字段都匹配不到，沿 aoa 向下逐行重试，
+     找到「有 ≥1 个字段匹配」的最早一行。主要应对：
+       ·「成绩/汇总」页第 1 行被「总　分」等聚合标题误判为表头；
+       ·「班级花名册」第 1 行被「三年1班/三年2班/…当班级横排」误判为表头。 */
+  function pickHeaderByMapping(key, aoa, defaultHi){
+    defaultHi=defaultHi||0;
+    var defH=aoa[defaultHi]||[];
+    var defHeaders=defH.map(function(h,i){return (h==null||h==="")?("列"+(i+1)):String(h).trim();});
+    var defMap=buildMapping(key, defHeaders);
+    if(Object.keys(defMap).length) return {headers:defHeaders, rows:[], headerRow:defaultHi, _aoa:aoa};
+    var lim=Math.min(aoa.length, 30);
+    for(var r=defaultHi+1;r<lim;r++){
+      var row=aoa[r]; if(!row||!row.length) continue;
+      var hdr=row.map(function(h,i){return (h==null||h==="")?("列"+(i+1)):String(h).trim();});
+      var mp=buildMapping(key, hdr);
+      if(Object.keys(mp).length>=1){
+        var data=aoa.slice(r+1).filter(function(x){return x && x.some(function(c){return c!=null&&String(c).trim()!=="";});})
+          .map(function(x){var o={}; hdr.forEach(function(h,i){o[h]=(x[i]==null?"":String(x[i]));}); return o;});
+        return {headers:hdr, rows:data, headerRow:r, _aoa:aoa};
+      }
+    }
+    return null;
   }
   function parseXLSX(file){
     return loadScript(LIB.xlsx).then(function(){
@@ -4063,6 +3985,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
             var name=wb.SheetNames[0];
             var aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:""});
             var out=aoa2hr(aoa);
+            /* 若 aoa2hr 的默认表头对当前模块 0 字段匹配，向下重找能匹配的行（如花名册「班级横排」） */
+            if(impKey && out && out.headers && out._aoa){
+              var mp=buildMapping(impKey, out.headers);
+              if(!Object.keys(mp).length){
+                var alt=pickHeaderByMapping(impKey, out._aoa, out.headerRow||0);
+                if(alt) out=alt;
+              }
+            }
             out.sheetNote=wb.SheetNames.length>1?("（已读取第1个工作表「"+name+"」，共 "+wb.SheetNames.length+" 个）"):"";
             res(out);
           }catch(err){ rej(err); }
@@ -4159,7 +4089,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var mainField=MODULES[impKey].main;
     var fieldNames=Object.keys(map);
     if(!fieldNames.length){
-      document.getElementById("impPreview").innerHTML='<div class="imp-empty">未能将任何列匹配到本模块的字段。请检查表头是否包含如「姓名 / 分数 / 事由」等关键字。</div>';
+      var actual=(parsed.headers||[]).filter(function(h){return h && !/^列\d+$/.test(h);}).slice(0,12);
+      var hint=actual.length?('<br><br><span style="opacity:.7;font-size:12px">已识别到的表头（第 '+(parsed.headerRow==null?'?':(parsed.headerRow+1))+' 行）：</span><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:12px;opacity:.8">'+esc(actual.join(" · ") || "（无）")+'</div><br><span style="opacity:.7;font-size:12px">该模块需要 <b>'+esc(mainField)+'</b> 字段。若表头行不对，可先在 Excel/WPS 中删除上方标题行后另存为 CSV(UTF-8) 再导入。</span>'):"";
+      document.getElementById("impPreview").innerHTML='<div class="imp-empty">未能将任何列匹配到本模块的字段。请检查表头是否包含如「姓名 / 分数 / 事由」等关键字。'+hint+'</div>';
       document.getElementById("impDo").disabled=true;
       return;
     }
@@ -4230,35 +4162,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var file=e.target.files && e.target.files[0];
     if(!file) return;
     parseAndPreview(file);
-  }
-  /* 从聊天导入（iPhone 微信快捷指令上传的文件）：取回 Blob 后走同一套解析管线 */
-  function openImpChat(){
-    var box=document.getElementById("impChat"); if(!box) return;
-    box.style.display="block";
-    box.innerHTML='<div class="imp-chat-loading">加载已上传的聊天文件…</div>';
-    apiQuery("files").then(function(out){
-      DATA.files=(out&&out.results)||[];
-      var rows=DATA.files;
-      if(!rows.length){ box.innerHTML='<div class="imp-chat-empty">还没有从微信聊天上传的文件。在 iPhone 上用「快捷指令」把文件分享过来即可。</div>'; return; }
-      box.innerHTML=rows.map(function(r){
-        var d=r, ec=extClass(d.name||"file");
-        var ico=({img:"🖼️",pdf:"📕",doc:"📄",xls:"📊",ppt:"📑",vid:"🎞️",zip:"🗜️",file:"📎"})[ec]||"📎";
-        return '<button class="imp-chat-item" data-cfid="'+esc(r._id)+'"><span>'+ico+' '+esc(d.name||"未命名文件")+'</span><span class="imp-chat-sub">'+fmtSize(d.size)+'</span></button>';
-      }).join("");
-    }).catch(function(e){ box.innerHTML='<div class="imp-chat-empty">加载失败：'+(esc(e&&e.message||e))+'</div>'; });
-  }
-  function pickChatFile(id){
-    var rec=(DATA.files||[]).filter(function(r){return r._id===id;})[0]; if(!rec) return;
-    var d=rec, path=d.path||"";
-    if(!path){ toast("文件信息缺失"); return; }
-    var prev=document.getElementById("impPreview");
-    prev.innerHTML='<div class="imp-empty">⏳ 正在从云端取回「'+(d.name||"文件")+'」并解析…</div>';
-    fetch(chatFileUrl(path)).then(function(res){ if(!res.ok) throw new Error("下载失败 "+res.status); return res.blob(); })
-      .then(function(blob){
-        var f=new File([blob], d.name||"chatfile", {type:(d.mime||blob.type||"application/octet-stream")});
-        document.getElementById("impChat").style.display="none";
-        parseAndPreview(f);
-      }).catch(function(err){ prev.innerHTML='<div class="imp-empty">取回失败：'+(esc(err&&err.message||err))+'</div>'; });
   }
   function confirmImport(){
     if(!impKey||!impData||!impData.rows.length) return;
@@ -4375,7 +4278,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "8ac5d23-2026-08-28";
+  var __APP_VERSION__ = "rmchat-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
