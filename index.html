@@ -2119,8 +2119,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function saveDutyRot(){ try{ localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){} }
   /* ---------- 值日表（按用户纸面表格重做）：项目/时间/负责人 三列，每天一张表 ---------- */
   var DUTYNOTE_LS = "wb_cls_dutynote";
-  var DUTY_DEFAULT_NOTE = "教室内做作业的同学不参加";
-  function getDutyNote(){ var n=localStorage.getItem(DUTYNOTE_LS); return n==null ? DUTY_DEFAULT_NOTE : n; }
+  // 旧版曾把这段作为新用户首次进入的默认值，现已统一不再预填。
+  var DUTY_LEGACY_DEFAULT_NOTE = "教室内做作业的同学不参加";
+  function getDutyNote(){
+    var raw=localStorage.getItem(DUTYNOTE_LS);
+    if(raw==null) return "";
+    // 自清理：若读到的是旧版默认值（用户从未编辑过留下的），视为空并移除 key，避免老用户继续看到
+    if(raw===DUTY_LEGACY_DEFAULT_NOTE){
+      try{ localStorage.removeItem(DUTYNOTE_LS); }catch(e){}
+      return "";
+    }
+    return raw;
+  }
   function setDutyNote(t){ try{ localStorage.setItem(DUTYNOTE_LS, t||""); }catch(e){} }
   function dutyDerivedGroups(){
     var seen={}, out=[];
@@ -5628,7 +5638,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "dutyrf-2026-08-28";
+  var __APP_VERSION__ = "dutynote-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
