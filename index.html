@@ -4374,8 +4374,24 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
-  var __APP_VERSION__ = "8d05cc5-2026-08-28";
-  var __errLog = [];   // 最近 10 条错误，按时间倒序
+  /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
+  var __APP_VERSION__ = "8ac5d23-2026-08-28";
+  var __errLog = [];   // 最近 10 条未捕获错
+  var __consoleLog = []; // 最近 20 条 console.error/warn 调用
+  var _origConsole = { error: console.error, warn: console.warn };
+  function __pushConsole(level, args){
+    try{
+      var line = Array.prototype.slice.call(args).map(function(a){
+        if(a instanceof Error) return (a.stack||a.message||String(a)).split("\n")[0];
+        if(typeof a === "string") return a;
+        try{ return JSON.stringify(a).slice(0,200); }catch(_){ return String(a); }
+      }).join(" | ");
+      __consoleLog.unshift(level + "@" + new Date().toLocaleTimeString("zh-CN") + " " + line);
+      if(__consoleLog.length>20) __consoleLog.length=20;
+    }catch(_){}
+  }
+  try{ console.error = function(){ __pushConsole("error", arguments); return _origConsole.error.apply(this, arguments); }; }catch(_){}
+  try{ console.warn  = function(){ __pushConsole("warn",  arguments); return _origConsole.warn.apply(this,  arguments); }; }catch(_){}
   function __pushErr(e){
     var errObj = (e && e.error) || (e && e.reason) || (e instanceof Error ? e : null);
     var msg = (errObj && errObj.message) || (e && (e.message || (e.reason && (e.reason.message||e.reason)) || e.reason)) || String(e);
@@ -4409,7 +4425,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     var when = new Date().toLocaleString("zh-CN");
     var ua = (navigator.userAgent||"").replace(/Mozilla\/[\d.]+\s*/,"").slice(0,80);
-    var detail = "【版本】" + __APP_VERSION__ + "\n【时间】" + when + "\n【位置】" + location.href + "\n【设备】" + ua + "\n【错误】" + msg + src + (stack ? ("\n【堆栈】\n" + stack) : "") + (hint ? ("\n【提示】" + hint) : "");
+    var detail = "【版本】" + __APP_VERSION__ + "\n【时间】" + when + "\n【位置】" + location.href + "\n【设备】" + ua + "\n【错误】" + msg + src + (stack ? ("\n【堆栈】\n" + stack) : "") + (hint ? ("\n【提示】" + hint) : "") + (__consoleLog.length ? ("\n【最近 console】\n" + __consoleLog.slice(0,8).join("\n")) : "") + (__errLog.length>1 ? ("\n【历史错误】\n" + __errLog.slice(1).map(function(x){return x.when + " " + x.msg + (x.src?" ("+x.src+")":"");}).slice(0,5).join("\n")) : "");
     box.innerHTML='<div class="fe-h">⚠️ 页面运行出错（已捕获，主体功能一般仍可正常使用）</div>'
       +'<div class="fe-m" style="font-weight:800">'+esc(msg)+'</div>'
       + (src ? '<div class="fe-m" style="opacity:.7;margin-top:4px;font-size:12px">'+esc(src)+'</div>' : '')
