@@ -3267,6 +3267,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(st && st["班干部"] && String(st["班干部"]).trim()){
       html+='<div class="pf-note pf-role">🏅 班委任职：<br>'+esc(String(st["班干部"]).replace(/\n/g,"<br>"))+'</div>';
     }
+    /* 家长通讯：按学生姓名关联家长电话，便于在「一生一档」里直接联系家长 */
+    var pars=(DATA.parents||[]).filter(function(p){ return (p["学生姓名"]||"")===name; });
+    if(pars.length){
+      html+='<div class="pf-sec"><div class="pf-sec-h">📞 家长通讯 <span class="pf-cnt">'+pars.length+'</span></div><div class="pf-rows">';
+      pars.forEach(function(p){
+        var rel=String(p["关系"]||"家长").trim();
+        var pn=String(p["家长姓名"]||"").trim();
+        var phone=String(p["电话"]||"").trim();
+        html+='<div class="pf-row pf-par">'
+          +'<span class="pf-k">'+esc(rel)+(pn?' · '+esc(pn):'')+'</span>'
+          + (phone?'<a class="par-tel" href="tel:'+esc(phone)+'">📞 '+esc(phone)+'</a>':'<span class="pf-v">无电话</span>')
+          +'</div>';
+      });
+      html+='</div></div>';
+    }
     html+='<div class="pf-ai-bar"><button class="btn-add" id="profileAIBtn">🤖 AI 分析 & 给方向</button></div>';
     html+='<div id="profileAI" class="pf-ai" style="display:none"></div>';
     PF_SECTIONS.forEach(function(sec){
@@ -4727,7 +4742,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "pardial-2026-08-28";
+  var __APP_VERSION__ = "parphone-2026-08-28";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
