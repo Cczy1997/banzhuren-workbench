@@ -319,13 +319,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .grid-cell.mark-pick{background:#FCE6E4 !important;color:#C0392B !important}
   .grid-cell.mark-pick::after{content:"✖️"}
   /* 考勤双时段（上午/下午）：同一天上下两个可独立点击的状态格 */
-  .grid-table tbody td.cell-dual{padding:0!important}
-  .cell-dual{display:flex;flex-direction:column}
-  .cell-dual .grid-cell{height:21px;border-bottom:1px solid var(--line);border-radius:0;font-size:15px}
+  .grid-table tbody td.cell-dual{padding:0!important;height:44px}
+  /* 不用 display:flex 在 td 上：会破坏表格列布局导致所有日期 TD 堆在第一列（用户截图里 14 个子格挤 08-24）。
+     子格 div 本就是 block，width:100% 让两个时段各占半高（上午/下午）。 */
+  .cell-dual .grid-cell{height:22px;border-bottom:1px solid var(--line);border-radius:0;font-size:14px;width:100%;box-sizing:border-box}
   .cell-dual .grid-cell:last-child{border-bottom:none}
   .cell-dual .per-pm{border-top:1px dashed #E2E6EE;position:relative}
   .cell-dual .per-am{position:relative}
   .grid-cell .per-tag{position:absolute;left:3px;top:1px;font-size:9px;line-height:1;color:var(--ink-soft);font-weight:700;opacity:.65;pointer-events:none}
+  /* 晚自习模式：固定请假 / 周几请假的格子（不可手动改） */
+  .grid-cell.fixed{cursor:default;opacity:.85;outline:1px dashed #C8A0DC inset}
+  .grid-cell.fixed:hover{background:#F6EEFC}
   /* 单元格内图标：统一 SVG / 字符容器（颜色随父 cell） */
   .gic{display:inline-flex;align-items:center;justify-content:center;line-height:1;vertical-align:-2px}
   .gic svg{display:block}
@@ -796,7 +800,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pf-pt b.neg{color:#e23c3c}
   .pf-pt span{font-size:11px;color:var(--ink-soft);margin-top:2px}
   .pf-note{background:#FFF8EC;border:1px solid #FBE9C8;border-radius:14px;padding:9px 12px;font-size:13.5px;color:#8a6d3b;margin-bottom:12px}
-  .pf-ai-bar{margin-bottom:10px}
+  .pf-ai-bar{margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .pf-imp-pre{background:#FFF7E8;border:1px solid #FFD58A;border-radius:14px;padding:11px 12px;margin-bottom:12px}
+  .pf-imp-h{font-size:13.5px;font-weight:800;color:#8A6A0A;margin-bottom:6px}
+  .pf-imp-rows{max-height:200px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+  .pf-imp-row{font-size:12.5px;color:var(--ink);padding:2px 0}
+  .pf-imp-act{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
   .pf-ai{background:#F6F4FF;border:1px solid #E6E0FB;border-radius:16px;padding:13px 14px;margin-bottom:14px}
   .pf-ai-busy{font-size:13.5px;color:var(--lav);font-weight:700}
   .pf-ai-h{font-size:14px;font-weight:800;color:#6a4fb0;margin-bottom:7px}
@@ -1776,6 +1785,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         {name:"学号",type:"text",ph:"01"},
         {name:"类别",type:"select",options:["荣誉","处分"]},
         {name:"名称",type:"text",ph:"如：三好学生 / 违纪警告"},
+        {name:"分值",type:"number",ph:"荣誉填正数（如 3），处分填负数（如 -2），0=不计入积分"},
         {name:"说明",type:"text",ph:"选填"}
       ]
     },
@@ -5126,7 +5136,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
       html+='</div></div>';
     }
-    html+='<div class="pf-ai-bar"><button class="btn-add" id="profileAIBtn">🤖 AI 分析 & 给方向</button></div>';
+    html+='<div class="pf-ai-bar">'
+      +'<label class="btn-add" style="cursor:pointer">📊 导入 Excel<input type="file" id="pfImportXlsx" accept=".xlsx,.xls" class="hide-file"></label>'
+      +'<button class="btn-add" id="profileAIBtn">🤖 AI 分析 & 给方向</button>'
+      +'</div>';
+    html+='<div id="pfImportPreview" class="pf-imp-pre" style="display:none"></div>';
     html+='<div id="profileAI" class="pf-ai" style="display:none"></div>';
     PF_SECTIONS.forEach(function(sec){
       var rows=(DATA[sec.key]||[]).filter(function(r){ return (r[sec.nameField]||"")===name; });
@@ -5863,6 +5877,23 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           nm=(nm||"").trim();
           if(keepId && nm) after = dedupeSeatDuplicate(keepId, nm);
         }
+        // 荣誉与处分：分值≠0 时同步写一条 points 记录（正=加分，负=扣分），来源标"荣誉/处分"
+        if(key==="honor" && !current.id){
+          var sv=Number(propsFull["分值"]!==undefined?propsFull["分值"]:props["分值"]);
+          if(!isNaN(sv) && sv!==0){
+            var cat=String(propsFull["类别"]!==undefined?propsFull["类别"]:props["类别"]||"");
+            var nm2=String(propsFull["学生姓名"]!==undefined?propsFull["学生姓名"]:props["学生姓名"]||"");
+            var reason="["+cat+"] "+(propsFull["名称"]||props["名称"]||"")+(nm2?(" · "+nm2):"");
+            after=after.then(function(){
+              return apiAdd("points",{
+                日期: propsFull["日期"]||props["日期"]||todayStr(),
+                学生姓名: nm2, 学号: String(propsFull["学号"]||props["学号"]||""),
+                类别: cat, 方向: cat, 分值: sv, 原因: reason, 时间: nowHMS(),
+                来源: "荣誉/处分"
+              }).then(function(pRec){ (DATA.points=DATA.points||[]).push(pRec); }).catch(function(e){ console.warn("honor→points 写入失败",e); });
+            });
+          }
+        }
         return after.then(function(){ return saved; });
       });
     }).then(function(saved){
@@ -6354,6 +6385,59 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("ruleMask").classList.add("show");
   }
   function closeRulesConfig(){ document.getElementById("ruleMask").classList.remove("show"); }
+  /* 晚自习固定请假管理：批量标记哪些学生「每周固定请假」或「某周几请假」。
+     通过在学生档案上写「晚自习固定请假 / 晚自习周几请假」字段实现。
+     网格渲染时检测这些字段，自动把对应格子标为「请假」（不扣分）。 */
+  function openFixedLeaveMgr(){
+    var studs=(DATA.students||[]).slice().sort(function(a,b){return String(a["学号"]).localeCompare(String(b["学号"]));});
+    var dows=["日","一","二","三","四","五","六"];
+    var html='<div class="mask show" id="fixedLeaveMask" style="z-index:80">'
+      +'<div class="modal-box" style="max-width:680px">'
+      +'<div class="modal-h">⚙️ 晚自习 · 固定请假管理<span class="modal-close" data-flClose>×</span></div>'
+      +'<div class="modal-b" style="max-height:60vh;overflow:auto">'
+      +'<div class="hint" style="padding:0 0 10px">每个学生可设：① 整周固定请假（不勾选=不固定）；② 固定周几请假（0=不固定；1=日 … 7=六）</div>'
+      +'<table class="grid-table" style="width:100%"><thead><tr><th style="min-width:60px">学号</th><th>姓名</th><th style="min-width:80px">整周固定</th><th style="min-width:240px">固定周几（0=不固定）</th></tr></thead><tbody>';
+    studs.forEach(function(s){
+      var no=String(s["学号"]||""), nm=String(s["姓名"]||"");
+      var fx=Number(s["晚自习固定请假"])===1;
+      var wd=Number(s["晚自习周几请假"])||0;
+      html+='<tr><td>'+esc(no)+'</td><td>'+esc(nm)+'</td>'
+        +'<td><label><input type="checkbox" data-flFix="'+esc(no)+'" '+(fx?"checked":'')+'> 固定</label></td>'
+        +'<td><select data-flWd="'+esc(no)+'">'
+        +'<option value="0"'+(wd===0?' selected':'')+'>0=不固定</option>'
+        +[1,2,3,4,5,6,7].map(function(d){return '<option value="'+d+'"'+(wd===d?' selected':'')+'>'+d+'=周'+dows[d-1]+'</option>';}).join("")
+        +'</select></td></tr>';
+    });
+    html+='</tbody></table></div>'
+      +'<div class="modal-f"><button class="btn-mini" data-flClose>取消</button><button class="btn-mini primary" data-flSave>✓ 保存并同步</button></div>'
+      +'</div></div>';
+    var old=document.getElementById("fixedLeaveMask"); if(old) old.remove();
+    document.body.insertAdjacentHTML("beforeend", html);
+    var close=function(){ var m=document.getElementById("fixedLeaveMask"); if(m) m.remove(); };
+    document.querySelectorAll("[data-flClose]").forEach(function(b){b.onclick=close;});
+    document.getElementById("fixedLeaveMask").addEventListener("click",function(e){ if(e.target.id==="fixedLeaveMask") close(); });
+    document.querySelector("[data-flSave]").onclick=function(){
+      setStatus("syncing");
+      var chain=Promise.resolve(), n=0;
+      studs.forEach(function(s){
+        var no=String(s["学号"]||"");
+        var cb=document.querySelector('[data-flFix="'+no+'"]');
+        var sel=document.querySelector('[data-flWd="'+no+'"]');
+        var newFx=cb && cb.checked ? 1 : 0;
+        var newWd=sel ? Number(sel.value)||0 : 0;
+        if(Number(s["晚自习固定请假"]||0)===newFx && Number(s["晚自习周几请假"]||0)===newWd) return;
+        chain=chain.then(function(){
+          var rec=(DATA.students||[]).filter(function(r){return r._id===s._id;})[0];
+          if(!rec) return;
+          var copy=Object.assign({},rec);
+          copy["晚自习固定请假"]=newFx; copy["晚自习周几请假"]=newWd;
+          return apiUpdate("students", s._id, copy).then(function(){ n++; Object.assign(s, copy); });
+        });
+      });
+      chain.then(function(){ setStatus("ok"); toast("已更新 "+n+" 名学生的晚自习请假设置 ✓"); close(); renderGrid(); })
+            .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+    };
+  }
   function saveRulesConfig(){
     var a=parseFloat(document.getElementById("ruleAttBonus").value);
     var ab=parseFloat(document.getElementById("ruleAttAbsent").value);
@@ -6729,6 +6813,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     return worst;
   }
+  /* 晚自习设置：某学生是否「固定请假」或「固定周几请假」。
+     数据落在学生档案字段「晚自习固定请假」（0=否；1=全周请假）和「晚自习周几请假」（0=否；1=周日 ... 7=周六）。
+     这些字段不直接扣分；它们让网格自动渲染为「请假」状态，从而让计分引擎按"请假"不计扣。 */
+  function studentFixedLeave(no, period){
+    if(period!=="晚自习") return false;
+    var st=(DATA.students||[]).filter(function(s){return String(s["学号"])===String(no);})[0];
+    return !!(st && Number(st["晚自习固定请假"])===1);
+  }
+  function studentWeekdayLeave(no, period, dow){
+    if(period!=="晚自习") return false;
+    var st=(DATA.students||[]).filter(function(s){return String(s["学号"])===String(no);})[0];
+    if(!st) return false;
+    var wkd=Number(st["晚自习周几请假"])||0;
+    return wkd>0 && wkd===dow;
+  }
   function gridDateStats(date){
     var mod=gridState.mod, st=GRID_ST[mod];
     var studs=gridStudents();
@@ -6803,6 +6902,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(!mod) return;
     var studs = gridStudents();
     var dates = gridState.dates = collectDates(mod); // 每次渲染都按当前查看周重算列（支持周导航切换）
+    var st = GRID_ST[mod]; // 提前声明：toolbar 渲染需要 st.yes / st.no 等
     var tb=document.getElementById(gridTargets.tb);
     var folderBackBtn = (mod==="materials" && gridState.curItem)
       ? '<button class="gt-btn" data-matBackFolders title="返回文件夹列表">← 文件夹</button>'
@@ -6825,14 +6925,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
     } else {
+      // 考勤：常规 / 晚自习 模式切换
+      var isNight = gridState.curItem==="晚自习";
       tb.innerHTML =
         gridWeekBar()
-       +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">考勤日期:</span>'
+       +'<span class="gt-tab '+(isNight?"":"on")+'" data-attMode="常规" title="常规考勤（上午+下午）">☀️ 常规</span>'
+       +'<span class="gt-tab '+(isNight?"on":"")+'" data-attMode="晚自习" title="晚自习考勤（晚上一节）">🌙 晚自习</span>'
+       +'<span class="gt-sep"></span>'
+       +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">'+(isNight?'晚自习日期:':'考勤日期:')+'</span>'
        +'<span style="font-size:13px">'+dates.length+' 日</span>'
        +'<span class="gt-sep"></span>'
        +'<span style="font-size:12.5px;color:var(--ink-soft)">'+studs.length+' 人</span>'
+       + (isNight?'<span class="gt-sep"></span><button class="gt-btn" data-attFixedLeave title="管理「固定请假 / 周几请假」学生">⚙️ 固定请假</button>':'')
        +'<span class="gt-sep"></span>'
-       +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为出勤（只补当天）">🪄 一键补齐出勤</button>'
+       +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未手动点击的时段补齐为 '+st.yes+'（考勤分上午/下午两个时段分别补齐；已手动点击的不动）">🪄 一键补齐上午+下午 '+st.yes+'</button>'
        +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
@@ -6868,22 +6974,38 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       html+='<td class="sticky-l"><span class="gl-no">'+esc(no||"--")+'</span><span class="gl-name">'+esc(nm||"未填")+'</span></td>';
       dates.forEach(function(d){
         if(mod==="attendance"){
-          // 考勤每个日期渲染「上午 / 下午」两个可独立点击的状态格（同一天最多扣 1 次由计分引擎保证）
-          html+='<td class="cell-dual">';
-          ["上午","下午"].forEach(function(per){
-            var rec=gridFindRecord("attendance", no, d, per);
-            var v=rec?(rec["状态"]||""):"";
-            var cls="grid-cell empty", icon="＋";
-            if(st.yes && v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes||st.yes; }
-            else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
-            else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
-            else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
-            if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
-            if(typeof icon==="undefined" || icon==null) icon="＋";
-            var tag = per==="下午" ? '<span class="per-tag">下</span>' : '';
-            html+='<div class="'+cls+' '+(per==="下午"?"per-pm":"per-am")+'" data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'" data-period="'+per+'">'+tag+icon+'</div>';
-          });
-          html+='</td>';
+          // 考勤日期：晚自习模式 → 单格（晚上一节）；常规模式 → 上午/下午 双格
+          if(isNight){
+            var recN=gridFindRecord("attendance", no, d, "晚自习");
+            var vN=recN?(recN["状态"]||""):"";
+            var clsN="grid-cell empty", iconN="＋";
+            if(st.yes && vN===st.yes){ clsN="grid-cell s-yes"; iconN=st.labels.yes||st.yes; }
+            else if(st.no && vN===st.no){ clsN="grid-cell s-no"; iconN=st.labels.no||st.no; }
+            else if(st.late && vN===st.late){ clsN="grid-cell s-late"; iconN=st.labels.late||st.late; }
+            else if(st.leave && vN===st.leave){ clsN="grid-cell s-leave"; iconN=st.labels.leave||st.leave; }
+            // 固定请假 / 周几请假的学生：渲染为「请假」且不可点（标记 hover 提示）
+            if(studentFixedLeave(no,"晚自习")){ clsN="grid-cell s-leave fixed"; iconN=st.labels.leave||st.leave; }
+            else if(studentWeekdayLeave(no, "晚自习", new Date(d+"T00:00:00").getDay())){ clsN="grid-cell s-leave fixed"; iconN=st.labels.leave||st.leave; }
+            if(typeof iconN==="undefined" || iconN==null) iconN="＋";
+            html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'" data-period="晚自习"><div class="'+clsN+'">'+iconN+'</div></td>';
+          } else {
+            // 常规考勤每个日期渲染「上午 / 下午」两个可独立点击的状态格
+            html+='<td class="cell-dual">';
+            ["上午","下午"].forEach(function(per){
+              var rec=gridFindRecord("attendance", no, d, per);
+              var v=rec?(rec["状态"]||""):"";
+              var cls="grid-cell empty", icon="＋";
+              if(st.yes && v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes||st.yes; }
+              else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
+              else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
+              else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
+              if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
+              if(typeof icon==="undefined" || icon==null) icon="＋";
+              var tag = per==="下午" ? '<span class="per-tag">下</span>' : '';
+              html+='<div class="'+cls+' '+(per==="下午"?"per-pm":"per-am")+'" data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'" data-period="'+per+'">'+tag+icon+'</div>';
+            });
+            html+='</td>';
+          }
         } else {
           var rec=gridFindRecord(mod, no, d);
           var v=rec?(rec["状态"]||""):"";
@@ -6955,13 +7077,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var old=document.getElementById("colMenu"); if(old) old.remove();
     var m=document.createElement("div"); m.id="colMenu"; m.className="col-menu show";
     var mod=gridState.mod, st=GRID_ST[mod];
+    // 注：去掉「全员 出勤/缺勤/迟到/请假」批量一键按钮（用户不需要——全勤/缺勤全列标记违反
+    // 「按人逐日检查」的实际工作流；只保留「选择没有的（标记模式）」+「清空/删除日」）
     m.innerHTML =
-      '<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="yes">✅ 全员 '+st.yes+'</button>'
-     +'<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="no">✖️ 全员 '+st.no+'</button>'
-     +(st.late?'<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="late">⏰ 全员 '+st.late+'</button>':"")
-     +(st.leave?'<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="leave">📋 全员 '+st.leave+'</button>':"")
-     +'<div class="col-menu-sep"></div>'
-     +'<button class="col-menu-item" data-colMark="'+esc(date)+'">🎯 选择没有的（点击未'+st.no+'）</button>'
+      '<div class="col-menu-sep"></div>'
+     +'<button class="col-menu-item" data-colMark="'+esc(date)+'">🎯 选择没有'+st.no+'的（标记未'+st.no+'，其余自动 '+st.yes+'）</button>'
      +'<div class="col-menu-sep"></div>'
      +'<button class="col-menu-item" data-colClear="'+esc(date)+'">🧹 清空此日</button>'
      +'<button class="col-menu-item danger" data-colDelDate="'+esc(date)+'">🗑 删除此日（移除该列所有记录）</button>';
@@ -6981,7 +7101,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var studs=gridStudents(); var chain=Promise.resolve();
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
-      var periods = (mod==="attendance") ? ["上午","下午"] : [null];   // 考勤批量操作同时作用于上午+下午
+      var periods = (mod==="attendance") ? ((gridState.curItem==="晚自习")?["晚自习"]:["上午","下午"]) : [null];   // 考勤批量操作：晚自习单格，常规双格
       periods.forEach(function(per){
         var rec=gridFindRecord(mod, no, date, per);
         var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
@@ -7011,7 +7131,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
       var value = gridMark.picked.has(no) ? st.no : st.yes;
-      var periods = (mod==="attendance") ? ["上午","下午"] : [null];   // 考勤：上午+下午同步标记
+      var periods = (mod==="attendance") ? ((gridState.curItem==="晚自习")?["晚自习"]:["上午","下午"]) : [null];   // 考勤标记：晚自习单格，常规双格
       periods.forEach(function(per){
         var rec=gridFindRecord(mod, no, date, per);
         var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
@@ -7065,7 +7185,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var today=todayStr();
     var studs=gridStudents();
     // 仅补当天缺失的时段/记录（考勤按上午+下午分别判断；材料按当前类型/事项判断）
-    var periodsOf=function(){ return (mod==="attendance") ? ["上午","下午"] : [null]; };
+    var periodsOf=function(){ if(mod!=="attendance") return [null]; return (gridState.curItem==="晚自习") ? ["晚自习"] : ["上午","下午"]; };
     var missing=0;
     studs.forEach(function(s){
       var no=String(s["学号"]||"");
@@ -7573,6 +7693,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(sc){ gridSaveCompute(sc.getAttribute("data-savecompute")); return; }
     var rc=e.target.closest("[data-rulecfg]");
     if(rc){ openRulesConfig(rc.getAttribute("data-rulecfg")); return; }
+    // 考勤模式切换：常规 / 晚自习
+    var am=e.target.closest("[data-attMode]");
+    if(am && gridState.mod==="attendance"){
+      gridState.curItem = am.getAttribute("data-attMode")==="晚自习" ? "晚自习" : "";
+      renderGrid(); return;
+    }
+    // 晚自习固定请假管理
+    var afl=e.target.closest("[data-attFixedLeave]");
+    if(afl){ openFixedLeaveMgr(); return; }
     // 当日号数面板：复制号数到剪贴板
     var cpc=e.target.closest("[data-copytoday]");
     if(cpc){
@@ -7644,7 +7773,79 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("profileMask").addEventListener("click",function(e){
     if(e.target.closest("#profileClose")) closeStudentProfile();
     else if(e.target.closest("#profileAIBtn")) analyzeStudent();
+    else if(e.target.closest("#pfImportXlsx")){} // change 事件独立处理
     else if(e.target===this) closeStudentProfile();
+  });
+  // 学生档案 · Excel 导入：选文件→解析→预览→按"科目/分数/考试"列匹配写入 grades
+  document.addEventListener("change",function(e){
+    if(!e.target || e.target.id!=="pfImportXlsx") return;
+    var f=e.target.files && e.target.files[0]; if(!f) return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        var data=new Uint8Array(ev.target.result);
+        var wb=XLSX.read(data,{type:"array"});
+        var firstSheet=wb.SheetNames[0];
+        var aoa=XLSX.utils.sheet_to_json(wb.Sheets[firstSheet],{header:1,defval:""});
+        // 找包含「科目」或「分数」/「成绩」的表头行
+        var hi=-1;
+        for(var i=0;i<Math.min(aoa.length,20);i++){
+          var row=aoa[i]||[];
+          var has=function(s){return row.some(function(c){return String(c).indexOf(s)>=0;});};
+          if(has("科目")&&(has("分数")||has("成绩"))){ hi=i; break; }
+          if(has("姓名")&&has("科目")&&(has("分数")||has("成绩"))){ hi=i; break; }
+        }
+        if(hi<0){ toast("未识别到成绩表头（需含「科目」+「分数/成绩」列）"); return; }
+        var header=(aoa[hi]||[]).map(function(c){return String(c||"").trim();});
+        var idxName=header.findIndex(function(h){return /^(姓名|学生姓名)$/.test(h);});
+        var idxSubj=header.findIndex(function(h){return h==="科目";});
+        var idxScore=header.findIndex(function(h){return /^(分数|成绩)$/.test(h);});
+        var idxExam=header.findIndex(function(h){return /^(考试|考试名称|测评)$/.test(h);});
+        var idxDate=header.findIndex(function(h){return /^(考试时间|日期|时间)$/.test(h);});
+        if(idxSubj<0||idxScore<0){ toast("表头缺少「科目」或「分数」列"); return; }
+        // 抓出匹配当前学生 profileName 的行
+        var stNow=(DATA.students||[]).filter(function(s){return s["姓名"]===target;})[0];
+        var target=profileName, rows=[];
+        for(var j=hi+1;j<aoa.length;j++){
+          var r=aoa[j]||[]; if(!r.length) continue;
+          var nm=(idxName>=0?String(r[idxName]||"").trim():"");
+          if(idxName>=0 && nm && nm!==target) continue; // 指定了姓名列且不匹配则跳过
+          var subj=String(r[idxSubj]||"").trim(), sc=Number(String(r[idxScore]||"").trim());
+          if(!subj||isNaN(sc)) continue;
+          var exam=idxExam>=0?String(r[idxExam]||"").trim():"";
+          var dt=idxDate>=0?fmtISO(new Date(r[idxDate])):todayStr();
+          rows.push({科目:subj,分数:sc,考试:exam,考试时间:dt,学生姓名:target,学号:stNow?String(stNow["学号"]||""):""});
+        }
+        if(!rows.length){ toast("没有匹配到 "+target+" 的成绩行（确认表中有「姓名」列且与档案一致）"); return; }
+        // 预览 + 确认导入
+        var pv=document.getElementById("pfImportPreview");
+        pv.style.display="block";
+        pv.innerHTML='<div class="pf-imp-h">📊 导入预览：共 '+rows.length+' 条成绩</div>'
+          +'<div class="pf-imp-rows">'
+          +rows.slice(0,30).map(function(r){return '<div class="pf-imp-row">'+esc(r["考试"]||"—")+' · '+esc(r["科目"])+' · '+esc(String(r["分数"]))+'</div>';}).join("")
+          +(rows.length>30?'<div class="pf-imp-row">…还有 '+(rows.length-30)+' 条</div>':"")
+          +'</div>'
+          +'<div class="pf-imp-act"><button class="btn-mini" id="pfImportCancel">取消</button><button class="btn-mini primary" id="pfImportConfirm">✓ 确认导入并同步到云端</button></div>';
+        document.getElementById("pfImportCancel").onclick=function(){ pv.style.display="none"; e.target.value=""; };
+        document.getElementById("pfImportConfirm").onclick=function(){
+          setStatus("syncing");
+          var chain=Promise.resolve(), done=0, fail=0;
+          rows.forEach(function(rec){
+            chain=chain.then(function(){
+              return apiAdd("grades", rec).then(function(){ done++; }).catch(function(){ fail++; });
+            });
+          });
+          chain.then(function(){
+            setStatus("ok");
+            toast("导入完成：成功 "+done+" 条，失败 "+fail+" 条");
+            pv.style.display="none"; e.target.value="";
+            openStudentProfile(target);
+          });
+        };
+      }catch(err){ showImpError(err); }
+    };
+    reader.onerror=function(){ toast("文件读取失败"); };
+    reader.readAsArrayBuffer(f);
   });
 
   /* 移动端抽屉 */
@@ -8505,7 +8706,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "attpm-2026-08-29";
+  var __APP_VERSION__ = "tonight8-2026-08-30";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
