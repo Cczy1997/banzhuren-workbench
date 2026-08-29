@@ -236,6 +236,62 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .sp-item{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;text-align:left;font:inherit;min-width:0}
   .sp-item:hover{background:#EEF3FF;border-color:var(--pink)}
   .sp-item:active{transform:scale(.98)}
+
+  /* ========== 📊 网格表格（考勤/材料收集） ========== */
+  .grid-mask{z-index:120}
+  .grid-sheet{width:min(96vw,1200px);max-height:92vh;display:flex;flex-direction:column;background:var(--bg);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+  .grid-h{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:#fff}
+  .grid-title{font-weight:800;font-size:16px}
+  .grid-sub{color:var(--ink-soft);font-size:13px}
+  .grid-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line)}
+  .grid-toolbar .gt-tab{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font:inherit;font-size:13px;font-weight:700;color:var(--ink-soft)}
+  .grid-toolbar .gt-tab.on{background:var(--mint);color:#fff;border-color:var(--mint)}
+  .grid-toolbar .gt-input{border:1px solid var(--line);border-radius:10px;padding:6px 9px;font:inherit;font-size:13px;min-width:0}
+  .grid-toolbar .gt-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--ink)}
+  .grid-toolbar .gt-btn:hover{background:#F4F6FA}
+  .grid-toolbar .gt-btn.primary{background:var(--mint);color:#fff;border-color:var(--mint)}
+  .grid-toolbar .gt-btn.primary:hover{filter:brightness(.95)}
+  .grid-toolbar .gt-btn.warn{color:#C95B3F;border-color:#F0D4CA;background:#FFF7F4}
+  .grid-toolbar .gt-btn.warn:hover{background:#FFEDE6}
+  .grid-toolbar .gt-sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+  .grid-banner{padding:9px 14px;background:#FFF6E6;border-bottom:1px solid #F0DAB0;color:#8A5A14;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .grid-table-wrap{flex:1;overflow:auto;padding:0;background:#FAFBFD}
+  .grid-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;background:#fff}
+  .grid-table th,.grid-table td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;vertical-align:middle;min-width:62px;background:#fff}
+  .grid-table thead th{position:sticky;top:0;z-index:2;background:#F4F6FA;font-weight:700;color:var(--ink);height:46px;font-size:12.5px;line-height:1.2;padding:4px}
+  .grid-table thead th.sticky-l{left:0;z-index:3;background:#EEF1F6}
+  .grid-table thead th.col-head{position:sticky;top:0;cursor:pointer}
+  .grid-table thead th.col-head:hover{background:#E8EEF8}
+  .grid-table thead th .col-date{font-weight:800;font-size:13px;display:block}
+  .grid-table thead th .col-week{font-size:11px;color:var(--ink-soft);font-weight:600;display:block;margin-top:1px}
+  .grid-table thead th.add-col{cursor:pointer;background:#FAFBFD;color:var(--ink-soft);font-weight:600}
+  .grid-table thead th.add-col:hover{background:#EEF1F6;color:var(--mint-d)}
+  .grid-table tbody td{height:42px}
+  .grid-table tbody td.sticky-l{position:sticky;left:0;z-index:1;background:#F9FAFC;text-align:left;padding:6px 10px;font-weight:600;color:var(--ink);min-width:118px}
+  .grid-table tbody td.sticky-l .gl-no{font-size:11px;color:var(--ink-soft);font-weight:500;display:block}
+  .grid-table tbody td.sticky-l .gl-name{font-size:14px;display:block;line-height:1.25;margin-top:1px;word-break:break-all}
+  .grid-cell{cursor:pointer;display:flex;align-items:center;justify-content:center;height:42px;font-size:18px;line-height:1;transition:background .12s}
+  .grid-cell:hover{background:#F4F8FF}
+  .grid-cell.empty{color:#C5CAD3;font-size:16px}
+  .grid-cell.empty:hover{background:#EEF1F6;color:var(--ink-soft)}
+  .grid-cell.s-yes{background:#E8F7EE;color:#1F8A4C;font-size:20px}
+  .grid-cell.s-no{background:#FCE6E4;color:#C0392B;font-size:20px}
+  .grid-cell.s-late{background:#FFF1D9;color:#A56B00;font-size:18px;font-weight:800}
+  .grid-cell.s-leave{background:#E5EEFB;color:#2A5DA8;font-size:18px}
+  .grid-cell.mark-pick{background:#FCE6E4 !important;color:#C0392B !important}
+  .grid-cell.mark-pick::after{content:"✖️"}
+  .grid-foot{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);background:#fff;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap}
+  .grid-foot .gf-stat{font-weight:700;color:var(--ink)}
+  .grid-foot .gf-stat em{font-style:normal;color:var(--mint-d);margin:0 2px}
+  .grid-foot .gf-stat.neg em{color:#C0392B}
+  /* 列头菜单（popover） */
+  .col-menu{position:fixed;z-index:200;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;min-width:170px;display:none}
+  .col-menu.show{display:block}
+  .col-menu-item{padding:9px 11px;border-radius:8px;cursor:pointer;font-size:13.5px;text-align:left;background:transparent;border:none;width:100%;font:inherit;color:var(--ink)}
+  .col-menu-item:hover{background:#F4F6FA}
+  .col-menu-item.danger{color:#C0392B}
+  .col-menu-item.danger:hover{background:#FCE6E4}
+  .col-menu-sep{height:1px;background:var(--line);margin:4px 0}
   /* 多选学生选择器（批量扣分/加分） */
   .sp-list-multi{max-height:52vh;padding-bottom:4px}
   .sp-chk{width:17px;height:17px;flex:0 0 17px;border:1.8px solid var(--line);border-radius:5px;background:#fff;
@@ -326,6 +382,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   .btn-ocr:hover{background:#FFE3EE}
   .btn-ocr:active{transform:scale(.97)}
+  .btn-grid-table{
+    border:1px solid var(--mint);cursor:pointer;font-weight:700;font-size:12.5px;color:var(--mint-d);
+    background:#EFF8F1;border-radius:999px;padding:8px 13px;transition:.15s;
+  }
+  .btn-grid-table:hover{background:#DEF0E5}
+  .btn-grid-table:active{transform:scale(.97)}
   /* 荣誉榜 · 商城入口 */
   .honor-h-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .honor-h-row .honor-h{margin:0}
@@ -944,7 +1006,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* ===== 移动端体验增强 ===== */
   /* ① 触摸目标 ≥44px（Apple HIG / Material 规范），避免点不准 */
   .mini{font-size:13.5px;padding:9px 16px;min-height:36px;display:inline-flex;align-items:center;justify-content:center}
-  .btn-mini,.btn-add,.btn-exp,.btn-imp,.btn-clear,.btn-grid,.btn-ocr{min-height:38px;padding:9px 14px;font-size:13.5px}
+  .btn-mini,.btn-add,.btn-exp,.btn-imp,.btn-clear,.btn-grid,.btn-ocr,.btn-grid-table{min-height:38px;padding:9px 14px;font-size:13.5px}
   .gv-del{min-width:34px;min-height:34px;font-size:17px}
   .card-actions{gap:8px}
   /* ② iOS 聚焦输入框时会自动放大页面：字号 ≥16px 可避免 */
@@ -975,6 +1037,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* ⑩ 一生一档字段行：窄屏每个「字段:值」独占一行（避免 6 字段挤在 375px 内逐字竖排） */
   .pf-cell{flex:0 0 100%}
   .pf-cell .pf-v{width:100%}
+  /* ⑪ 网格表格：移动端更紧凑，字号略缩 */
+  .grid-sheet{width:100vw;height:100vh;max-height:100vh;border-radius:0}
+  .grid-table th,.grid-table td{min-width:54px}
+  .grid-table tbody td.sticky-l{min-width:88px;padding:4px 7px}
+  .grid-table tbody td.sticky-l .gl-name{font-size:13px}
+  .grid-cell{height:38px;font-size:16px}
 }
 
 /* ===== 小屏手机（≤480px）进一步紧凑 ===== */
@@ -1327,6 +1395,24 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <button class="btn-cancel" id="rosterCancel">取消</button>
       <button class="btn-save" id="rosterDo">确认并保存</button>
     </div>
+  </div>
+</div>
+
+<!-- 📊 表格视图（考勤 / 材料收集） -->
+<div class="mask grid-mask" id="gridMask">
+  <div class="sheet grid-sheet">
+    <div class="grid-h">
+      <span class="grid-title" id="gridTitle">📊 表格</span>
+      <span class="grid-sub" id="gridSub"></span>
+      <span class="spacer"></span>
+      <button class="modal-x" id="gridClose" aria-label="关闭">×</button>
+    </div>
+    <div class="grid-toolbar" id="gridToolbar"></div>
+    <div class="grid-banner" id="gridBanner" hidden></div>
+    <div class="grid-table-wrap" id="gridTableWrap">
+      <div class="grid-empty" id="gridEmpty">请先在「学生」模块录入班级名单</div>
+    </div>
+    <div class="grid-foot" id="gridFoot"></div>
   </div>
 </div>
 
@@ -2000,12 +2086,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var m=MODULES[key];
     var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':(key==="seats"?'座位网格':'卡片视图'))+'</button>' : '';
     var ocrBtn = (key==="attendance"||key==="materials") ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别'+(key==="attendance"?"考勤表":"材料上交表")+'</button>' : '';
+    var tableBtn = (key==="attendance"||key==="materials") ? '<button class="btn-grid-table" data-gridtable="'+key+'">📊 表格</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
       +'<span class="count" id="count-'+key+'">共 0 '+m.unit+'</span>'
       +'<span class="spacer"></span>'
       + gridBtn
+      + tableBtn
       + ocrBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
       +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
@@ -6047,6 +6135,295 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
 
+  /* ---------- 📊 网格表格视图（考勤 / 材料收集） ---------- */
+  // 状态映射：attendance(出勤/迟到/缺勤/请假) / materials(已交/迟交/未交)
+  var GRID_ST = {
+    attendance: { yes:"出勤", late:"迟到", no:"缺勤", leave:"请假", labels:{yes:"✅",late:"⏰",no:"✖️",leave:"📋"}, cycle:["yes","no","late","leave",""] },
+    materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",     labels:{yes:"✅",late:"⏰",no:"✖️"},              cycle:["yes","no","late",""] }
+  };
+  var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"" }; // materials 当前选中的 类型/事项
+  var gridMark = null; // {date, picked:Set}
+
+  function openGrid(mod){
+    if(mod!=="attendance" && mod!=="materials") return;
+    gridState.mod = mod;
+    gridState.dates = collectDates(mod);
+    if(mod==="materials"){
+      var lastWithItem="";
+      (DATA.materials||[]).forEach(function(r){ if(r["事项"] && !lastWithItem) lastWithItem=r["事项"]; });
+      gridState.curType = "作业提交";
+      gridState.curItem = lastWithItem || "";
+    }
+    gridMark = null;
+    document.getElementById("gridTitle").textContent = mod==="attendance"?"📊 考勤表":"📊 材料收集表";
+    document.getElementById("gridSub").textContent = (DATA.students||[]).length+" 人";
+    document.getElementById("gridMask").classList.add("show");
+    renderGrid();
+  }
+  function closeGrid(){
+    document.getElementById("gridMask").classList.remove("show");
+    gridState.mod = null; gridMark = null;
+    var m=document.getElementById("colMenu"); if(m) m.remove();
+  }
+  function collectDates(mod){
+    var set={};
+    var arr = mod==="attendance" ? (DATA.attendance||[]) : (DATA.materials||[]);
+    arr.forEach(function(r){ var d=String(r["日期"]||"").trim(); if(d) set[d]=1; });
+    return Object.keys(set).sort();
+  }
+  function gridStudents(){
+    var st=(DATA.students||[]).slice();
+    st.sort(function(a,b){
+      var an=parseInt(String(a["学号"]||"").replace(/\D/g,""),10);
+      var bn=parseInt(String(b["学号"]||"").replace(/\D/g,""),10);
+      var av=isNaN(an)?9999:an, bv=isNaN(bn)?9999:bn;
+      if(av!==bv) return av-bv;
+      return String(a["姓名"]||"").localeCompare(String(b["姓名"]||""),"zh");
+    });
+    return st;
+  }
+  function gridFindRecord(mod, no, date){
+    var arr = mod==="attendance" ? (DATA.attendance||[]) : (DATA.materials||[]);
+    for(var i=0;i<arr.length;i++){
+      var r=arr[i];
+      if(String(r["日期"]||"")!==date) continue;
+      if(String(r["学号"]||"")!==String(no)) continue;
+      if(mod==="materials"){
+        if((r["类型"]||"")!==(gridState.curType||"")) continue;
+        if((r["事项"]||"")!==(gridState.curItem||"")) continue;
+      }
+      return r;
+    }
+    return null;
+  }
+  function gridDateStats(date){
+    var mod=gridState.mod, st=GRID_ST[mod];
+    var studs=gridStudents();
+    var out={ total:studs.length, yes:0, no:0, late:0, leave:0, empty:0 };
+    studs.forEach(function(s){
+      var r=gridFindRecord(mod, s["学号"]||"", date);
+      if(!r){ out.empty++; return; }
+      var v=r["状态"]||"";
+      if(v===st.yes) out.yes++;
+      else if(v===st.no) out.no++;
+      else if(v===st.late) out.late++;
+      else if(v===st.leave) out.leave++;
+      else out.empty++;
+    });
+    return out;
+  }
+
+  function renderGrid(){
+    var mod=gridState.mod;
+    if(!mod) return;
+    var studs = gridStudents();
+    var dates = gridState.dates;
+    var tb=document.getElementById("gridToolbar");
+    if(mod==="materials"){
+      tb.innerHTML =
+        '<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
+       +'<button class="gt-tab '+(gridState.curType==="材料上交"?"on":"")+'" data-gttype="材料上交">📦 材料上交</button>'
+       +'<span class="gt-sep"></span>'
+       +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">事项:</span>'
+       +'<input class="gt-input" id="gridItem" placeholder="如：数学作业/实践表" value="'+esc(gridState.curItem||"")+'" style="width:160px">'
+       +'<button class="gt-btn" data-gridtApplyItem>应用</button>'
+       +'<span class="gt-sep"></span>'
+       +'<span style="font-size:12.5px;color:var(--ink-soft)">共 '+dates.length+' 日 / '+studs.length+' 人</span>';
+    } else {
+      tb.innerHTML =
+        '<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">考勤日期:</span>'
+       +'<span style="font-size:13px">'+dates.length+' 日</span>'
+       +'<span class="gt-sep"></span>'
+       +'<span style="font-size:12.5px;color:var(--ink-soft)">'+studs.length+' 人</span>';
+    }
+    var ban=document.getElementById("gridBanner");
+    if(gridMark){
+      ban.hidden=false;
+      var st=GRID_ST[mod];
+      ban.innerHTML='<span>🎯 <b>标记模式</b>：点击 <b>未'+st.no+'</b> 的学生（其它将自动标记为 <b>'+st.yes+'</b>）</span>'
+        +'<span style="flex:1"></span>'
+        +'<span style="font-size:12px;color:var(--ink-soft)">已选 '+gridMark.picked.size+' 人</span>'
+        +'<button class="gt-btn primary" data-gridMarkDone>完成</button>'
+        +'<button class="gt-btn" data-gridMarkCancel>取消</button>';
+    } else { ban.hidden=true; ban.innerHTML=""; }
+    if(!studs.length){
+      document.getElementById("gridTableWrap").innerHTML='<div class="grid-empty">请先在「学生」模块录入班级名单，再回到这里建表。</div>';
+      document.getElementById("gridFoot").innerHTML="";
+      return;
+    }
+    var html='<table class="grid-table"><thead><tr>';
+    html+='<th class="sticky-l" style="min-width:118px">学号 / 姓名</th>';
+    dates.forEach(function(d){
+      var wk=["日","一","二","三","四","五","六"][new Date(d+"T00:00:00").getDay()||0];
+      var md=d.length>=10?d.slice(5):d;
+      html+='<th class="col-head" data-colDate="'+esc(d)+'"><span class="col-date">'+esc(md)+'</span><span class="col-week">周'+wk+'</span></th>';
+    });
+    html+='<th class="add-col" data-addCol>+</th>';
+    html+='</tr></thead><tbody>';
+    var st=GRID_ST[mod];
+    studs.forEach(function(s){
+      var no=String(s["学号"]||""), nm=String(s["姓名"]||"");
+      html+='<tr>';
+      html+='<td class="sticky-l"><span class="gl-no">'+esc(no||"--")+'</span><span class="gl-name">'+esc(nm||"未填")+'</span></td>';
+      dates.forEach(function(d){
+        var rec=gridFindRecord(mod, no, d);
+        var v=rec?(rec["状态"]||""):"";
+        var cls="grid-cell empty";
+        var icon="＋";
+        if(v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes; }
+        else if(v===st.no){ cls="grid-cell s-no"; icon=st.labels.no; }
+        else if(v===st.late){ cls="grid-cell s-late"; icon=st.labels.late; }
+        else if(v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave; }
+        if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
+        html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
+      });
+      html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="为该生新增日期">+</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    document.getElementById("gridTableWrap").innerHTML = html;
+    var foot=document.getElementById("gridFoot");
+    if(dates.length){
+      var totals={yes:0,no:0,late:0,leave:0,empty:0};
+      dates.forEach(function(d){ var s=gridDateStats(d); totals.yes+=s.yes; totals.no+=s.no; totals.late+=s.late; totals.leave+=s.leave; totals.empty+=s.empty; });
+      foot.innerHTML='<span class="gf-stat">累计 '+st.yes+'<em>'+totals.yes+'</em>·'+st.no+'<em class="neg">'+totals.no+'</em>'+(st.late?'·'+st.late+'<em>'+totals.late+'</em>':'')+(st.leave?'·'+st.leave+'<em>'+totals.leave+'</em>':'')+'</span><span style="color:var(--ink-soft)">未登记 '+totals.empty+' 人次</span>';
+    } else { foot.innerHTML='<span style="color:var(--ink-soft)">还没有任何日期，点列尾「+」或右上角新增第一列（默认今天）</span>'; }
+  }
+
+  function gridCellClick(no, date){
+    if(gridMark && gridMark.date===date){
+      if(gridMark.picked.has(no)) gridMark.picked.delete(no); else gridMark.picked.add(no);
+      renderGrid(); return;
+    }
+    var mod=gridState.mod, st=GRID_ST[mod];
+    var rec=gridFindRecord(mod, no, date);
+    var curIdx = rec ? st.cycle.indexOf(rec["状态"]||"") : st.cycle.length-1;
+    var next = st.cycle[(curIdx+1) % st.cycle.length];
+    setStatus("syncing");
+    var props = { 日期:date, 学号:String(no||""), 学生姓名:studentNameByGridNo(no)||"", 状态:next };
+    if(mod==="materials"){ props.类型 = gridState.curType||"作业提交"; props.事项 = gridState.curItem||""; }
+    var p;
+    if(rec){ p = (mod==="materials" ? apiUpdMat(rec._id, props) : apiUpdate("attendance", rec._id, props)).then(function(){ if(mod==="materials") return applyMaterialScoring(props.学生姓名); }); }
+    else {
+      // 新建：apiAddMat 会自动同步到 DATA.materials；attendance 走通用 apiAdd，需要手动 push
+      p = (mod==="materials" ? apiAddMat(props) : apiAdd("attendance", props).then(function(o){
+        var local=Object.assign({_id:o._id}, props);
+        (DATA.attendance= DATA.attendance||[]).push(local);
+      }));
+    }
+    p.then(function(){ if(mod==="materials") return applyMaterialScoring(props.学生姓名); }).then(function(){
+      renderGrid(); setStatus("ok");
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+  function studentNameByGridNo(no){
+    var arr=DATA.students||[]; for(var i=0;i<arr.length;i++){ if(String(arr[i]["学号"]||"")===String(no)) return arr[i]["姓名"]||""; } return "";
+  }
+  function showColMenu(date, anchor){
+    var old=document.getElementById("colMenu"); if(old) old.remove();
+    var m=document.createElement("div"); m.id="colMenu"; m.className="col-menu show";
+    var mod=gridState.mod, st=GRID_ST[mod];
+    m.innerHTML =
+      '<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="yes">✅ 全员 '+st.yes+'</button>'
+     +'<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="no">✖️ 全员 '+st.no+'</button>'
+     +(st.late?'<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="late">⏰ 全员 '+st.late+'</button>':"")
+     +(st.leave?'<button class="col-menu-item" data-colBulk="'+esc(date)+'" data-set="leave">📋 全员 '+st.leave+'</button>':"")
+     +'<div class="col-menu-sep"></div>'
+     +'<button class="col-menu-item" data-colMark="'+esc(date)+'">🎯 选择没有的（点击未'+st.no+'）</button>'
+     +'<div class="col-menu-sep"></div>'
+     +'<button class="col-menu-item" data-colClear="'+esc(date)+'">🧹 清空此日</button>'
+     +'<button class="col-menu-item danger" data-colDelDate="'+esc(date)+'">🗑 删除此日（移除该列所有记录）</button>';
+    document.body.appendChild(m);
+    var r=anchor.getBoundingClientRect();
+    m.style.left=Math.min(window.innerWidth-200, r.left)+"px";
+    m.style.top=(r.bottom+4)+"px";
+    setTimeout(function(){
+      function close(ev){ if(m.contains(ev.target)) return; m.remove(); document.removeEventListener("click",close,true); }
+      document.addEventListener("click",close,true);
+    },10);
+  }
+  function gridColBulk(date, setKey){
+    var mod=gridState.mod, st=GRID_ST[mod];
+    var value = st[setKey] || "";
+    setStatus("syncing");
+    var studs=gridStudents(); var chain=Promise.resolve();
+    studs.forEach(function(s){
+      var no=String(s["学号"]||""), nm=s["姓名"]||"";
+      var rec=gridFindRecord(mod, no, date);
+      var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
+      if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+      if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
+      else if(value){ chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+    });
+    chain.then(function(){
+      var seq=Promise.resolve();
+      if(mod==="materials"){ var names={}; studs.forEach(function(s){ names[s["姓名"]||""]=1; }); Object.keys(names).forEach(function(nm){ seq=seq.then(function(){ return applyMaterialScoring(nm); }); }); }
+      return seq;
+    }).then(function(){
+      toast(value?("已置为「"+value+"」 ✓"):"已清空此日");
+      return refreshAll();
+    }).then(function(){ renderGrid(); setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+  function gridMarkEnter(date){ gridMark = { date:date, picked:new Set() }; renderGrid(); }
+  function gridMarkCancel(){ gridMark=null; renderGrid(); }
+  function gridMarkDone(){
+    if(!gridMark) return;
+    var mod=gridState.mod, st=GRID_ST[mod], date=gridMark.date;
+    var studs=gridStudents();
+    setStatus("syncing");
+    var chain=Promise.resolve();
+    studs.forEach(function(s){
+      var no=String(s["学号"]||""), nm=s["姓名"]||"";
+      var value = gridMark.picked.has(no) ? st.no : st.yes;
+      var rec=gridFindRecord(mod, no, date);
+      var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
+      if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+      if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
+      else { chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+    });
+    chain.then(function(){
+      var seq=Promise.resolve();
+      if(mod==="materials"){ var names={}; studs.forEach(function(s){ names[s["姓名"]||""]=1; }); Object.keys(names).forEach(function(nm){ seq=seq.then(function(){ return applyMaterialScoring(nm); }); }); }
+      return seq;
+    }).then(function(){
+      toast("已登记 "+st.yes+" "+(studs.length-gridMark.picked.size)+" 人 / "+st.no+" "+gridMark.picked.size+" 人 ✓");
+      gridMark=null; return refreshAll();
+    }).then(function(){ renderGrid(); setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+  function gridDelDate(date){
+    if(!confirm("删除 "+date+" 这一列的全部记录？")) return;
+    var mod=gridState.mod;
+    var arr = mod==="attendance"?(DATA.attendance||[]):(DATA.materials||[]);
+    var targets=arr.filter(function(r){
+      if(String(r["日期"]||"")!==date) return false;
+      if(mod==="materials"){ if((r["类型"]||"")!==(gridState.curType||"")) return false; if((r["事项"]||"")!==(gridState.curItem||"")) return false; }
+      return true;
+    });
+    if(!targets.length){ toast("此日无记录"); return; }
+    setStatus("syncing");
+    var chain=Promise.resolve();
+    targets.forEach(function(r){ chain=chain.then(function(){ return mod==="materials"?apiDelMat(r._id):apiDelete(mod, r._id); }); });
+    chain.then(function(){
+      var seq=Promise.resolve();
+      if(mod==="materials"){ var names={}; targets.forEach(function(r){ names[r["学生姓名"]||""]=1; }); Object.keys(names).forEach(function(nm){ seq=seq.then(function(){ return applyMaterialScoring(nm); }); }); }
+      return seq;
+    }).then(function(){ toast("已删除 "+date+" 的 "+targets.length+" 条记录"); return refreshAll(); })
+      .then(function(){ renderGrid(); setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败："+(e&&e.message||e)); });
+  }
+  function gridAddDate(){
+    var d=todayStr();
+    var input=prompt("新增日期 (YYYY-MM-DD)", d);
+    if(!input) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(input)){ toast("日期格式应为 YYYY-MM-DD"); return; }
+    if(gridState.dates.indexOf(input)<0){
+      gridState.dates.push(input);
+      gridState.dates.sort();
+    }
+    gridMarkEnter(input);
+  }
+
   /* ---------- 班级 / 年段 可编辑 ---------- */
   function loadClass(){
     CLS_YEAR = localStorage.getItem("wb_cls_year") || "初一";
@@ -6206,11 +6583,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var seatBtn=e.target.closest("[data-seat]"); if(seatBtn){ onSeatTool(seatBtn.getAttribute("data-seat")); return; }
     var cell=e.target.closest(".seatcell"); if(cell){ onSeatClick(cell); return; }
     var grid=e.target.closest("[data-grid]"); if(grid){ var k=grid.getAttribute("data-grid"); state.grid[k]=!state.grid[k]; renderList(k); return; }
+    var gtable=e.target.closest("[data-gridtable]"); if(gtable){ openGrid(gtable.getAttribute("data-gridtable")); return; }
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){
       var ak=add.getAttribute("data-add");
-      if(ak==="materials"||ak==="attendance") openRoster(ak); else openAdd(ak);
+      if(ak==="materials"||ak==="attendance") openGrid(ak); else openAdd(ak);
       return;
     }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ var ok=ocr.getAttribute("data-ocr"); if(ok==="materials") openMatOCR(); else openOCR(); return; }
@@ -6437,6 +6815,41 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("rosterCancel").addEventListener("click",closeRoster);
   document.getElementById("rosterMask").addEventListener("click",function(e){ if(e.target===this) closeRoster(); });
   document.getElementById("rosterDo").addEventListener("click",applyRoster);
+
+  /* 📊 网格表格（考勤/材料） */
+  document.getElementById("gridClose").addEventListener("click",closeGrid);
+  document.getElementById("gridMask").addEventListener("click",function(e){ if(e.target===this) closeGrid(); });
+  document.getElementById("gridToolbar").addEventListener("click",function(e){
+    var t=e.target.closest("[data-gttype]");
+    if(t){ gridState.curType=t.getAttribute("data-gttype"); renderGrid(); return; }
+    var ab=e.target.closest("[data-gridtApplyItem]");
+    if(ab){ var inp=document.getElementById("gridItem"); gridState.curItem=(inp&&inp.value||"").trim(); renderGrid(); toast("事项已应用：「"+gridState.curItem+"」"); return; }
+  });
+  document.getElementById("gridTableWrap").addEventListener("click",function(e){
+    var h=e.target.closest("[data-colDate]");
+    if(h){ showColMenu(h.getAttribute("data-colDate"), h); return; }
+    var c=e.target.closest("[data-cell]");
+    if(c){ gridCellClick(c.getAttribute("data-no"), c.getAttribute("data-date")); return; }
+    var ac=e.target.closest("[data-addCol]");
+    if(ac){ gridAddDate(); return; }
+  });
+  document.getElementById("gridBanner").addEventListener("click",function(e){
+    var d=e.target.closest("[data-gridMarkDone]");
+    if(d){ gridMarkDone(); return; }
+    var c=e.target.closest("[data-gridMarkCancel]");
+    if(c){ gridMarkCancel(); return; }
+  });
+  // 列头菜单（动态创建在 body 上）
+  document.body.addEventListener("click",function(e){
+    var bk=e.target.closest("[data-colBulk]");
+    if(bk){ gridColBulk(bk.getAttribute("data-colBulk"), bk.getAttribute("data-set")); var m=document.getElementById("colMenu"); if(m) m.remove(); return; }
+    var mk=e.target.closest("[data-colMark]");
+    if(mk){ gridMarkEnter(mk.getAttribute("data-colMark")); var m2=document.getElementById("colMenu"); if(m2) m2.remove(); return; }
+    var cl=e.target.closest("[data-colClear]");
+    if(cl){ gridColBulk(cl.getAttribute("data-colClear"), "clear"); var m3=document.getElementById("colMenu"); if(m3) m3.remove(); return; }
+    var dd=e.target.closest("[data-colDelDate]");
+    if(dd){ gridDelDate(dd.getAttribute("data-colDelDate")); var m4=document.getElementById("colMenu"); if(m4) m4.remove(); return; }
+  });
 
   /* 一生一档 · 学生档案 */
   document.getElementById("profileMask").addEventListener("click",function(e){
@@ -7246,7 +7659,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "roster-2026-08-29";
+  var __APP_VERSION__ = "gridtable-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
