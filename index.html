@@ -1273,8 +1273,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <button class="x" id="formClose">×</button>
     <form id="form"></form>
     <div class="actions">
-      <button class="btn-cancel" id="formCancel">取消</button>
-      <button class="btn-save" id="formSave">保存</button>
+      <button type="button" class="btn-cancel" id="formCancel">取消</button>
+      <button type="button" class="btn-save" id="formSave">保存</button>
     </div>
   </div>
 </div>
@@ -6349,10 +6349,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var GRID_ST = {
     attendance: { yes:"出勤", late:"迟到", no:"缺勤", leave:"请假",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE, leave:GRID_SVG_LEAVE },
-      cycle:["出勤","缺勤","迟到","请假",""] },
+      // 手动点击只在「异常态」间循环（缺勤→迟到→请假→空→缺勤）；出勤由「一键补齐出勤」批量默认
+      cycle:["缺勤","迟到","请假",""] },
     materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE },
-      cycle:["已交","未交","迟交",""] }
+      // 手动点击只在「异常态」间循环（未交→迟交→空→未交）；已交由「一键补齐已交」批量默认
+      cycle:["未交","迟交",""] }
   };
   var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"", week:null }; // week = 当前查看的周(周一日期)；null 表示本周
   /* 周导航条：prev/next/this；归档周(非本周)显示「回到本周」 */
@@ -6551,6 +6553,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<span class="gt-sep"></span>'
        +'<span style="font-size:12.5px;color:var(--ink-soft)">共 '+dates.length+' 日 / '+studs.length+' 人</span>'
        +'<span class="gt-sep"></span>'
+       +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为已交（只补当天）">🪄 一键补齐已交</button>'
+       +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
     } else {
@@ -6561,6 +6565,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<span class="gt-sep"></span>'
        +'<span style="font-size:12.5px;color:var(--ink-soft)">'+studs.length+' 人</span>'
        +'<span class="gt-sep"></span>'
+       +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为出勤（只补当天）">🪄 一键补齐出勤</button>'
+       +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
     }
@@ -6755,6 +6761,41 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var wk=isoWeek(input).monday;
     if(wk!==(gridState.week||isoWeek(todayStr()).monday)){ gridState.week=wk; }
     gridMarkEnter(input);
+  }
+  /* 一键补齐（只补当天，以实际日期为准）：把今日该模块尚无记录的同学批量标记为默认态
+     （考勤=出勤 / 材料=已交）。已手动标记异常的同学不受影响；其它日期不补。 */
+  function gridFillToday(mod){
+    var st=GRID_ST[mod];
+    var def=st.yes; // 出勤 / 已交
+    var today=todayStr();
+    var studs=gridStudents();
+    // 仅补当天：过滤「今天该模块(当前类型/事项)尚无记录」的学生
+    var targets=studs.filter(function(s){ return !gridFindRecord(mod, String(s["学号"]||""), today); });
+    if(!targets.length){ toast("今日（"+today+"）同学均已登记，无需补齐"); return; }
+    if(!confirm("将把今日（"+today+"）尚未登记的 "+targets.length+" 名同学一键标记为「"+def+"」？\n（只补当天，已手动标记的同学不受影响；之后可点单元格改回）")) return;
+    setStatus("syncing");
+    var chain=Promise.resolve();
+    targets.forEach(function(s){
+      var no=String(s["学号"]||""), nm=s["姓名"]||"";
+      var props={ 日期:today, 学号:no, 学生姓名:nm, 状态:def };
+      if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+      chain=chain.then(function(){
+        if(mod==="materials") return apiAddMat(props);
+        return apiAdd("attendance", props).then(function(o){ (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id},props)); });
+      });
+    });
+    chain.then(function(){
+      toast("已为今日 "+targets.length+" 人补齐「"+def+"」✓（其余日期不受影响）");
+      return refreshModule(mod);
+    }).then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
+     .catch(function(e){ console.error(e); setStatus("offline"); toast("补齐失败："+(e&&e.message||e)); });
+  }
+  /* 保存并计算积分：显式触发规则计算（与每次改动的防抖自动套用并存，给教师一个明确的「录入完成」动作） */
+  function gridSaveCompute(mod){
+    if(mod!=="attendance" && mod!=="materials") return;
+    setStatus("syncing");
+    applyRules(mod);
+    setTimeout(function(){ setStatus("ok"); toast("已保存并计算积分 ✓"); }, 450);
   }
 
   /* ---------- 班级 / 年段 可编辑 ---------- */
@@ -7052,6 +7093,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("formClose").addEventListener("click",closeForm);
   document.getElementById("formCancel").addEventListener("click",closeForm);
   document.getElementById("formSave").addEventListener("click",saveForm);
+  // 表单内按 Enter：阻止默认提交并直接保存（否则页面刷新、异步保存被中断，表现为「添加不成功」）
+  document.getElementById("form").addEventListener("submit", function(e){ if(e) e.preventDefault(); saveForm(); });
+  // 阻止应用内其它表单（导入/OCR/花名册等）的默认提交，避免误刷新
+  document.addEventListener("submit", function(e){ if(e && e.preventDefault) e.preventDefault(); }, true);
   document.getElementById("mask").addEventListener("click",function(e){ if(e.target===this) closeForm(); });
 
   /* 课表单元格：失焦提交 + 回车提交 */
@@ -7180,6 +7225,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // 规则应用 / 配置（模态网格在 #gridMask 内、不在 #content 中，这里补一份）
     var ra=e.target.closest("[data-ruleapply]");
     if(ra){ applyRules(ra.getAttribute("data-ruleapply")); return; }
+    // 一键补齐当天（出勤/已交）+ 保存并计算积分
+    var ft=e.target.closest("[data-filltoday]");
+    if(ft){ gridFillToday(ft.getAttribute("data-filltoday")); return; }
+    var sc=e.target.closest("[data-savecompute]");
+    if(sc){ gridSaveCompute(sc.getAttribute("data-savecompute")); return; }
     var rc=e.target.closest("[data-rulecfg]");
     if(rc){ openRulesConfig(rc.getAttribute("data-rulecfg")); return; }
     // 当日号数面板：复制号数到剪贴板
@@ -8040,7 +8090,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "cellclick-2026-08-29";
+  var __APP_VERSION__ = "fillsave-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
