@@ -268,6 +268,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .btn-grid-table:hover{background:#F4F6FA;color:var(--ink)}
   .grid-toolbar .gt-btn.rule{background:var(--mint);color:#fff;border-color:var(--mint)}
   .grid-toolbar .gt-btn.rule:hover{filter:brightness(.95)}
+  /* 周导航条：考勤/材料网格按周展示，历史周可查询 */
+  .grid-toolbar .gw-nav{display:inline-flex;align-items:center;gap:5px;padding:3px 5px;border:1px solid var(--line);border-radius:10px;background:#F4F6FA}
+  .grid-toolbar .gw-label{font-size:12.5px;font-weight:700;color:var(--ink);padding:0 4px;white-space:nowrap}
+  .grid-toolbar .gw-prev,.grid-toolbar .gw-next{padding:4px 10px;line-height:1;font-size:15px;font-weight:800}
+  .grid-toolbar .gw-this{background:#fff;color:var(--mint-d);border-color:var(--mint)}
+  .grid-toolbar .gw-this:hover{background:#EAF7F0}
+  .gf-arch-hint{font-size:12.5px;color:var(--ink-soft);background:#FBF6E9;border:1px dashed #EAD9A8;border-radius:9px;padding:7px 12px}
   .field-hint{display:block;margin-top:5px;font-size:12px;line-height:1.45;color:var(--ink-soft)}
   .grid-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;background:#fff}
   .grid-table th,.grid-table td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;vertical-align:middle;min-width:62px;background:#fff}
@@ -5311,6 +5318,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return apiQuery(k).then(function(res){ DATA[k]=res.results||[]; sortData(k); });
     }).then(function(res){ return res.filter(function(x){return !x.ok;}).map(function(x){return {k:x.k, e:x.e};}); });
   }
+  /* 只重载单个模块（并刷新相关视图），避免在网格的批量/标记/删除操作中每次都 refreshAll 全部 16 个模块——那是加载慢的主因 */
+  function refreshModule(key){
+    return loadPass([key]).then(function(failed){
+      if(key==="attendance"||key==="materials"){
+        if(gridState.mod===key) renderGrid();   // 保持当前查看的周，不重置
+      } else if(state.mod===key){ renderList(key); }
+      if(state.mod==="points") renderList("points");
+      if(state.mod==="honorboard") render();
+      if(state.mod==="overview") loadOverviewAffairs();
+      return failed;
+    });
+  }
   /* ---------- 材料收集：本地优先存储（hr_materials 表不存在时回退 localStorage，建表后自动上云） ---------- */
   var MAT_LOCAL_KEY="wb_cls_materials_local";
   var matUseLocal=false;
@@ -6113,8 +6132,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     return out;
   }
+  var _applyLock={}; // 同模块防并发：进入模块自动套用 + 防抖自动套用可能重叠，避免重复写入加减分
   function applyRules(mod){
     if(mod!=="attendance" && mod!=="materials") return;
+    if(_applyLock[mod]) return; _applyLock[mod]=true;
     var tag = mod==="attendance" ? "考勤" : "材料";
     setStatus("syncing");
     var old=(DATA.points||[]).filter(function(p){ return p["来源"]===tag || String(p["原因"]||"").indexOf("["+tag+"]")===0; });
@@ -6135,8 +6156,36 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if(state.mod==="honorboard") render();
         if(state.mod==="overview") loadOverviewAffairs();
         toast("已应用「"+(mod==="attendance"?"考勤":"材料收集")+"」规则："+(n?("+"+plus+" / −"+minus+"，"+n+" 条记录"):"暂无可计算的加减分"));
+        _applyLock[mod]=false;
       });
-    }).catch(function(e){ console.error(e); setStatus("offline"); toast("应用规则失败："+(e&&e.message||e)); });
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("应用规则失败："+(e&&e.message||e)); _applyLock[mod]=false; });
+  }
+  /* 防抖自动套用：标记/批量/删列等任何改动后，过一会儿自动重算考勤/材料加减分，
+     使「加减分管理」及时反映，无需每次手动点「应用规则」（按钮保留作兜底） */
+  var _autoApplyTimer=null;
+  function autoApply(mod){
+    if(mod!=="attendance" && mod!=="materials") return;
+    if(_autoApplyTimer) clearTimeout(_autoApplyTimer);
+    _autoApplyTimer=setTimeout(function(){ _autoApplyTimer=null; applyRules(mod); }, 900);
+  }
+  /* 清空「当周」（周一~周日）的考勤/材料记录，并联动清除对应的加减分；
+     旧周记录已随 Supabase 持久化，自动归档到历史周（经周导航可查），不再出现在明面 */
+  function clearWeek(mod){
+    if(mod!=="attendance" && mod!=="materials") return;
+    var wk = gridState.week || isoWeek(todayStr()).monday;
+    var w = isoWeek(wk+"T00:00:00");
+    var isCur = (wk===isoWeek(todayStr()).monday);
+    var label = (isCur?"本周":"该周")+"（"+w.monday+" ~ "+w.sunday+"）";
+    if(!confirm("确定清空【"+(mod==="attendance"?"考勤记录":"材料收集")+"】"+label+" 的全部记录吗？\n同时会清除对应的加减分（考勤/材料来源），此操作不可恢复！")) return;
+    setStatus("syncing");
+    var arr = mod==="attendance" ? (DATA.attendance||[]) : (DATA.materials||[]);
+    var targets = arr.filter(function(r){ return isoWeek(String(r["日期"]||"")).monday === wk; });
+    if(!targets.length){ toast((mod==="attendance"?"考勤":"材料")+"该周暂无记录"); setStatus("ok"); return; }
+    var chain=Promise.resolve();
+    targets.forEach(function(r){ chain=chain.then(function(){ return mod==="materials" ? apiDelMat(r._id) : apiDelete(mod, r._id); }); });
+    chain.then(function(){ return refreshModule(mod); })
+      .then(function(){ applyRules(mod); setStatus("ok"); toast("已清空"+label+" ✓（对应加减分已同步清除）"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("清空失败："+(e&&e.message||e)); });
   }
 
   /* ---------- 规则配置弹窗 ---------- */
@@ -6305,7 +6354,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE },
       cycle:["yes","no","late",""] }
   };
-  var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"" }; // materials 当前选中的 类型/事项
+  var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"", week:null }; // week = 当前查看的周(周一日期)；null 表示本周
+  /* 周导航条：prev/next/this；归档周(非本周)显示「回到本周」 */
+  function gridWeekBar(){
+    var cur = isoWeek(todayStr()).monday;
+    var wk = gridState.week || cur;
+    var w = isoWeek(wk+"T00:00:00");
+    var isCur = (wk===cur);
+    return '<span class="gw-nav">'
+      +'<button class="gt-btn gw-prev" data-weeknav="prev" title="上一周">‹</button>'
+      +'<span class="gw-label">'+ (isCur?'本周':'📚 历史周') +' '+ esc(w.monday.slice(5)) +' ~ '+ esc(w.sunday.slice(5)) +'</span>'
+      +'<button class="gt-btn gw-next" data-weeknav="next" title="下一周">›</button>'
+      + (isCur?'':'<button class="gt-btn gw-this" data-weeknav="this">回到本周</button>')
+      +'</span><span class="gt-sep"></span>';
+  }
   var gridMark = null; // {date, picked:Set}
   var GRIDVIEW = { attendance:true, materials:true }; // true=默认以网格表格呈现（列表为切换视图）
   var gridTargets = { tb:null, ban:null, wrap:null, foot:null }; // 当前网格渲染目标（模态 or 内联）
@@ -6320,6 +6382,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function openGrid(mod){
     if(mod!=="attendance" && mod!=="materials") return;
     gridState.mod = mod;
+    gridState.week = isoWeek(todayStr()).monday; // 进模块默认看本周（上周及更早自动归档，可经周导航查询）
     gridState.dates = collectDates(mod);
     if(mod==="materials"){
       var lastWithItem="";
@@ -6349,6 +6412,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'<div class="grid-foot" id="igFoot"></div>'
       +'</div>';
     gridState.mod = key;
+    gridState.week = isoWeek(todayStr()).monday; // 进模块默认看本周
     gridState.dates = collectDates(key);
     if(key==="materials"){
       var lastWithItem="";
@@ -6359,12 +6423,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     gridMark = null;
     setGridTargets("igToolbar","igBanner","igWrap","igFoot");
     renderGrid();
+    // 进入考勤/材料模块即自动套用一次规则，使加减分及时体现到「加减分管理」（幂等）
+    if(key==="attendance"||key==="materials"){
+      var _d=(key==="attendance"?(DATA.attendance||[]):(DATA.materials||[]));
+      if(_d && _d.length) applyRules(key);
+    }
   }
   function collectDates(mod){
-    var set={};
-    var arr = mod==="attendance" ? (DATA.attendance||[]) : (DATA.materials||[]);
-    arr.forEach(function(r){ var d=String(r["日期"]||"").trim(); if(d) set[d]=1; });
-    return Object.keys(set).sort();
+    // 只显示当前查看周的 7 天（周一~周日）；上周及更早的日期不再出现在明面，但可经周导航查询
+    var wk = gridState.week || isoWeek(todayStr()).monday;
+    var mon=new Date(wk+"T00:00:00"); if(isNaN(mon.getTime())) mon=new Date();
+    var out=[];
+    for(var i=0;i<7;i++){ var d=new Date(mon); d.setDate(mon.getDate()+i); out.push(fmtISO(d)); }
+    return out;
   }
   function gridStudents(){
     var st=(DATA.students||[]).slice();
@@ -6466,11 +6537,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var mod=gridState.mod;
     if(!mod) return;
     var studs = gridStudents();
-    var dates = gridState.dates;
+    var dates = gridState.dates = collectDates(mod); // 每次渲染都按当前查看周重算列（支持周导航切换）
     var tb=document.getElementById(gridTargets.tb);
     if(mod==="materials"){
       tb.innerHTML =
-        '<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
+        gridWeekBar()
+       +'<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
        +'<button class="gt-tab '+(gridState.curType==="材料上交"?"on":"")+'" data-gttype="材料上交">📦 材料上交</button>'
        +'<span class="gt-sep"></span>'
        +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">事项:</span>'
@@ -6483,7 +6555,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
     } else {
       tb.innerHTML =
-        '<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">考勤日期:</span>'
+        gridWeekBar()
+       +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">考勤日期:</span>'
        +'<span style="font-size:13px">'+dates.length+' 日</span>'
        +'<span class="gt-sep"></span>'
        +'<span style="font-size:12.5px;color:var(--ink-soft)">'+studs.length+' 人</span>'
@@ -6538,9 +6611,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     html+='</tbody></table>';
     document.getElementById(gridTargets.wrap).innerHTML = html;
     var foot=document.getElementById(gridTargets.foot);
-    if(dates.length){
+    var curWeek = isoWeek(todayStr()).monday;
+    if(gridState.week===curWeek){
       foot.innerHTML = buildTodayPanel(mod);
-    } else { foot.innerHTML='<span style="color:var(--ink-soft)">还没有任何日期，点列尾「+」或右上角新增第一列（默认今天）</span>'; }
+    } else {
+      var w = isoWeek((gridState.week||curWeek)+"T00:00:00");
+      foot.innerHTML = '<span class="gf-arch-hint">📚 历史周（'+esc(w.monday)+' ~ '+esc(w.sunday)+'）已归档 · 可查询，点工具栏「回到本周」返回当前周</span>';
+    }
   }
 
   function gridCellClick(no, date){
@@ -6556,7 +6633,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var props = { 日期:date, 学号:String(no||""), 学生姓名:studentNameByGridNo(no)||"", 状态:next };
     if(mod==="materials"){ props.类型 = gridState.curType||"作业提交"; props.事项 = gridState.curItem||""; }
     var p;
-    if(rec){ p = (mod==="materials" ? apiUpdMat(rec._id, props) : apiUpdate("attendance", rec._id, props)); }
+    if(rec){
+      if(mod==="materials"){ p = apiUpdMat(rec._id, props); }   // apiUpdMat 已同步本地 DATA
+      else {
+        // attendance：apiUpdate 不回写本地 DATA，这里手动同步，避免网格显示旧值
+        p = apiUpdate("attendance", rec._id, props).then(function(o){
+          DATA.attendance=(DATA.attendance||[]).map(function(r){ return r._id===rec._id ? Object.assign({},r,props,{_id:rec._id}) : r; });
+          return o;
+        });
+      }
+    }
     else {
       // 新建：apiAddMat 会自动同步到 DATA.materials；attendance 走通用 apiAdd，需要手动 push
       p = (mod==="materials" ? apiAddMat(props) : apiAdd("attendance", props).then(function(o){
@@ -6564,7 +6650,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         (DATA.attendance= DATA.attendance||[]).push(local);
       }));
     }
-    p.then(function(){ renderGrid(); setStatus("ok"); })
+    p.then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
   function studentNameByGridNo(no){
@@ -6611,8 +6697,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return seq;
     }).then(function(){
       toast(value?("已置为「"+value+"」 ✓"):"已清空此日");
-      return refreshAll();
-    }).then(function(){ renderGrid(); setStatus("ok"); })
+      return refreshModule(mod);
+    }).then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
   function gridMarkEnter(date){ gridMark = { date:date, picked:new Set() }; renderGrid(); }
@@ -6637,8 +6723,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return seq;
     }).then(function(){
       toast("已登记 "+st.yes+" "+(studs.length-gridMark.picked.size)+" 人 / "+st.no+" "+gridMark.picked.size+" 人 ✓");
-      gridMark=null; return refreshAll();
-    }).then(function(){ renderGrid(); setStatus("ok"); })
+      gridMark=null; return refreshModule(mod);
+    }).then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
   function gridDelDate(date){
@@ -6654,11 +6740,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     setStatus("syncing");
     var chain=Promise.resolve();
     targets.forEach(function(r){ chain=chain.then(function(){ return mod==="materials"?apiDelMat(r._id):apiDelete(mod, r._id); }); });
-    chain.then(function(){
-      var seq=Promise.resolve();
-      return seq;
-    }).then(function(){ toast("已删除 "+date+" 的 "+targets.length+" 条记录"); return refreshAll(); })
-      .then(function(){ renderGrid(); setStatus("ok"); })
+    chain.then(function(){ toast("已删除 "+date+" 的 "+targets.length+" 条记录"); return refreshModule(mod); })
+      .then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败："+(e&&e.message||e)); });
   }
   function gridAddDate(){
@@ -6666,10 +6749,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var input=prompt("新增日期 (YYYY-MM-DD)", d);
     if(!input) return;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(input)){ toast("日期格式应为 YYYY-MM-DD"); return; }
-    if(gridState.dates.indexOf(input)<0){
-      gridState.dates.push(input);
-      gridState.dates.sort();
-    }
+    // 若新增日期不在当前查看周，自动跳到该周，保证该列可见
+    var wk=isoWeek(input).monday;
+    if(wk!==(gridState.week||isoWeek(todayStr()).monday)){ gridState.week=wk; }
     gridMarkEnter(input);
   }
 
@@ -6943,7 +7025,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var attdel=e.target.closest("[data-attdel]"); if(attdel){ deleteAttachment(attdel.getAttribute("data-attdel"), attdel.getAttribute("data-attpath")); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
-    var clr=e.target.closest("[data-clear]"); if(clr){ clearModule(clr.getAttribute("data-clear")); return; }
+    var clr=e.target.closest("[data-clear]"); if(clr){ var ck=clr.getAttribute("data-clear"); if(ck==="attendance"||ck==="materials") clearWeek(ck); else clearModule(ck); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
       if(act==="done") doDone(id);
@@ -7078,6 +7160,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("ruleMask").addEventListener("click",function(e){ if(e.target===this) closeRulesConfig(); });
   // 网格交互（模态 & 内联通用，统一走 document 委托，避免重复绑定）
   document.body.addEventListener("click",function(e){
+    // 周导航：prev/next/this（考勤/材料网格按周展示，历史周可查询）
+    var wn=e.target.closest("[data-weeknav]");
+    if(wn){
+      var dir=wn.getAttribute("data-weeknav");
+      var cur=isoWeek(todayStr()).monday;
+      var wk=gridState.week||cur;
+      if(dir==="this"){ gridState.week=cur; }
+      else {
+        var mon=new Date(wk+"T00:00:00");
+        if(isNaN(mon.getTime())) mon=new Date();
+        mon.setDate(mon.getDate()+(dir==="prev"?-7:7));
+        gridState.week=fmtISO(mon);
+      }
+      renderGrid(); return;
+    }
     // 规则应用 / 配置（模态网格在 #gridMask 内、不在 #content 中，这里补一份）
     var ra=e.target.closest("[data-ruleapply]");
     if(ra){ applyRules(ra.getAttribute("data-ruleapply")); return; }
@@ -7941,7 +8038,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "todaysummary-2026-08-29";
+  var __APP_VERSION__ = "weekauto-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
