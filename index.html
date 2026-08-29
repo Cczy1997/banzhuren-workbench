@@ -318,6 +318,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .grid-cell.s-leave{background:#E5EEFB;color:#2A5DA8;font-size:18px}
   .grid-cell.mark-pick{background:#FCE6E4 !important;color:#C0392B !important}
   .grid-cell.mark-pick::after{content:"✖️"}
+  /* 考勤双时段（上午/下午）：同一天上下两个可独立点击的状态格 */
+  .grid-table tbody td.cell-dual{padding:0!important}
+  .cell-dual{display:flex;flex-direction:column}
+  .cell-dual .grid-cell{height:21px;border-bottom:1px solid var(--line);border-radius:0;font-size:15px}
+  .cell-dual .grid-cell:last-child{border-bottom:none}
+  .cell-dual .per-pm{border-top:1px dashed #E2E6EE;position:relative}
+  .cell-dual .per-am{position:relative}
+  .grid-cell .per-tag{position:absolute;left:3px;top:1px;font-size:9px;line-height:1;color:var(--ink-soft);font-weight:700;opacity:.65;pointer-events:none}
   /* 单元格内图标：统一 SVG / 字符容器（颜色随父 cell） */
   .gic{display:inline-flex;align-items:center;justify-content:center;line-height:1;vertical-align:-2px}
   .gic svg{display:block}
@@ -6192,36 +6200,52 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
 
   /* ---------- 加减分规则（手动「应用规则」触发；自动去重、可重算） ----------
-     考勤：① 缺勤每次 −attAbsentPenalty（默认 1）、迟到每次 −attLatePenalty（默认 0.5），按次计分；
-           ② 周一~周五连续全勤 → 每人 +attWeekBonus（中断则该周不得分）。扣分与全勤奖励可叠加。
-     材料：作业提交 / 材料上交 分开计算，连续 matConsecutive 次已交 → +1；迟交每次 −matLatePenalty、未交每次 −matNoPenalty
-           （迟交 / 未交都会中断连续） */
+     考勤：① 缺勤 / 迟到「按天」扣分，同一学生同一天无论上午+下午、无论几条记录，最多扣 1 次（取最严重状态：缺勤>迟到>请假>出勤）；
+           ② 周一~周五连续全勤（当天两时段均出勤）→ 每人 +attWeekBonus（中断则该周不得分）。扣分与全勤奖励可叠加。
+     材料：作业提交 / 材料上交 分开计算，连续 matConsecutive 次已交 → +1；迟交每次 −matLatePenalty、未交每次 −matNoPenalty；
+           同一「事项(表格)」内同一天只扣 1 次（按 日期+事项 去重取最严重状态）。 */
   function matchStu(r, no, nm){ return no ? String(r["学号"]||"")===String(no) : String(r["学生姓名"]||"")===String(nm); }
   function computeAttendancePoints(){
     var out=[], bonus=RULE_CFG.attWeekBonus||1;
     var absentP=RULE_CFG.attAbsentPenalty!=null?RULE_CFG.attAbsentPenalty:1;
     var lateP=RULE_CFG.attLatePenalty!=null?RULE_CFG.attLatePenalty:0.5;
+    // 同一学生同一天无论上午/下午、无论几条记录，最多产生 1 次扣分（取最严重状态：缺勤>迟到>请假>出勤）
+    var rankOf=function(st){ return st==="缺勤"?3:(st==="迟到")?2:(st==="请假")?1:(st==="出勤")?0:-1; };
     (DATA.students||[]).forEach(function(s){
       var no=String(s["学号"]||"").trim(), nm=String(s["姓名"]||"").trim(); if(!nm) return;
-      var pres={}; var absent=0, late=0;
+      var byDate={};                                   // d -> {periods:{上午/下午:状态}}
       (DATA.attendance||[]).forEach(function(r){
         if(!matchStu(r, no, nm)) return;
         var d=String(r["日期"]||"").slice(0,10); if(!d) return;
-        var st=r["状态"]||"";
-        if(st==="缺勤") absent++;
-        else if(st==="迟到") late++;
-        pres[d]=st;
+        var per=r["时段"]||"上午";
+        if(!byDate[d]) byDate[d]={periods:{}};
+        byDate[d].periods[per]=r["状态"]||"";
       });
-      // 缺勤 / 迟到 按次扣分（扣分值在「加减分」中存为正数，类型记为减分）
-      if(absent>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(absent*absentP).toFixed(2), 时间:nowHMS(), 原因:"[考勤]缺勤"+absent+"次（每次−"+absentP+"）", 来源:"考勤"});
-      if(late>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(late*lateP).toFixed(2), 时间:nowHMS(), 原因:"[考勤]迟到"+late+"次（每次−"+lateP+"）", 来源:"考勤"});
+      var dayStatus={};                                // d -> 当天最严重状态
+      Object.keys(byDate).forEach(function(d){
+        var worst=null, wr=-1;
+        Object.keys(byDate[d].periods).forEach(function(per){
+          var rk=rankOf(byDate[d].periods[per]); if(rk>wr){ wr=rk; worst=byDate[d].periods[per]; }
+        });
+        dayStatus[d]=worst;
+      });
+      var absent=0, late=0;
+      Object.keys(dayStatus).forEach(function(d){
+        if(dayStatus[d]==="缺勤") absent++;
+        else if(dayStatus[d]==="迟到") late++;
+      });
+      // 缺勤 / 迟到 按「天」扣分（每天最多 1 次，已含上午+下午合并）
+      if(absent>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(absent*absentP).toFixed(2), 时间:nowHMS(), 原因:"[考勤]缺勤"+absent+"天（每天−"+absentP+"）", 来源:"考勤"});
+      if(late>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(late*lateP).toFixed(2), 时间:nowHMS(), 原因:"[考勤]迟到"+late+"天（每天−"+lateP+"）", 来源:"考勤"});
+      // 全勤周：当天「两时段均出勤」才算该工作日全勤（上午或下午任一段缺勤/迟到即中断）
       var weeks={};
-      Object.keys(pres).forEach(function(d){
+      Object.keys(dayStatus).forEach(function(d){
+        if(dayStatus[d]!=="出勤") return;             // 只有两时段都出勤的日子计入全勤
         var dt=new Date(d+"T00:00:00"); if(isNaN(dt.getTime())) return;
         var day=dt.getDay(); if(day===0||day===6) return;
         var diff=(day===0?-6:1-day); var mon=new Date(dt); mon.setDate(dt.getDate()+diff);
         var mk=mon.toISOString().slice(0,10);
-        if(!weeks[mk]) weeks[mk]={}; weeks[mk][day]=pres[d];
+        if(!weeks[mk]) weeks[mk]={}; weeks[mk][day]="出勤";
       });
       var qual=0;
       Object.keys(weeks).forEach(function(mk){
@@ -6234,12 +6258,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function computeMaterialPoints(){
     var out=[], cons=RULE_CFG.matConsecutive||10, lateP=RULE_CFG.matLatePenalty||0.5, noP=RULE_CFG.matNoPenalty!=null?RULE_CFG.matNoPenalty:1;
+    var rankMat=function(st){ return st==="未交"?2:(st==="迟交")?1:0; }; // 未交>迟交>已交
     (DATA.students||[]).forEach(function(s){
       var no=String(s["学号"]||"").trim(), nm=String(s["姓名"]||"").trim(); if(!nm) return;
       ["作业提交","材料上交"].forEach(function(type){
-        var recs=(DATA.materials||[]).filter(function(r){ return (r["类型"]||"")===type && matchStu(r, no, nm); })
-          .map(function(r){ return {date:String(r["日期"]||"").slice(0,10), status:r["状态"]||""}; })
-          .filter(function(r){ return r.date; })
+        // 收集该生该类型全部记录，按 (日期,事项) 去重、取最严重状态 —— 保证「一个表格(事项)一天最多扣一次」
+        var byKey={};
+        (DATA.materials||[]).forEach(function(r){
+          if((r["类型"]||"")!==type || !matchStu(r, no, nm)) return;
+          var d=String(r["日期"]||"").slice(0,10); if(!d) return;
+          var it=r["事项"]||"", st=r["状态"]||"", k=d+"\u0000"+it;
+          if(!byKey[k]) byKey[k]={date:d, item:it, status:st};
+          else if(rankMat(st)>rankMat(byKey[k].status)) byKey[k].status=st;
+        });
+        var recs=Object.keys(byKey).map(function(k){ return byKey[k]; })
           .sort(function(a,b){ return a.date.localeCompare(b.date); });
         var streak=0, bonus=0, late=0, none=0;
         recs.forEach(function(r){
@@ -6667,12 +6699,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     return st;
   }
-  function gridFindRecord(mod, no, date){
+  function gridFindRecord(mod, no, date, period){
     var arr = mod==="attendance" ? (DATA.attendance||[]) : (DATA.materials||[]);
     for(var i=0;i<arr.length;i++){
       var r=arr[i];
       if(String(r["日期"]||"")!==date) continue;
       if(String(r["学号"]||"")!==String(no)) continue;
+      if(mod==="attendance" && period){
+        // 新记录带 时段：精确匹配；旧记录(无时段)只在查询「上午」时命中（历史只有早读/上午考勤）
+        if(r["时段"]){ if(r["时段"]!==period) continue; }
+        else if(period!=="上午") continue;
+      }
       if(mod==="materials"){
         if((r["类型"]||"")!==(gridState.curType||"")) continue;
         if((r["事项"]||"")!==(gridState.curItem||"")) continue;
@@ -6681,14 +6718,25 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
     return null;
   }
+  // 考勤某学生某天「最严重状态」：缺勤>迟到>请假>出勤（用于当日号数面板 / 列统计，一天只算一次）
+  function attWorstStatus(no, date){
+    var arr=DATA.attendance||[], worst=null, wr=-1;
+    arr.forEach(function(r){
+      if(String(r["日期"]||"")!==date) return;
+      if(String(r["学号"]||"")!==String(no)) return;
+      var st=r["状态"]||"", rk=(st==="缺勤")?3:(st==="迟到")?2:(st==="请假")?1:(st==="出勤")?0:-1;
+      if(rk>wr){ wr=rk; worst=st; }
+    });
+    return worst;
+  }
   function gridDateStats(date){
     var mod=gridState.mod, st=GRID_ST[mod];
     var studs=gridStudents();
     var out={ total:studs.length, yes:0, no:0, late:0, leave:0, empty:0 };
     studs.forEach(function(s){
-      var r=gridFindRecord(mod, s["学号"]||"", date);
-      if(!r){ out.empty++; return; }
-      var v=r["状态"]||"";
+      var no=String(s["学号"]||"");
+      var v = mod==="attendance" ? (attWorstStatus(no, date)||"") : (function(){ var r=gridFindRecord(mod, no, date); return r?(r["状态"]||""):""; })();
+      if(!v){ out.empty++; return; }
       if(st.yes && v===st.yes) out.yes++;
       else if(st.no && v===st.no) out.no++;
       else if(st.late && v===st.late) out.late++;
@@ -6707,9 +6755,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var abs=[], late=[];
       studs.forEach(function(s){
         var no=String(s["学号"]||""); if(!no) return;
-        var r=gridFindRecord(mod, no, today);
-        if(!r) return;
-        var v=r["状态"]||"";
+        var v=attWorstStatus(no, today);   // 一天取最严重状态，号数不重复计
         if(v==="缺勤") abs.push(no);
         else if(v==="迟到") late.push(no);
       });
@@ -6821,18 +6867,37 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       html+='<tr>';
       html+='<td class="sticky-l"><span class="gl-no">'+esc(no||"--")+'</span><span class="gl-name">'+esc(nm||"未填")+'</span></td>';
       dates.forEach(function(d){
-        var rec=gridFindRecord(mod, no, d);
-        var v=rec?(rec["状态"]||""):"";
-        var cls="grid-cell empty";
-        var icon="＋";
-        // 仅在状态值为非空时匹配（materials.leave="" 避免误命中空格"")
-        if(st.yes && v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes||st.yes; }
-        else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
-        else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
-        else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
-        if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
-        if(typeof icon==="undefined" || icon==null) icon="＋"; // 兜底：避免任何情况下渲染出 "undefined"
-        html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
+        if(mod==="attendance"){
+          // 考勤每个日期渲染「上午 / 下午」两个可独立点击的状态格（同一天最多扣 1 次由计分引擎保证）
+          html+='<td class="cell-dual">';
+          ["上午","下午"].forEach(function(per){
+            var rec=gridFindRecord("attendance", no, d, per);
+            var v=rec?(rec["状态"]||""):"";
+            var cls="grid-cell empty", icon="＋";
+            if(st.yes && v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes||st.yes; }
+            else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
+            else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
+            else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
+            if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
+            if(typeof icon==="undefined" || icon==null) icon="＋";
+            var tag = per==="下午" ? '<span class="per-tag">下</span>' : '';
+            html+='<div class="'+cls+' '+(per==="下午"?"per-pm":"per-am")+'" data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'" data-period="'+per+'">'+tag+icon+'</div>';
+          });
+          html+='</td>';
+        } else {
+          var rec=gridFindRecord(mod, no, d);
+          var v=rec?(rec["状态"]||""):"";
+          var cls="grid-cell empty";
+          var icon="＋";
+          // 仅在状态值为非空时匹配（materials.leave="" 避免误命中空格"")
+          if(st.yes && v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes||st.yes; }
+          else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
+          else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
+          else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
+          if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
+          if(typeof icon==="undefined" || icon==null) icon="＋"; // 兜底：避免任何情况下渲染出 "undefined"
+          html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
+        }
       });
       html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="为该生新增日期">+</td>';
       html+='</tr>';
@@ -6849,18 +6914,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
   }
 
-  function gridCellClick(no, date){
+  function gridCellClick(no, date, period){
     if(gridMark && gridMark.date===date){
       if(gridMark.picked.has(no)) gridMark.picked.delete(no); else gridMark.picked.add(no);
       renderGrid(); return;
     }
     var mod=gridState.mod, st=GRID_ST[mod];
-    var rec=gridFindRecord(mod, no, date);
+    var rec=gridFindRecord(mod, no, date, period);
     var curIdx = rec ? st.cycle.indexOf(rec["状态"]||"") : st.cycle.length-1;
     var next = st.cycle[(curIdx+1) % st.cycle.length];
     setStatus("syncing");
     var props = { 日期:date, 学号:String(no||""), 学生姓名:studentNameByGridNo(no)||"", 状态:next };
     if(mod==="materials"){ props.类型 = gridState.curType||"作业提交"; props.事项 = gridState.curItem||""; }
+    else if(period){ props.时段 = period; }   // 考勤：记录时段（上午/下午）
     var p;
     if(rec){
       if(mod==="materials"){ p = apiUpdMat(rec._id, props); }   // apiUpdMat 已同步本地 DATA
@@ -6915,11 +6981,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var studs=gridStudents(); var chain=Promise.resolve();
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
-      var rec=gridFindRecord(mod, no, date);
-      var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
-      if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
-      if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
-      else if(value){ chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+      var periods = (mod==="attendance") ? ["上午","下午"] : [null];   // 考勤批量操作同时作用于上午+下午
+      periods.forEach(function(per){
+        var rec=gridFindRecord(mod, no, date, per);
+        var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
+        if(mod==="attendance" && per) props.时段=per;
+        if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+        if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
+        else if(value){ chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+      });
     });
     chain.then(function(){
       var seq=Promise.resolve();
@@ -6941,11 +7011,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
       var value = gridMark.picked.has(no) ? st.no : st.yes;
-      var rec=gridFindRecord(mod, no, date);
-      var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
-      if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
-      if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
-      else { chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+      var periods = (mod==="attendance") ? ["上午","下午"] : [null];   // 考勤：上午+下午同步标记
+      periods.forEach(function(per){
+        var rec=gridFindRecord(mod, no, date, per);
+        var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
+        if(mod==="attendance" && per) props.时段=per;
+        if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+        if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
+        else { chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+      });
     });
     chain.then(function(){
       var seq=Promise.resolve();
@@ -6990,23 +7064,32 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var def=st.yes; // 出勤 / 已交
     var today=todayStr();
     var studs=gridStudents();
-    // 仅补当天：过滤「今天该模块(当前类型/事项)尚无记录」的学生
-    var targets=studs.filter(function(s){ return !gridFindRecord(mod, String(s["学号"]||""), today); });
-    if(!targets.length){ toast("今日（"+today+"）同学均已登记，无需补齐"); return; }
-    if(!confirm("将把今日（"+today+"）尚未登记的 "+targets.length+" 名同学一键标记为「"+def+"」？\n（只补当天，已手动标记的同学不受影响；之后可点单元格改回）")) return;
+    // 仅补当天缺失的时段/记录（考勤按上午+下午分别判断；材料按当前类型/事项判断）
+    var periodsOf=function(){ return (mod==="attendance") ? ["上午","下午"] : [null]; };
+    var missing=0;
+    studs.forEach(function(s){
+      var no=String(s["学号"]||"");
+      periodsOf().forEach(function(per){ if(!gridFindRecord(mod, no, today, per)) missing++; });
+    });
+    if(!missing){ toast("今日（"+today+"）同学均已登记，无需补齐"); return; }
+    if(!confirm("将把今日（"+today+"）尚未登记的 "+missing+" 个时段/记录一键标记为「"+def+"」？\n（只补缺失的时段，已手动标记的同学不受影响；之后可点单元格改回）")) return;
     setStatus("syncing");
     var chain=Promise.resolve();
-    targets.forEach(function(s){
+    studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
-      var props={ 日期:today, 学号:no, 学生姓名:nm, 状态:def };
-      if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
-      chain=chain.then(function(){
-        if(mod==="materials") return apiAddMat(props);
-        return apiAdd("attendance", props).then(function(o){ (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id},props)); });
+      periodsOf().forEach(function(per){
+        if(gridFindRecord(mod, no, today, per)) return;   // 该时段已有记录则不覆盖
+        var props={ 日期:today, 学号:no, 学生姓名:nm, 状态:def };
+        if(mod==="attendance" && per) props.时段=per;
+        if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+        chain=chain.then(function(){
+          if(mod==="materials") return apiAddMat(props);
+          return apiAdd("attendance", props).then(function(o){ (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id},props)); });
+        });
       });
     });
     chain.then(function(){
-      toast("已为今日 "+targets.length+" 人补齐「"+def+"」✓（其余日期不受影响）");
+      toast("已为今日补齐 "+missing+" 个时段/记录（"+def+"）✓（其余日期不受影响）");
       return refreshModule(mod);
     }).then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("补齐失败："+(e&&e.message||e)); });
@@ -7539,7 +7622,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var h=e.target.closest("[data-colDate]");
     if(h){ showColMenu(h.getAttribute("data-colDate"), h); return; }
     var c=e.target.closest("[data-cell]");
-    if(c){ gridCellClick(c.getAttribute("data-no"), c.getAttribute("data-date")); return; }
+    if(c){ var per=c.getAttribute("data-period")||""; gridCellClick(c.getAttribute("data-no"), c.getAttribute("data-date"), per); return; }
     var ac=e.target.closest("[data-addCol]");
     if(ac){ gridAddDate(); return; }
     var dm=e.target.closest("[data-gridMarkDone]");
@@ -8422,7 +8505,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "perfstore-2026-08-29";
+  var __APP_VERSION__ = "attpm-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
