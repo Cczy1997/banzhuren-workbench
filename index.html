@@ -207,6 +207,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .par-meta{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.45;word-break:break-word;overflow-wrap:anywhere;white-space:normal}
   .par-tel{display:inline-block;max-width:100%;margin-top:6px;font-size:13.5px;font-weight:700;color:var(--mint-d);text-decoration:none;word-break:break-all;overflow-wrap:anywhere;white-space:normal}
   .par-tel.off{color:var(--ink-soft);font-weight:600;font-size:12.5px}
+  /* 花名册批量录入 */
+  .roster-cfg{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 2px}
+  .roster-cfg .field{flex:1 1 160px;min-width:140px;margin:0}
+  .roster-quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 6px;font-size:12.5px;color:var(--ink-soft)}
+  .rquick{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);font-family:inherit}
+  .rquick:hover{border-color:var(--pink);color:var(--pink-d)}
+  .roster-table{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .roster-row{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid #f1eef5}
+  .roster-row:last-child{border-bottom:none}
+  .roster-row:nth-child(odd){background:#fcfafe}
+  .rr-name{font-weight:700;font-size:14px;min-width:92px;flex:0 0 auto;white-space:nowrap}
+  .rr-no{font-size:11px;color:#fff;background:var(--pink-d);border-radius:999px;padding:0 6px;margin-left:4px;font-weight:700}
+  .rr-opts{display:flex;gap:6px;flex-wrap:wrap}
+  .rstat{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--ink-soft);font-family:inherit;transition:background .1s,border-color .1s,color .1s}
+  .rstat:hover{border-color:var(--pink)}
+  .rstat.sel[data-v="已交"],.rstat.sel[data-v="出勤"]{background:#e7f7ef;color:#1f9d6b;border-color:#9fe0c2}
+  .rstat.sel[data-v="迟交"],.rstat.sel[data-v="迟到"]{background:#fff3e6;color:#c8761b;border-color:#ffcf9a}
+  .rstat.sel[data-v="未交"],.rstat.sel[data-v="缺勤"]{background:#fdecec;color:#d8453f;border-color:#f6b6b2}
+  .rstat.sel[data-v="请假"]{background:#eef2ff;color:#4a6cf7;border-color:#c2d0ff}
   /* 关联学生选择器弹层 */
   .stu-picker-mask{position:fixed;inset:0;background:rgba(40,46,78,.42);display:flex;align-items:center;justify-content:center;z-index:80;padding:18px}
   .stu-picker{width:min(440px,100%);max-height:78vh;background:#fff;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(40,46,78,.3)}
@@ -1276,6 +1295,37 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <div class="actions">
       <button class="btn-cancel" id="matOCRCancel">取消</button>
       <button class="btn-save" id="matOCRDo" disabled>确认并保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 花名册批量录入（材料收集 / 考勤记录） -->
+<div class="mask" id="rosterMask">
+  <div class="sheet" style="max-width:780px">
+    <h3 id="rosterTitle">批量登记</h3>
+    <button class="x" id="rosterClose">×</button>
+    <p class="imp-tip" id="rosterTip">按班级名单逐一点选每位学生的状态，确认后为全班创建记录。默认全员「已交 / 出勤」，只需把例外改成对应状态即可。</p>
+    <div class="roster-cfg">
+      <div class="field" style="flex:0 0 150px"><label>日期</label><input type="date" id="rosterDate"></div>
+      <div class="field" id="rosterTypeField"><label>类型</label><select id="rosterType"><option value="作业提交">作业提交</option><option value="材料上交">材料上交</option></select></div>
+      <div class="field" id="rosterItemField"><label>事项（本次区分）</label><input type="text" id="rosterItem" placeholder="如：数学作业 / 社会实践表"></div>
+      <div class="field" id="rosterReasonField" style="display:none"><label>事由（默认）</label><input type="text" id="rosterReason" placeholder="如：病假 / 公交晚点"></div>
+    </div>
+    <div class="roster-quick">
+      <span>一键：</span>
+      <button class="rquick" data-rquick="已交">全选已交</button>
+      <button class="rquick" data-rquick="迟交">全选迟交</button>
+      <button class="rquick" data-rquick="未交">全选未交</button>
+      <button class="rquick" data-rquick="出勤">全选出勤</button>
+      <button class="rquick" data-rquick="迟到">全选迟到</button>
+      <button class="rquick" data-rquick="缺勤">全选缺勤</button>
+      <button class="rquick" data-rquick="请假">全选请假</button>
+      <button class="rquick" data-rquick="clear">清空</button>
+    </div>
+    <div class="roster-table" id="rosterTable"></div>
+    <div class="actions">
+      <button class="btn-cancel" id="rosterCancel">取消</button>
+      <button class="btn-save" id="rosterDo">确认并保存</button>
     </div>
   </div>
 </div>
@@ -5747,6 +5797,90 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
 
+  /* ---------- 花名册批量录入（材料收集 / 考勤记录） ---------- */
+  var ROSTER_OPTS = {
+    materials:[["已交","ok"],["迟交","late"],["未交","miss"]],
+    attendance:[["出勤","ok"],["迟到","late"],["缺勤","miss"],["请假","leave"]]
+  };
+  var rosterState = { key:"", sel:{} };
+  function byNo(a,b){ var na=String(a["学号"]||""), nb=String(b["学号"]||""); return na<nb?-1:(na>nb?1:0); }
+  function openRoster(key){
+    rosterState.key = key;
+    rosterState.sel = {};
+    var isMat = key==="materials";
+    var opts = ROSTER_OPTS[key] || ROSTER_OPTS.materials;
+    var def = isMat ? "已交" : "出勤";
+    document.getElementById("rosterTitle").textContent = "批量登记 · "+stripEmoji(MODULES[key].title);
+    document.getElementById("rosterDate").value = todayStr();
+    document.getElementById("rosterTypeField").style.display = isMat ? "" : "none";
+    document.getElementById("rosterItemField").style.display = isMat ? "" : "none";
+    document.getElementById("rosterReasonField").style.display = isMat ? "none" : "";
+    document.getElementById("rosterItem").value = "";
+    document.getElementById("rosterReason").value = "";
+    var tip = document.getElementById("rosterTip");
+    tip.innerHTML = isMat
+      ? '按班级名单逐一点选每位学生的上交状态，确认后为全班创建记录。默认全员「已交」，只需把例外改成「迟交 / 未交」。'
+        + (matUseLocal ? '<br><b style="color:#d8453f">⚠️ 当前为「本机存储」模式（Supabase 未建表），本次将只存本设备；执行 hr_materials 建表 SQL 后刷新即自动转云端并迁移。</b>' : '')
+      : '按班级名单逐一点选每位学生的考勤状态，确认后为全班创建记录。默认全员「出勤」，只需把例外（迟到 / 缺勤 / 请假）改成对应状态即可。';
+    var students=(DATA.students||[]).slice().sort(byNo);
+    var html="";
+    if(!students.length){
+      html='<div class="empty-state">还没有学生档案，请先在「学生档案」添加学生。</div>';
+    } else {
+      html = students.map(function(s){
+        var name=String(s["姓名"]||"").trim(), no=String(s["学号"]||"").trim();
+        if(!name) return "";
+        rosterState.sel[name]=def;
+        return '<div class="roster-row" data-name="'+esc(name)+'">'
+          +'<div class="rr-name">'+esc(name)+(no?' <span class="rr-no">'+esc(no)+'</span>':'')+'</div>'
+          +'<div class="rr-opts">'+opts.map(function(o){ return '<button class="rstat'+(o[0]===def?' sel':'')+'" data-v="'+o[0]+'">'+o[0]+'</button>'; }).join("")+'</div>'
+          +'</div>';
+      }).filter(Boolean).join("");
+    }
+    document.getElementById("rosterTable").innerHTML = html;
+    document.getElementById("rosterMask").classList.add("show");
+  }
+  function closeRoster(){ document.getElementById("rosterMask").classList.remove("show"); }
+  function applyRoster(){
+    var key=rosterState.key;
+    if(!key) return;
+    var isMat = key==="materials";
+    var date=document.getElementById("rosterDate").value||todayStr();
+    var item=document.getElementById("rosterItem").value.trim();
+    var type=document.getElementById("rosterType").value;
+    var reason=document.getElementById("rosterReason").value.trim();
+    var students=(DATA.students||[]).slice().sort(byNo);
+    var created=0, names=[];
+    setStatus("syncing");
+    var chain=Promise.resolve();
+    students.forEach(function(s){
+      var name=String(s["姓名"]||"").trim();
+      var no=String(s["学号"]||"").trim();
+      if(!name) return;
+      var st=rosterState.sel[name]||"";
+      if(!st) return;   // 已「清空」的学生不建记录
+      var props={日期:date, 学生姓名:name, 学号:no, 状态:st, 时间:nowHMS()};
+      if(isMat){ props["类型"]=type; if(item) props["事项"]=item; }
+      else { if(reason) props["事由"]=reason; }
+      created++; names.push(name);
+      chain=chain.then(function(){ return isMat ? apiAddMat(props) : apiAdd("attendance", props); });
+    });
+    if(!created){ toast("没有可保存的记录"); return; }
+    chain.then(function(){
+      closeRoster();
+      toast("已为 "+created+" 名学生登记 ✓");
+      return refreshAll();
+    }).then(function(){
+      if(isMat){
+        var uniq={}; names.forEach(function(n){ uniq[n]=1; });
+        var c=Promise.resolve();
+        Object.keys(uniq).forEach(function(n){ c=c.then(function(){ return applyMaterialScoring(n); }); });
+        return c;
+      }
+    }).then(function(){ setStatus("ok"); })
+     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+
   /* ---------- 材料收集 · 自动计分（未交-1 / 连续10次已交+1） ---------- */
   function applyMaterialScoring(name){
     name=String(name||"").trim(); if(!name) return Promise.resolve();
@@ -6074,8 +6208,35 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var grid=e.target.closest("[data-grid]"); if(grid){ var k=grid.getAttribute("data-grid"); state.grid[k]=!state.grid[k]; renderList(k); return; }
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
-    var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
+    var add=e.target.closest("[data-add]"); if(add){
+      var ak=add.getAttribute("data-add");
+      if(ak==="materials"||ak==="attendance") openRoster(ak); else openAdd(ak);
+      return;
+    }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ var ok=ocr.getAttribute("data-ocr"); if(ok==="materials") openMatOCR(); else openOCR(); return; }
+    /* 花名册批量录入：状态点选 + 一键全选 */
+    var rst=e.target.closest(".rstat"); if(rst){
+      var rrow=rst.closest(".roster-row"); if(rrow){
+        var rnm=rrow.getAttribute("data-name");
+        rosterState.sel[rnm]=rst.getAttribute("data-v");
+        rrow.querySelectorAll(".rstat").forEach(function(b){ b.classList.remove("sel"); });
+        rst.classList.add("sel");
+      }
+      return;
+    }
+    var rq=e.target.closest("[data-rquick]"); if(rq){
+      var q=rq.getAttribute("data-rquick");
+      document.querySelectorAll("#rosterTable .roster-row").forEach(function(rw){
+        var nm=rw.getAttribute("data-name");
+        rw.querySelectorAll(".rstat").forEach(function(b){
+          var on=(q!=="clear" && b.getAttribute("data-v")===q);
+          b.classList.toggle("sel", on);
+          if(q!=="clear") rosterState.sel[nm]=q;
+        });
+        if(q==="clear") delete rosterState.sel[nm];
+      });
+      return;
+    }
     /* 家长卡片：电话直拨链接优先，避免误触发编辑/跳转 */
     if(e.target.closest("a.par-tel")){ return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
@@ -6271,6 +6432,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("matOCRMask").addEventListener("click",function(e){ if(e.target===this) closeMatOCR(); });
   document.getElementById("matOCRRecognize").addEventListener("click",matOCRRecognize);
   document.getElementById("matOCRDo").addEventListener("click",applyMatOCR);
+  /* 花名册批量录入 */
+  document.getElementById("rosterClose").addEventListener("click",closeRoster);
+  document.getElementById("rosterCancel").addEventListener("click",closeRoster);
+  document.getElementById("rosterMask").addEventListener("click",function(e){ if(e.target===this) closeRoster(); });
+  document.getElementById("rosterDo").addEventListener("click",applyRoster);
 
   /* 一生一档 · 学生档案 */
   document.getElementById("profileMask").addEventListener("click",function(e){
@@ -7080,7 +7246,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parinfo-2026-08-29";
+  var __APP_VERSION__ = "roster-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
