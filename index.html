@@ -268,6 +268,24 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .btn-grid-table:hover{background:#F4F6FA;color:var(--ink)}
   .grid-toolbar .gt-btn.rule{background:var(--mint);color:#fff;border-color:var(--mint)}
   .grid-toolbar .gt-btn.rule:hover{filter:brightness(.95)}
+  /* 材料 · 事项文件夹视图 */
+  .mat-folders-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding:14px 6px}
+  .mat-folder-card{border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;background:#fff;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+  .mat-folder-card:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(20,30,50,.08);border-color:var(--mint)}
+  .mat-folder-card .mfc-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .mat-folder-card .mfc-icon{font-size:24px;line-height:1}
+  .mat-folder-card .mfc-title{font-weight:700;font-size:15px;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mat-folder-card .mfc-type{font-size:11px;background:#EAF7F0;color:var(--mint-d);padding:2px 7px;border-radius:7px;font-weight:600}
+  .mat-folder-card .mfc-meta{font-size:12px;color:var(--ink-soft);margin:4px 0 8px}
+  .mat-folder-card .mfc-bars{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .mat-folder-card .mfc-bar{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;padding:3px 8px;border-radius:7px;border:1px solid transparent}
+  .mat-folder-card .mfc-bar.ok{background:#EAF7F0;color:var(--mint-d);border-color:#CDEBDC}
+  .mat-folder-card .mfc-bar.no{background:#FFEDE6;color:#C95B3F;border-color:#F0D4CA}
+  .mat-folder-card .mfc-bar.late{background:#FBF6E9;color:#A88542;border-color:#EAD9A8}
+  .mat-folder-card .mfc-go{font-size:12px;color:var(--mint-d);font-weight:600}
+  .mat-folder-card.add{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ink-soft);border-style:dashed;background:#FAFBFD;min-height:140px}
+  .mat-folder-card.add:hover{color:var(--mint-d);background:#F4FBF7;border-color:var(--mint)}
+  .mat-folder-card.add .mfc-meta{margin:6px 0 0}
   /* 周导航条：考勤/材料网格按周展示，历史周可查询 */
   .grid-toolbar .gw-nav{display:inline-flex;align-items:center;gap:5px;padding:3px 5px;border:1px solid var(--line);border-radius:10px;background:#F4F6FA}
   .grid-toolbar .gw-label{font-size:12.5px;font-weight:700;color:var(--ink);padding:0 4px;white-space:nowrap}
@@ -5519,10 +5537,22 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           var ch=Promise.resolve();
           // 聊天截图需保留文字可读性 → 用更大的尺寸（默认 512 是学生头像用的）
           var maxDim=f.maxDim||512, quality=f.quality||0.82;
+          var photoFieldName=f.name;
+          // 压缩完先尝试入 Supabase Storage（避免 base64 内联到 data 列触发行/请求体上限爆掉）；
+          // 无 storage 或上传失败则保留 base64 作本机 fallback，至少还能在当前设备显示并稍后重传。
           Array.prototype.forEach.call(pfile.files, function(file){
-            ch=ch.then(function(){ return compressPhoto(file, maxDim, quality).then(function(url){ formPhotos.push({url:url, year:yr, ts:Date.now()}); }); });
+            ch=ch.then(function(){
+              return compressPhoto(file, maxDim, quality).then(function(dataUrl){
+                return _photoToStorage(dataUrl, photoFieldName).then(function(out){
+                  // out = { url: <publicUrl|base64>, uploaded: bool }
+                  formPhotos.push({url:out.url, year:yr, ts:Date.now(), uploaded:!!out.uploaded});
+                });
+              });
+            });
           });
-          ch.then(function(){ pfile.value=""; renderPhotosList(f.name); setStatus("ok"); }).catch(function(e){ console.error(e); setStatus("offline"); toast("照片处理失败："+(e&&e.message?e.message:e)); });
+          ch.then(function(){ pfile.value=""; renderPhotosList(f.name); setStatus("ok");
+            if(formPhotos.some(function(p){return !p.uploaded;})){ toast("已保存（部分图片未上传云端，仅本机可见）"); }
+          }).catch(function(e){ console.error(e); setStatus("offline"); toast("照片处理失败："+(e&&e.message?e.message:e)); });
         });
       } else if(f.multiline){
         var ta=document.createElement("textarea"); ta.setAttribute("data-f",f.name); ta.placeholder=f.ph||""; if(val) ta.value=val;
@@ -5660,6 +5690,33 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         img.src=dataUrl;
       };
       reader.readAsDataURL(file);
+    });
+  }
+  /* dataURL → Blob（照片字段上传到 storage 时用）*/
+  function dataURLToBlob(dataUrl){
+    var m=/^data:([^;]+);base64,(.*)$/.exec(String(dataUrl||""));
+    if(!m) return null;
+    var mime=m[1], bin=atob(m[2]);
+    var len=bin.length, u8=new Uint8Array(len);
+    for(var i=0;i<len;i++) u8[i]=bin.charCodeAt(i);
+    try{ return new Blob([u8], {type:mime}); }catch(e){ return null; }
+  }
+  /* photos 字段专用：先压缩（已是 base64）→ 转 Blob → 尝试上传到 Supabase Storage。
+     任何一步失败都回退 base64 本机可见，保证不阻断保存。返回 {url,uploaded}。*/
+  function _photoToStorage(dataUrl, fieldName){
+    return new Promise(function(resolve){
+      var blob=dataURLToBlob(dataUrl);
+      var canUp = !!(blob && db && db.storage && BUCKET);
+      if(!canUp){ resolve({url:dataUrl, uploaded:false}); return; }
+      var ext="jpg";
+      try{ var mm=/^data:image\/(\w+);/i.exec(String(dataUrl||"")); if(mm) ext=mm[1].toLowerCase().replace("jpeg","jpg"); }catch(e){}
+      var path=(fieldName||"photo")+"/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+      var doneU=function(err){ if(err){ console.warn("[photo] storage 上传失败，已降级 base64：", err); resolve({url:dataUrl, uploaded:false}); return; } try{ var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; resolve({url:url, uploaded:true}); }catch(e){ resolve({url:dataUrl, uploaded:false}); } };
+      try{
+        db.storage.from(BUCKET).upload(path, blob, {upsert:true, contentType:blob.type||"image/jpeg", cacheControl:"3600"})
+          .then(function(r){ if(r && r.error) doneU(r.error); else doneU(null); })
+          .catch(function(e){ doneU(e); });
+      }catch(e){ doneU(e); }
     });
   }
   function collectProps(key){
@@ -6053,7 +6110,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       toast("已为 "+created+" 名学生登记 ✓");
       return refreshAll();
     }).then(function(){
-      if(isMat){ return Promise.resolve(); }
+      // 材料：登记完成后自动聚焦到该事项的文件夹，让用户立即看到本次结果并可继续操作
+      if(isMat && item && gridState.mod==="materials"){
+        gridState.curItem=item;
+        renderMatGrid("materials");
+      }
     }).then(function(){ setStatus("ok"); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
@@ -6356,15 +6417,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
     }
     chain.then(function(){
-      var names={};
-      st.rows.forEach(function(r){ var n=resolveMatName(r); if(n) names[n]=1; });
-      if(st.treatMissing){ (DATA.students||[]).forEach(function(s){ if(s["姓名"]) names[s["姓名"]]=1; }); }
-      var seq=Promise.resolve();
-      return seq;
-    }).then(function(){
       toast("已登记材料收集并自动计分 ✓");
       closeMatOCR();
       return refreshAll();
+    }).then(function(){
+      // 录完自动聚焦到该事项文件夹
+      if(st.item && gridState.mod==="materials"){
+        gridState.curItem=st.item;
+        gridState.curType=st.type||gridState.curType;
+        renderMatGrid("materials");
+      }
     }).then(function(){ setStatus("ok"); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
   }
@@ -6403,6 +6465,93 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var gridTargets = { tb:null, ban:null, wrap:null, foot:null }; // 当前网格渲染目标（模态 or 内联）
   function setGridTargets(tb,ban,wrap,foot){ gridTargets={tb:tb,ban:ban,wrap:wrap,foot:foot}; }
   function attMatGrid(key){ return (key==="attendance"||key==="materials") ? (GRIDVIEW[key]!==false) : false; }
+  /* materials 模块专用：curItem==="" 时呈现文件夹列表；否则呈现该事项的网格视图。
+     attendance 永远走 renderGrid（无文件夹概念）。*/
+  function renderMatGrid(mod){
+    if(mod!=="materials") return renderGrid();
+    if(!gridState.curItem){
+      document.getElementById(gridTargets.ban).hidden=true;
+      renderMatFolders();
+      return;
+    }
+    renderGrid();
+  }
+  /* 把 materials 按「事项」分组聚合：每个事项一个文件夹，含类型、最近日期、人数、已交/迟交/未交分布。*/
+  function matFoldersGroup(){
+    var groups={}, order=[];
+    (DATA.materials||[]).forEach(function(r){
+      var item=String(r["事项"]||"").trim(); if(!item) return;
+      var type=r["类型"]||"作业提交";
+      var key=item+"\u0001"+type;
+      if(!groups[key]){
+        groups[key]={item:item, type:type, total:0, lastDate:"", stuLatest:{}, status:{"已交":0,"迟交":0,"未交":0}};
+        order.push(key);
+      }
+      var g=groups[key];
+      g.total++;
+      var d=String(r["日期"]||"");
+      if(d>g.lastDate) g.lastDate=d;
+      // 用 (学生姓名,日期) 维度取「该学生该日最新一次状态」
+      var nm=String(r["学生姓名"]||"");
+      var st=String(r["状态"]||"");
+      if(nm && d){
+        var k2=nm+"\u0001"+d;
+        var prev=g.stuLatest[k2];
+        if(!prev || String(prev.date)<d) g.stuLatest[k2]={st:st, date:d};
+      }
+    });
+    order.forEach(function(key){
+      var g=groups[key];
+      var arr=Object.keys(g.stuLatest).map(function(k){return g.stuLatest[k];});
+      arr.forEach(function(o){ if(g.status[o.st]!=null) g.status[o.st]++; });
+      g.stuCount=arr.length;
+    });
+    order.sort(function(a,b){
+      var ga=groups[a], gb=groups[b];
+      if(ga.lastDate!==gb.lastDate) return gb.lastDate.localeCompare(ga.lastDate);
+      return ga.item.localeCompare(gb.item,"zh-Hans-CN");
+    });
+    return order.map(function(k){return groups[k];});
+  }
+  function renderMatFolders(){
+    var tb=document.getElementById(gridTargets.tb);
+    var wrap=document.getElementById(gridTargets.wrap);
+    var foot=document.getElementById(gridTargets.foot);
+    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 选择文件夹进入，或新建一个</span>';
+    var groups=matFoldersGroup();
+    if(!groups.length){
+      var empty='<div class="empty-state" style="padding:32px 14px">'
+        +'<svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
+        +'<div>还没有事项文件夹。先新建一个（如：数学作业），以后同类材料就直接从这个文件夹里进去操作。</div></div>';
+      var cards='<div class="mat-folders-grid"><div class="mat-folder-card add" data-matFolderAdd>'
+        +'<div style="font-size:30px;line-height:1">＋</div><div style="margin-top:8px;font-weight:600">新建文件夹</div>'
+        +'<div class="mfc-meta">如：数学作业 / 社会实践表</div></div></div>';
+      if(wrap) wrap.innerHTML=empty+cards;
+      if(foot) foot.innerHTML="";
+      return;
+    }
+    var cards=groups.map(function(g){
+      var ok=g.status["已交"]||0, miss=g.status["未交"]||0, late=g.status["迟交"]||0;
+      var last=g.lastDate?"最近 "+esc(g.lastDate):"尚无日期";
+      return '<div class="mat-folder-card" data-matGoItem="'+esc(g.item)+'" data-matGoType="'+esc(g.type)+'">'
+        +'<div class="mfc-head"><span class="mfc-icon">📁</span><span class="mfc-title">'+esc(g.item)+'</span><span class="mfc-type">'+esc(g.type)+'</span></div>'
+        +'<div class="mfc-meta">'+last+' · 共 '+g.stuCount+' 人次</div>'
+        +'<div class="mfc-bars">'
+        +'<span class="mfc-bar ok">✓ '+ok+'</span>'
+        +(miss?'<span class="mfc-bar no">✗ '+miss+'</span>':'')
+        +(late?'<span class="mfc-bar late">⏰ '+late+'</span>':'')
+        +'</div>'
+        +'<div class="mfc-go">打开文件夹 →</div>'
+        +'</div>';
+    }).join("");
+    var addCard='<div class="mat-folder-card add" data-matFolderAdd>'
+      +'<div style="font-size:30px;line-height:1">＋</div>'
+      +'<div style="margin-top:8px;font-weight:600">新建文件夹</div>'
+      +'<div class="mfc-meta">如：数学作业 / 社会实践表</div>'
+      +'</div>';
+    if(wrap) wrap.innerHTML='<div class="mat-folders-grid">'+cards+addCard+'</div>';
+    if(foot) foot.innerHTML='<span class="hint">同文件夹下的材料共享同一事项，不再每次都输。点文件夹卡片即可进入网格视图继续操作。</span>';
+  }
   /* 加减分规则配置（可在「⚙️ 规则」中调整；默认遵循用户给定规则） */
   var RULE_CFG_LS="wb_cls_rulecfg";
   var RULE_CFG = { attWeekBonus:1, attAbsentPenalty:1, attLatePenalty:0.5, matConsecutive:10, matLatePenalty:0.5 };
@@ -6415,17 +6564,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     gridState.week = isoWeek(todayStr()).monday; // 进模块默认看本周（上周及更早自动归档，可经周导航查询）
     gridState.dates = collectDates(mod);
     if(mod==="materials"){
-      var lastWithItem="";
-      (DATA.materials||[]).forEach(function(r){ if(r["事项"] && !lastWithItem) lastWithItem=r["事项"]; });
       gridState.curType = "作业提交";
-      gridState.curItem = lastWithItem || "";
+      // 改为呈现文件夹列表，让「事项」真的成为独立文件夹可来回切换
+      gridState.curItem = "";
     }
     gridMark = null;
     document.getElementById("gridTitle").textContent = mod==="attendance"?"📊 考勤表":"📊 材料收集表";
     document.getElementById("gridSub").textContent = (DATA.students||[]).length+" 人";
     document.getElementById("gridMask").classList.add("show");
     setGridTargets("gridToolbar","gridBanner","gridTableWrap","gridFoot");
-    renderGrid();
+    renderMatGrid(mod);
   }
   function closeGrid(){
     document.getElementById("gridMask").classList.remove("show");
@@ -6445,14 +6593,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     gridState.week = isoWeek(todayStr()).monday; // 进模块默认看本周
     gridState.dates = collectDates(key);
     if(key==="materials"){
-      var lastWithItem="";
-      (DATA.materials||[]).forEach(function(r){ if(r["事项"] && !lastWithItem) lastWithItem=r["事项"]; });
       gridState.curType = "作业提交";
-      gridState.curItem = lastWithItem || "";
+      // 进入材料模块不再自动锁死到「最近一次事项」，改为呈现文件夹列表，让「事项」真的成为独立文件夹可来回切换
+      gridState.curItem = "";
     }
     gridMark = null;
     setGridTargets("igToolbar","igBanner","igWrap","igFoot");
-    renderGrid();
+    renderMatGrid(key);
     // 进入考勤/材料模块即自动套用一次规则，使加减分及时体现到「加减分管理」（幂等）
     if(key==="attendance"||key==="materials"){
       var _d=(key==="attendance"?(DATA.attendance||[]):(DATA.materials||[]));
@@ -6569,9 +6716,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var studs = gridStudents();
     var dates = gridState.dates = collectDates(mod); // 每次渲染都按当前查看周重算列（支持周导航切换）
     var tb=document.getElementById(gridTargets.tb);
+    var folderBackBtn = (mod==="materials" && gridState.curItem)
+      ? '<button class="gt-btn" data-matBackFolders title="返回文件夹列表">← 文件夹</button>'
+      : '';
     if(mod==="materials"){
       tb.innerHTML =
-        gridWeekBar()
+        folderBackBtn
+       +gridWeekBar()
        +'<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
        +'<button class="gt-tab '+(gridState.curType==="材料上交"?"on":"")+'" data-gttype="材料上交">📦 材料上交</button>'
        +'<span class="gt-sep"></span>'
@@ -7286,9 +7437,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return;
     }
     var gt=e.target.closest("[data-gttype]");
-    if(gt){ gridState.curType=gt.getAttribute("data-gttype"); renderGrid(); return; }
+    if(gt){ gridState.curType=gt.getAttribute("data-gttype"); renderMatGrid(gridState.mod); return; }
     var ai=e.target.closest("[data-gridtApplyItem]");
-    if(ai){ var tbar=ai.closest(".grid-toolbar"); var inp=tbar?tbar.querySelector("input.gt-input"):null; gridState.curItem=(inp&&inp.value||"").trim(); renderGrid(); toast("事项已应用：「"+gridState.curItem+"」"); return; }
+    if(ai){ var tbar=ai.closest(".grid-toolbar"); var inp=tbar?tbar.querySelector("input.gt-input"):null; gridState.curItem=(inp&&inp.value||"").trim(); renderMatGrid(gridState.mod); toast("事项已应用：「"+gridState.curItem+"」"); return; }
+    // 材料「事项文件夹」交互：进入/返回/新建
+    var matBack=e.target.closest("[data-matBackFolders]");
+    if(matBack){ gridState.curItem=""; renderMatGrid(gridState.mod); return; }
+    var matGo=e.target.closest("[data-matGoItem]");
+    if(matGo){ gridState.curItem=matGo.getAttribute("data-matGoItem")||""; gridState.curType=matGo.getAttribute("data-matGoType")||gridState.curType; renderMatGrid(gridState.mod); return; }
+    var matAdd=e.target.closest("[data-matFolderAdd]");
+    if(matAdd){
+      var nm=window.prompt("新建事项文件夹（同一类材料可一直放这个文件夹里）\n例如：数学作业 / 社会实践表 / 黑笔","");
+      nm=String(nm||"").trim();
+      if(nm){
+        gridState.curItem=nm;
+        gridState.curType="作业提交";
+        renderMatGrid(gridState.mod);
+        toast("已新建文件夹：「"+nm+"」");
+      }
+      return;
+    }
     var h=e.target.closest("[data-colDate]");
     if(h){ showColMenu(h.getAttribute("data-colDate"), h); return; }
     var c=e.target.closest("[data-cell]");
@@ -8118,7 +8286,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "attpenalty-2026-08-29";
+  var __APP_VERSION__ = "imgseries-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -8228,7 +8396,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   boot();
 
   // 调试/自动化验证用：暴露内部状态与函数（不影响业务）
-  window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll };
+  window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll, gridState: gridState, setGridTargets: setGridTargets, renderMatGrid: renderMatGrid, renderMatFolders: renderMatFolders, matFoldersGroup: matFoldersGroup, _photoToStorage: _photoToStorage, dataURLToBlob: dataURLToBlob };
   // 值日模块调试/自动化验证钩子
   window.__duty = {
     groups: function(){ return dutyRot.groups.slice(); },
