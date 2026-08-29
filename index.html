@@ -5752,16 +5752,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         }
         return after.then(function(){ return saved; });
       });
-    }).then(function(){
+    }).then(function(saved){
+      // 乐观更新：云端已保存的记录先并入本地，保证即便后续整表重载偶发失败，列表也能立即显示（避免被误判为「添加不成功」）
+      if(!current.id && saved && saved._id){ (DATA[key]=DATA[key]||[]).push(saved); }
       closeForm();
       if(!current.id){ localStorage.removeItem("wb_cls_form_"+key); }
       formFiles={};
       formPhotos=[];
       toast("已保存 ✓");
-      return refreshAll();
+      // 整表重载：用 .catch 隔离——重载偶发失败不应把「已成功的保存」误报成失败
+      return refreshAll().catch(function(e){ console.warn("reload 部分失败（记录已保存）", e); });
     }).then(function(){
       // 班委成员增删改后，把职务+任职时间回写学生档案的「班干部」字段并维护「关注标签」
-      if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll(); }); }
+      if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll().catch(function(e){ console.warn(e); }); }); }
       // 材料收集：保存后由教师点「✅ 应用规则」统一计算加减分（手动，避免误算）
     }).then(function(){ setStatus("ok"); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败：上传或写入出错"); });
@@ -8090,7 +8093,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "fillsave-2026-08-29";
+  var __APP_VERSION__ = "mallrobust-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
