@@ -5709,7 +5709,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      现在保存时同时写云端（db.auth.updateUser({ data: { dashscope_key } })），
      启动 / 登录成功时从云端拉到本地缓存。localStorage 仍作为本地缓存，避免每次启动都打云端。 */
   var AI_KEY_META = "dashscope_key";
-  function getAIKey(){ return getAIKey() || ""; }
+  function getAIKey(){ try{ return localStorage.getItem("wb_cls_dashscope_key") || ""; }catch(e){ return ""; } }
   /* 保存到本地 + 异步写云端。云端写失败不影响本地使用，仅 toast 提示（避免阻塞当前操作）。
      返回 true/false 仅表示「本地写入」是否成功。 */
   function saveAIKey(k, opts){
@@ -6780,7 +6780,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "uix-2026-08-29";
+  var __APP_VERSION__ = "aifix-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
