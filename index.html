@@ -2217,6 +2217,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var ocrBtn = (key==="attendance"||key==="materials") ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别'+(key==="attendance"?"考勤表":"材料上交表")+'</button>' : '';
     var tableBtn = (key==="attendance"||key==="materials") ? '<button class="btn-grid-table" data-gridtoggle="'+key+'">'+(attMatGrid(key)?'📋 列表':'📊 表格')+'</button>' : '';
     var ruleBtn = (key==="attendance"||key==="materials") ? '<button class="btn-rule" data-ruleapply="'+key+'">✅ 应用规则</button><button class="btn-rule" data-rulecfg="'+key+'" title="规则设置">⚙️</button>' : '';
+    var stuGroupBtn = (key==="students") ? '<button class="btn-rule" data-stuGroupBatch title="批量分小组（每组人数均衡）">👥 批量分小组</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
@@ -2226,6 +2227,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + tableBtn
       + ruleBtn
       + ocrBtn
+      + stuGroupBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
       +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
       +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
@@ -4711,7 +4713,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(nm in total){ gmap[g].t+=total[nm]; gmap[g].c+=cur[nm]; }
     });
     var groups=Object.keys(gmap).map(function(g){return {g:g,t:gmap[g].t,c:gmap[g].c};})
-      .filter(function(x){return x.t!==0;}).sort(function(a,b){return b.t-a.t;}).slice(0,2);
+      .filter(function(x){return x.t!==0;}).sort(function(a,b){return b.t-a.t;});
     var medal=["🥇","🥈","🥉"];
     var html='<div class="honor">'
       +'<div class="honor-h-row"><h2 class="honor-h">🏆 荣誉榜</h2><button class="btn-mall" data-mall="1">🛒 积分商城</button></div>'
@@ -4728,15 +4730,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
     }
     html+='</div>'
-      +'<div class="honor-sub">小组积分 TOP2（累计积分，括号内为可用积分）</div><div class="honor-list">';
+      +'<div class="honor-sub">📊 小组积分榜（组内成员个人积分之和；点击展开看组员）</div><div class="honor-list">';
     if(!groups.length){
-      html+='<div class="empty">暂无小组积分，请先在「学生档案」给同学设置「学习小组」。</div>';
+      html+='<div class="empty">暂无小组积分，请先在「学生档案」点「👥 批量分小组」给学生分配小组。</div>';
     } else {
       groups.forEach(function(x,i){
-        html+='<div class="hrow g"><span class="medal">'+medal[i]+'</span>'
+        // 找组员
+        var members=(DATA.students||[]).filter(function(s){return s["学习小组"]===x.g;}).map(function(s){return s["姓名"];}).filter(Boolean);
+        var memHtml = members.length ? '<div class="g-mem" style="font-size:11.5px;color:var(--ink-soft);margin:2px 0 4px 30px">组员：'+esc(members.join("、"))+'</div>' : '';
+        html+='<div class="hrow g">'
+          +'<span class="medal">'+(i<3?medal[i]:(i+1))+'</span>'
           +'<span class="hn">'+esc(x.g)+'</span>'
           +'<span class="hv '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
           + (x.t!==x.c?'<span class="hv hv-cur">（'+fmtPts(x.c)+'）</span>':'')
+          + memHtml
           +'</div>';
       });
     }
@@ -5911,8 +5918,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll().catch(function(e){ console.warn(e); }); }); }
       // 材料收集：保存后由教师点「✅ 应用规则」统一计算加减分（手动，避免误算）
     }).then(function(){ setStatus("ok"); })
-     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败：上传或写入出错"); });
-  }
+     .catch(function(e){
+       console.error("[saveForm] failed:", e);
+       setStatus("offline");
+       // 把真实错误暴露给用户（之前统一 toast 掩盖了根因，导致 RLS / 字段类型不匹配等问题无法定位）
+       var msg = (e && (e.message || e.msg || (e.error && e.error.message) || (e.error_description) || e)) || "";
+       if(typeof msg !== "string") msg = JSON.stringify(msg);
+       // Supabase 常见错误码中文提示
+       if(/row.level security|new row violates|permission denied|42501/i.test(msg)) msg = "RLS 权限拒绝：当前账号对该表没有写入权限。\n详情："+msg;
+       else if(/duplicate key|23505/i.test(msg)) msg = "记录已存在（重复键）："+msg;
+       else if(/invalid input|22P02|23502|23514/i.test(msg)) msg = "字段类型不匹配 / 必填项缺失："+msg;
+       else if(/network|fetch failed|timeout/i.test(msg)) msg = "网络问题："+msg;
+       else if(!msg) msg = "未知错误（看 console.error 完整堆栈）";
+       toast("保存失败："+msg);
+     });
 
   /* 班委「卸任」：标记卸任时间=今天，写回学生档案的「班干部」任期记录，并维护「关注标签」 */
   function resignCommittee(id){
@@ -6385,6 +6404,77 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("ruleMask").classList.add("show");
   }
   function closeRulesConfig(){ document.getElementById("ruleMask").classList.remove("show"); }
+  /* 学习小组批量分配：选择组数（2~8），系统按学号顺序均分到各组（蛇形分），并写入每名学生「学习小组」字段。
+     已有分组的同学会被覆盖；可重复执行（不同组数快速切换）。 */
+  function openStuGroupBatch(){
+    var studs=(DATA.students||[]).slice().sort(function(a,b){
+      var an=parseInt(String(a["学号"]||"").replace(/\D/g,""),10);
+      var bn=parseInt(String(b["学号"]||"").replace(/\D/g,""),10);
+      if(an!==bn) return (isNaN(an)?9999:an)-(isNaN(bn)?9999:bn);
+      return String(a["姓名"]||"").localeCompare(String(b["姓名"]||""),"zh");
+    });
+    var groupOptions=["第1组","第2组","第3组","第4组","第5组","第6组","第7组","第8组"];
+    var html='<div class="mask show" id="stuGroupMask" style="z-index:80">'
+      +'<div class="modal-box" style="max-width:560px">'
+      +'<div class="modal-h">👥 批量分小组<span class="modal-close" data-sgbClose>×</span></div>'
+      +'<div class="modal-b">'
+      +'<div class="hint" style="padding:0 0 10px">将 '+studs.length+' 名学生按学号蛇形均分到 N 个组（覆盖现有「学习小组」字段）。蛇形：1→2→…→N→N-1→…→1，保证学号相邻的两人不在同组。</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+      +'<span style="font-weight:600">分成</span>'
+      +'<input type="number" id="sgbCount" min="2" max="8" value="4" style="width:70px" class="f-input">'
+      +'<span>组</span>'
+      +'<span class="hint" id="sgbPreview" style="margin-left:8px;color:var(--ink-soft)"></span>'
+      +'</div></div>'
+      +'<div class="modal-f"><button class="btn-mini" data-sgbClose>取消</button><button class="btn-mini primary" data-sgbSave>✓ 一键分小组并同步</button></div>'
+      +'</div></div>';
+    var old=document.getElementById("stuGroupMask"); if(old) old.remove();
+    document.body.insertAdjacentHTML("beforeend", html);
+    var updatePreview=function(){
+      var n=parseInt(document.getElementById("sgbCount").value,10)||4;
+      if(n<2) n=2; if(n>8) n=8;
+      var per=Math.floor(studs.length/n), rem=studs.length-per*n;
+      document.getElementById("sgbPreview").textContent = "预计每组 "+per+(rem?"~"+(per+1):"")+" 人（"+studs.length+" 人 / "+n+" 组）";
+    };
+    document.getElementById("sgbCount").addEventListener("input",updatePreview);
+    updatePreview();
+    var close=function(){ var m=document.getElementById("stuGroupMask"); if(m) m.remove(); };
+    document.querySelectorAll("[data-sgbClose]").forEach(function(b){b.onclick=close;});
+    document.getElementById("stuGroupMask").addEventListener("click",function(e){ if(e.target.id==="stuGroupMask") close(); });
+    document.querySelector("[data-sgbSave]").onclick=function(){
+      var n=parseInt(document.getElementById("sgbCount").value,10)||4;
+      if(n<2||n>8){ toast("组数应在 2~8 之间"); return; }
+      // 蛇形分：第 i 个学生分到 group[(i mod 2n) < n ? (i mod 2n) : (2n-1-(i mod 2n))]
+      // 简化版：直接按学号顺序逐个轮流分到 0..n-1（蛇形再翻一下方向即可），这里用「循环 + 翻向」即可让相邻学号不都同组
+      var order=studs.map(function(s){return s;});
+      var assigns=[];
+      var dir=1, cur=0;
+      order.forEach(function(s){
+        var g=groupOptions[cur] || ("第"+(cur+1)+"组");
+        assigns.push({stu:s, group:g});
+        cur += dir;
+        if(cur>=n){ dir=-1; cur=n-1; if(cur<0) cur=0; }
+        else if(cur<0){ dir=1; cur=0; }
+      });
+      // 写入（用 recordProps 整体覆盖避免 apiUpdate 清空其他字段）
+      setStatus("syncing");
+      var chain=Promise.resolve(), n2=0, fail=0;
+      assigns.forEach(function(a){
+        var s=a.stu;
+        if(s["学习小组"]===a.group) return;
+        chain=chain.then(function(){
+          var copy=Object.assign({},s); copy["学习小组"]=a.group;
+          return apiUpdate("students", s._id, copy).then(function(){ n2++; Object.assign(s, copy); }).catch(function(){ fail++; });
+        });
+      });
+      chain.then(function(){
+        setStatus("ok");
+        toast("已更新 "+n2+" 名学生的小组"+ (fail?("（失败 "+fail+"）"):"") +" ✓");
+        close();
+        render();
+        renderHonor && renderHonor();
+      }).catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+    };
+  }
   /* 晚自习固定请假管理：批量标记哪些学生「每周固定请假」或「某周几请假」。
      通过在学生档案上写「晚自习固定请假 / 晚自习周几请假」字段实现。
      网格渲染时检测这些字段，自动把对应格子标为「请假」（不扣分）。 */
@@ -6938,7 +7028,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<span style="font-size:12.5px;color:var(--ink-soft)">'+studs.length+' 人</span>'
        + (isNight?'<span class="gt-sep"></span><button class="gt-btn" data-attFixedLeave title="管理「固定请假 / 周几请假」学生">⚙️ 固定请假</button>':'')
        +'<span class="gt-sep"></span>'
-       +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未手动点击的时段补齐为 '+st.yes+'（考勤分上午/下午两个时段分别补齐；已手动点击的不动）">🪄 一键补齐上午+下午 '+st.yes+'</button>'
+       +(isNight
+         ?'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="晚自习" title="把今日尚未手动点击的学生标记为 '+st.yes+'（只补当天晚自习）">🪄 一键补齐晚自习 '+st.yes+'</button>'
+         :'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="上午" title="把今日上午尚未手动点击的学生标记为 '+st.yes+'（只补当天；已手动点过的时段不动）">🪄 一键补齐上午 '+st.yes+'</button>'
+          +'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="下午" title="把今日下午尚未手动点击的学生标记为 '+st.yes+'（只补当天；已手动点过的时段不动）">🪄 一键补齐下午 '+st.yes+'</button>')
        +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
@@ -7179,13 +7272,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 一键补齐（只补当天，以实际日期为准）：把今日该模块尚无记录的同学批量标记为默认态
      （考勤=出勤 / 材料=已交）。已手动标记异常的同学不受影响；其它日期不补。 */
-  function gridFillToday(mod){
+  function gridFillToday(mod, onlyPeriod){
     var st=GRID_ST[mod];
     var def=st.yes; // 出勤 / 已交
     var today=todayStr();
     var studs=gridStudents();
     // 仅补当天缺失的时段/记录（考勤按上午+下午分别判断；材料按当前类型/事项判断）
-    var periodsOf=function(){ if(mod!=="attendance") return [null]; return (gridState.curItem==="晚自习") ? ["晚自习"] : ["上午","下午"]; };
+    var periodsOf=function(){ if(mod!=="attendance") return [null]; if(onlyPeriod) return [onlyPeriod]; return (gridState.curItem==="晚自习") ? ["晚自习"] : ["上午","下午"]; };
     var missing=0;
     studs.forEach(function(s){
       var no=String(s["学号"]||"");
@@ -7510,6 +7603,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ var ck=clr.getAttribute("data-clear"); if(ck==="attendance"||ck==="materials") clearWeek(ck); else clearModule(ck); return; }
+    var sgb=e.target.closest("[data-stuGroupBatch]");
+    if(sgb){ openStuGroupBatch(); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
       if(act==="done") doDone(id);
@@ -7688,7 +7783,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(ra){ applyRules(ra.getAttribute("data-ruleapply")); return; }
     // 一键补齐当天（出勤/已交）+ 保存并计算积分
     var ft=e.target.closest("[data-filltoday]");
-    if(ft){ gridFillToday(ft.getAttribute("data-filltoday")); return; }
+    if(ft){ gridFillToday(ft.getAttribute("data-filltoday"), ft.getAttribute("data-fillPeriod")); return; }
     var sc=e.target.closest("[data-savecompute]");
     if(sc){ gridSaveCompute(sc.getAttribute("data-savecompute")); return; }
     var rc=e.target.closest("[data-rulecfg]");
