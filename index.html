@@ -871,6 +871,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pf-v{color:var(--ink);font-weight:600}
   .pf-v.pos{color:#2fa37e}
   .pf-v.neg{color:#e23c3c}
+  /* 「一生一档」每行多个「字段:值」时的分组单元：桌面端按内容宽度并列、窄屏整行独占
+     （避免 6 字段被挤到 375px 后中文逐字竖排）*/
+  .pf-cell{display:inline-flex;align-items:baseline;gap:5px;min-width:0;flex:0 1 auto;max-width:100%}
+  .pf-cell .pf-v{word-break:break-word;line-height:1.5}
 
 
   /* toast */
@@ -937,6 +941,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* ⑨ 成绩文件夹标题：点击区域加大，删除按钮不误触 */
   .gv-fh{padding:14px;min-height:52px}
   .gv-fmeta{font-size:12px}
+  /* ⑩ 一生一档字段行：窄屏每个「字段:值」独占一行（避免 6 字段挤在 375px 内逐字竖排） */
+  .pf-cell{flex:0 0 100%}
+  .pf-cell .pf-v{width:100%}
 }
 
 /* ===== 小屏手机（≤480px）进一步紧凑 ===== */
@@ -4808,9 +4815,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         rows.forEach(function(r){
           var cells=sec.fields.map(function(f){
             var v=r[f]; if(v==null||v==="") return "";
-            if(f==="类型"){ var cls=(v==="加分")?"pos":((v==="减分"||v==="兑换")?"neg":""); return '<span class="pf-k">'+esc(f)+'</span><span class="pf-v '+cls+'">'+esc(v)+'</span>'; }
-            if(f==="类别"){ var c=(v==="荣誉")?"pos":((v==="处分")?"neg":""); return '<span class="pf-k">'+esc(f)+'</span><span class="pf-v '+c+'">'+esc(v)+'</span>'; }
-            return '<span class="pf-k">'+esc(f)+'</span><span class="pf-v">'+esc(v)+'</span>';
+            var cls="";
+            if(f==="类型") cls=(v==="加分")?"pos":((v==="减分"||v==="兑换")?"neg":"");
+            else if(f==="类别") cls=(v==="荣誉")?"pos":((v==="处分")?"neg":"");
+            return '<span class="pf-cell"><span class="pf-k">'+esc(f)+'</span><span class="pf-v '+cls+'">'+esc(v)+'</span></span>';
           }).filter(Boolean);
           html+='<div class="pf-row">'+cells.join("")+'</div>';
         });
@@ -6780,7 +6788,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "aifix-2026-08-29";
+  var __APP_VERSION__ = "pflay-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
