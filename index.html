@@ -293,10 +293,29 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .grid-cell.s-leave{background:#E5EEFB;color:#2A5DA8;font-size:18px}
   .grid-cell.mark-pick{background:#FCE6E4 !important;color:#C0392B !important}
   .grid-cell.mark-pick::after{content:"✖️"}
-  .grid-foot{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);background:#fff;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap}
+  /* 单元格内图标：统一 SVG / 字符容器（颜色随父 cell） */
+  .gic{display:inline-flex;align-items:center;justify-content:center;line-height:1;vertical-align:-2px}
+  .gic svg{display:block}
+  .grid-cell .gic{font-weight:700}
+  .grid-foot{display:flex;align-items:center;gap:8px 14px;padding:10px 14px;border-top:1px solid var(--line);background:#fff;font-size:12.5px;color:var(--ink);flex-wrap:wrap}
   .grid-foot .gf-stat{font-weight:700;color:var(--ink)}
   .grid-foot .gf-stat em{font-style:normal;color:var(--mint-d);margin:0 2px}
   .grid-foot .gf-stat.neg em{color:#C0392B}
+  /* 当日号数面板 */
+  .grid-foot .gf-today{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;flex:0 0 100%;min-width:0}
+  .grid-foot .gf-today-date{flex:0 0 100%;font-weight:700;color:var(--ink);font-size:12.5px;letter-spacing:.2px;padding-bottom:2px;border-bottom:1px dashed var(--line);display:flex;align-items:center;gap:6px}
+  .grid-foot .gf-today-bk{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#FAFBFC;border:1px solid var(--line);font-size:12.5px;color:var(--ink)}
+  .grid-foot .gf-today-bk--abs{background:#FDECEC;border-color:#F6B6B2}
+  .grid-foot .gf-today-bk--late{background:#FFF1D9;border-color:#FFCF9A}
+  .grid-foot .gf-today-bk-label{color:var(--ink-soft);font-size:12px;font-weight:600}
+  .grid-foot .gf-today-bk b{font-weight:800;color:#C0392B;font-size:13.5px;min-width:14px;text-align:center;font-variant-numeric:tabular-nums}
+  .grid-foot .gf-today-bk--late b{color:#A56B00}
+  .grid-foot .gf-today-bk-list{max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-soft);font-size:12px}
+  .grid-foot .gf-today-copy{min-height:26px;padding:2px 11px;font-size:11.5px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;font-weight:600;transition:background .15s,color .15s,border-color .15s}
+  .grid-foot .gf-today-copy:hover{background:var(--ink);color:#fff;border-color:transparent}
+  .grid-foot .gf-today-copy:active{transform:translateY(1px)}
+  .grid-foot .gf-today-copy.copied{background:#1F8A4C;color:#fff;border-color:#1F8A4C}
+  .grid-foot .gf-today-copy[disabled]{opacity:.4;cursor:not-allowed}
   /* 列头菜单（popover） */
   .col-menu{position:fixed;z-index:200;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;min-width:170px;display:none}
   .col-menu.show{display:block}
@@ -6275,9 +6294,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* ---------- 📊 网格表格视图（考勤 / 材料收集） ---------- */
   // 状态映射：attendance(出勤/迟到/缺勤/请假) / materials(已交/迟交/未交)
+  // 图标用内联 SVG / 字符，颜色随 cell 的 .s-X 背景/前景拾色
+  var GRID_SVG_LATE = '<svg class="gic" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.6 V8.2 L10.7 10"/></svg>';
+  var GRID_SVG_LEAVE = '<svg class="gic" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 2.2 H10 L13 5.2 V13.8 H3.8 Z"/><path d="M10 2.2 V5.2 H13"/><path d="M5.4 8.2 H10.6 M5.4 10.4 H10.6 M5.4 12.6 H8.6"/></svg>';
   var GRID_ST = {
-    attendance: { yes:"出勤", late:"迟到", no:"缺勤", leave:"请假", labels:{yes:"✅",late:"⏰",no:"✖️",leave:"📋"}, cycle:["yes","no","late","leave",""] },
-    materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",     labels:{yes:"✅",late:"⏰",no:"✖️"},              cycle:["yes","no","late",""] }
+    attendance: { yes:"出勤", late:"迟到", no:"缺勤", leave:"请假",
+      labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE, leave:GRID_SVG_LEAVE },
+      cycle:["yes","no","late","leave",""] },
+    materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",
+      labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE },
+      cycle:["yes","no","late",""] }
   };
   var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"" }; // materials 当前选中的 类型/事项
   var gridMark = null; // {date, picked:Set}
@@ -6382,6 +6408,60 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return out;
   }
 
+  /* 当日号数面板：考勤(缺勤/迟到)、材料(未交/迟交) → 每项含「复制号数」按钮，可直接粘通知家长 */
+  function buildTodayPanel(mod){
+    var today = todayStr();
+    var studs = gridStudents();
+    var buckets;
+    if(mod==="attendance"){
+      var abs=[], late=[];
+      studs.forEach(function(s){
+        var no=String(s["学号"]||""); if(!no) return;
+        var r=gridFindRecord(mod, no, today);
+        if(!r) return;
+        var v=r["状态"]||"";
+        if(v==="缺勤") abs.push(no);
+        else if(v==="迟到") late.push(no);
+      });
+      buckets = [
+        { key:"abs",    cls:"abs",  label:"缺勤", noList:abs  },
+        { key:"late",   cls:"late", label:"迟到", noList:late }
+      ];
+    } else {
+      var unc=[], latemat=[];
+      studs.forEach(function(s){
+        var no=String(s["学号"]||""); if(!no) return;
+        var r=gridFindRecord(mod, no, today);
+        if(!r) return;
+        var v=r["状态"]||"";
+        if(v==="未交") unc.push(no);
+        else if(v==="迟交") latemat.push(no);
+      });
+      buckets = [
+        { key:"unc",    cls:"abs",  label:"未交", noList:unc      },
+        { key:"latemat",cls:"late", label:"迟交", noList:latemat }
+      ];
+    }
+    var dt=new Date(today+"T00:00:00");
+    var wkName=["日","一","二","三","四","五","六"][isNaN(dt.getTime())?0:dt.getDay()];
+    var md=today.slice(5);
+    var items=buckets.map(function(b){
+      var list=b.noList;
+      var nos=list.join("、");
+      var disabled=list.length? '' : ' disabled';
+      return '<span class="gf-today-bk gf-today-bk--'+b.cls+'">'
+        +'<span class="gf-today-bk-label">'+b.label+'</span>'
+        +'<b>'+list.length+'</b>'
+        +'<span class="gf-today-bk-list">'+(list.length? '人·'+esc(nos) : '人（暂无）')+'</span>'
+        +'<button class="gf-today-copy" data-copytoday="'+b.key+'" data-nos="'+esc(nos)+'"'+disabled+'>复制</button>'
+        +'</span>';
+    }).join("");
+    return '<div class="gf-today">'
+      +'<span class="gf-today-date">📅 今日 '+esc(md)+'（周'+wkName+'）</span>'
+      + items
+      +'</div>';
+  }
+
   function renderGrid(){
     var mod=gridState.mod;
     if(!mod) return;
@@ -6459,9 +6539,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById(gridTargets.wrap).innerHTML = html;
     var foot=document.getElementById(gridTargets.foot);
     if(dates.length){
-      var totals={yes:0,no:0,late:0,leave:0,empty:0};
-      dates.forEach(function(d){ var s=gridDateStats(d); totals.yes+=s.yes; totals.no+=s.no; totals.late+=s.late; totals.leave+=s.leave; totals.empty+=s.empty; });
-      foot.innerHTML='<span class="gf-stat">累计 '+st.yes+'<em>'+totals.yes+'</em>·'+st.no+'<em class="neg">'+totals.no+'</em>'+(st.late?'·'+st.late+'<em>'+totals.late+'</em>':'')+(st.leave?'·'+st.leave+'<em>'+totals.leave+'</em>':'')+'</span><span style="color:var(--ink-soft)">未登记 '+totals.empty+' 人次</span>';
+      foot.innerHTML = buildTodayPanel(mod);
     } else { foot.innerHTML='<span style="color:var(--ink-soft)">还没有任何日期，点列尾「+」或右上角新增第一列（默认今天）</span>'; }
   }
 
@@ -7005,6 +7083,31 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(ra){ applyRules(ra.getAttribute("data-ruleapply")); return; }
     var rc=e.target.closest("[data-rulecfg]");
     if(rc){ openRulesConfig(rc.getAttribute("data-rulecfg")); return; }
+    // 当日号数面板：复制号数到剪贴板
+    var cpc=e.target.closest("[data-copytoday]");
+    if(cpc){
+      if(cpc.disabled) return;
+      var nos=cpc.getAttribute("data-nos")||"";
+      var label=cpc.parentElement?(cpc.parentElement.querySelector(".gf-today-bk-label")||{}).textContent||"号数":"号数";
+      var text = nos ? (label+"号数："+nos) : "";
+      var done=function(){ cpc.textContent="已复制 ✓"; cpc.classList.add("copied"); if(cpc._t) clearTimeout(cpc._t); cpc._t=setTimeout(function(){ cpc.textContent="复制"; cpc.classList.remove("copied"); },1500); toast("已复制"+label+"号数："+nos); };
+      var fail=function(){ toast("复制失败，请长按号数手动复制"); };
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(done).catch(function(){
+            // 后备：临时 textarea + execCommand
+            var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+            document.body.appendChild(ta); ta.select();
+            try{ document.execCommand("copy"); done(); }catch(_e){ fail(); } document.body.removeChild(ta);
+          });
+        } else {
+          var ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+          document.body.appendChild(ta); ta.select();
+          try{ document.execCommand("copy"); done(); }catch(_e){ fail(); } document.body.removeChild(ta);
+        }
+      }catch(_e){ fail(); }
+      return;
+    }
     var gt=e.target.closest("[data-gttype]");
     if(gt){ gridState.curType=gt.getAttribute("data-gttype"); renderGrid(); return; }
     var ai=e.target.closest("[data-gridtApplyItem]");
@@ -7838,7 +7941,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "ruleapply-2026-08-29";
+  var __APP_VERSION__ = "todaysummary-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
