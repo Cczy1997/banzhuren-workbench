@@ -199,6 +199,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .par-name .par-no{flex:0 0 auto}
   .par-no{font-size:11.5px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 8px}
   .par-rel{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+  /* 学生姓名：点击跳转到该生「一生一档」（家长卡片主体点开的是家长信息） */
+  .par-stu{cursor:pointer;color:var(--pink-d)}
+  .par-stu:hover{text-decoration:underline}
+  .par-stu-go{font-size:11px;color:var(--ink-soft);font-weight:700}
+  /* 卡片上预览家长单位 / 家庭住址 */
+  .par-meta{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.45;word-break:break-word;overflow-wrap:anywhere;white-space:normal}
   .par-tel{display:inline-block;max-width:100%;margin-top:6px;font-size:13.5px;font-weight:700;color:var(--mint-d);text-decoration:none;word-break:break-all;overflow-wrap:anywhere;white-space:normal}
   .par-tel.off{color:var(--ink-soft);font-weight:600;font-size:12.5px}
   /* 关联学生选择器弹层 */
@@ -1413,6 +1419,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         {name:"电话",type:"text",ph:"手机号"},
         {name:"微信",type:"text",ph:"选填"},
         {name:"单位",type:"text",ph:"工作单位（选填）"},
+        {name:"家庭住址",type:"text",ph:"家庭住址（选填）"},
         {name:"备注",type:"text",ph:"选填"}
       ]
     },
@@ -2160,7 +2167,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return (r["学生姓名"]||"").toLowerCase().indexOf(pq)>=0
           || (r["学号"]||"").toLowerCase().indexOf(pq)>=0
           || (r["家长姓名"]||"").toLowerCase().indexOf(pq)>=0
-          || (r["电话"]||"").toLowerCase().indexOf(pq)>=0;
+          || (r["电话"]||"").toLowerCase().indexOf(pq)>=0
+          || (r["单位"]||"").toLowerCase().indexOf(pq)>=0
+          || (r["家庭住址"]||"").toLowerCase().indexOf(pq)>=0;
       });
     }
     var attStrip = renderModAttachments(key);
@@ -4012,10 +4021,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // —— 原来复用 .stu-grid（列宽仅 118px）会把姓名挤到换行。
     return '<div class="par-grid">'+rows.map(function(r){
       var phone=String(r["电话"]||"");
-      return '<div class="par-card" data-profile="'+esc(r["学生姓名"]||"")+'">'
+      var meta=[r["单位"],r["家庭住址"]].filter(function(x){return x&&String(x).trim();}).map(function(x){return esc(x);}).join(' · ');
+      return '<div class="par-card" data-pedit="'+esc(r._id||"")+'">'
         +'<div class="par-main">'
-        +'<div class="par-name">'+esc(r["学生姓名"]||"（未填）")+(r["学号"]?' <span class="par-no">'+esc(r["学号"])+'</span>':'')+'</div>'
+        +'<div class="par-name"><span class="par-stu" data-profile="'+esc(r["学生姓名"]||"")+'">'+esc(r["学生姓名"]||"（未填）")+(r["学号"]?' <span class="par-no">'+esc(r["学号"])+'</span>':'')+' <span class="par-stu-go">↗</span></span></div>'
         +'<div class="par-rel">'+(r["关系"]?esc(r["关系"])+' · ':'')+esc(r["家长姓名"]||"家长未填")+'</div>'
+        + (meta?'<div class="par-meta">'+meta+'</div>':'')
         + (phone?'<a class="par-tel" href="tel:'+esc(phone)+'">📞 '+esc(phone)+'</a>':'<div class="par-tel off">无电话</div>')
         +'</div></div>';
     }).join("")+'</div>';
@@ -4840,16 +4851,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(st && st["班干部"] && String(st["班干部"]).trim()){
       html+='<div class="pf-note pf-role">🏅 班委任职：<br>'+esc(String(st["班干部"]).replace(/\n/g,"<br>"))+'</div>';
     }
-    /* 家长通讯：按学生姓名关联家长电话，便于在「一生一档」里直接联系家长 */
+    /* 家长通讯：从「一生一档」只展示家长电话（单位/家庭住址等详情在「家长通讯」模块查看） */
     var pars=(DATA.parents||[]).filter(function(p){ return (p["学生姓名"]||"")===name; });
     if(pars.length){
-      html+='<div class="pf-sec"><div class="pf-sec-h">📞 家长通讯 <span class="pf-cnt">'+pars.length+'</span></div><div class="pf-rows">';
+      html+='<div class="pf-sec"><div class="pf-sec-h">📞 家长电话 <span class="pf-cnt">'+pars.length+'</span></div><div class="pf-rows">';
       pars.forEach(function(p){
-        var rel=String(p["关系"]||"家长").trim();
-        var pn=String(p["家长姓名"]||"").trim();
         var phone=String(p["电话"]||"").trim();
         html+='<div class="pf-row pf-par">'
-          +'<span class="pf-k">'+esc(rel)+(pn?' · '+esc(pn):'')+'</span>'
           + (phone?'<a class="par-tel" href="tel:'+esc(phone)+'">📞 '+esc(phone)+'</a>':'<span class="pf-v">无电话</span>')
           +'</div>';
       });
@@ -6068,7 +6076,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ var ok=ocr.getAttribute("data-ocr"); if(ok==="materials") openMatOCR(); else openOCR(); return; }
+    /* 家长卡片：电话直拨链接优先，避免误触发编辑/跳转 */
+    if(e.target.closest("a.par-tel")){ return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
+    var pedit=e.target.closest("[data-pedit]"); if(pedit){ openEdit("parents", pedit.getAttribute("data-pedit")); return; }
     /* 班级制度 · 方向文件夹 */
     var rctog=e.target.closest("[data-rctoggle]"); if(rctog){ toggleRuleCat(rctog.getAttribute("data-rctoggle")); return; }
     /* 加减分管理 · 分组列表 */
@@ -6302,6 +6313,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     "关系称谓":"关系","称谓":"关系",
     "家长":"家长姓名","家长称呼":"家长姓名","家长名":"家长姓名",
     "工作单位":"单位","公司":"单位","所在公司":"单位",
+    "家庭住址":"家庭住址","住址":"家庭住址","家庭地址":"家庭住址","居所":"家庭住址","居住地址":"家庭住址",
     "名称标题":"名称","荣誉名称":"名称","处分名称":"名称","荣誉处分":"名称",
     "评语内容":"评语","寄语":"评语","班主任评语":"评语",
     "事由说明":"事由","原因说明":"原因","加减原因":"原因",
@@ -7068,7 +7080,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "materials-2026-08-29";
+  var __APP_VERSION__ = "parinfo-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
