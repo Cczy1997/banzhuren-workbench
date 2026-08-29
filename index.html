@@ -1467,6 +1467,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <span class="field-hint">周一至周五均出勤记 1 周，每满 1 周加此分值；中断则该周不计。</span>
     </div>
     <div class="field">
+      <label>考勤 · 缺勤扣分（每次）</label>
+      <input type="number" id="ruleAttAbsent" step="0.5" min="0" value="1">
+      <span class="field-hint">每次缺勤按此分值减分（减分在「加减分」中存为正数）；默认 1。</span>
+    </div>
+    <div class="field">
+      <label>考勤 · 迟到扣分（每次）</label>
+      <input type="number" id="ruleAttLate" step="0.5" min="0" value="0.5">
+      <span class="field-hint">每次迟到按此分值减分（减分在「加减分」中存为正数）；默认 0.5。</span>
+    </div>
+    <div class="field">
       <label>材料 · 连续已交次数</label>
       <input type="number" id="ruleMatCons" step="1" min="1" value="10">
       <span class="field-hint">作业提交 / 材料上交各自连续已交满此次数，加 1 分；迟交或未交中断连续。</span>
@@ -6083,20 +6093,29 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
 
   /* ---------- 加减分规则（手动「应用规则」触发；自动去重、可重算） ----------
-     考勤：周一~周五连续全勤 → 每人 +attWeekBonus（中断则该周不得分）
+     考勤：① 缺勤每次 −attAbsentPenalty（默认 1）、迟到每次 −attLatePenalty（默认 0.5），按次计分；
+           ② 周一~周五连续全勤 → 每人 +attWeekBonus（中断则该周不得分）。扣分与全勤奖励可叠加。
      材料：作业提交 / 材料上交 分开计算，连续 matConsecutive 次已交 → +1；迟交每次 −matLatePenalty
            （未交只中断连续、不额外扣分） */
   function matchStu(r, no, nm){ return no ? String(r["学号"]||"")===String(no) : String(r["学生姓名"]||"")===String(nm); }
   function computeAttendancePoints(){
     var out=[], bonus=RULE_CFG.attWeekBonus||1;
+    var absentP=RULE_CFG.attAbsentPenalty!=null?RULE_CFG.attAbsentPenalty:1;
+    var lateP=RULE_CFG.attLatePenalty!=null?RULE_CFG.attLatePenalty:0.5;
     (DATA.students||[]).forEach(function(s){
       var no=String(s["学号"]||"").trim(), nm=String(s["姓名"]||"").trim(); if(!nm) return;
-      var pres={};
+      var pres={}; var absent=0, late=0;
       (DATA.attendance||[]).forEach(function(r){
         if(!matchStu(r, no, nm)) return;
         var d=String(r["日期"]||"").slice(0,10); if(!d) return;
-        pres[d]=r["状态"]||"";
+        var st=r["状态"]||"";
+        if(st==="缺勤") absent++;
+        else if(st==="迟到") late++;
+        pres[d]=st;
       });
+      // 缺勤 / 迟到 按次扣分（扣分值在「加减分」中存为正数，类型记为减分）
+      if(absent>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(absent*absentP).toFixed(2), 时间:nowHMS(), 原因:"[考勤]缺勤"+absent+"次（每次−"+absentP+"）", 来源:"考勤"});
+      if(late>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(late*lateP).toFixed(2), 时间:nowHMS(), 原因:"[考勤]迟到"+late+"次（每次−"+lateP+"）", 来源:"考勤"});
       var weeks={};
       Object.keys(pres).forEach(function(d){
         var dt=new Date(d+"T00:00:00"); if(isNaN(dt.getTime())) return;
@@ -6195,6 +6214,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function openRulesConfig(mod){
     document.getElementById("ruleTitle").textContent = "⚙️ "+(mod==="attendance"?"考勤":"材料收集")+" · 加减分规则";
     document.getElementById("ruleAttBonus").value = (RULE_CFG.attWeekBonus!=null?RULE_CFG.attWeekBonus:1);
+    document.getElementById("ruleAttAbsent").value = (RULE_CFG.attAbsentPenalty!=null?RULE_CFG.attAbsentPenalty:1);
+    document.getElementById("ruleAttLate").value = (RULE_CFG.attLatePenalty!=null?RULE_CFG.attLatePenalty:0.5);
     document.getElementById("ruleMatCons").value = (RULE_CFG.matConsecutive!=null?RULE_CFG.matConsecutive:10);
     document.getElementById("ruleMatLate").value = (RULE_CFG.matLatePenalty!=null?RULE_CFG.matLatePenalty:0.5);
     document.getElementById("ruleMask").classList.add("show");
@@ -6202,12 +6223,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function closeRulesConfig(){ document.getElementById("ruleMask").classList.remove("show"); }
   function saveRulesConfig(){
     var a=parseFloat(document.getElementById("ruleAttBonus").value);
+    var ab=parseFloat(document.getElementById("ruleAttAbsent").value);
+    var al=parseFloat(document.getElementById("ruleAttLate").value);
     var c=parseInt(document.getElementById("ruleMatCons").value,10);
     var l=parseFloat(document.getElementById("ruleMatLate").value);
     if(isNaN(a)||a<0) a=1;
+    if(isNaN(ab)||ab<0) ab=1;
+    if(isNaN(al)||al<0) al=0.5;
     if(isNaN(c)||c<1) c=10;
     if(isNaN(l)||l<0) l=0.5;
-    RULE_CFG.attWeekBonus=a; RULE_CFG.matConsecutive=c; RULE_CFG.matLatePenalty=l;
+    RULE_CFG.attWeekBonus=a; RULE_CFG.attAbsentPenalty=ab; RULE_CFG.attLatePenalty=al; RULE_CFG.matConsecutive=c; RULE_CFG.matLatePenalty=l;
     saveRuleCfg();
     closeRulesConfig();
     toast("规则已保存（下次点「应用规则」生效）");
@@ -6380,8 +6405,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function attMatGrid(key){ return (key==="attendance"||key==="materials") ? (GRIDVIEW[key]!==false) : false; }
   /* 加减分规则配置（可在「⚙️ 规则」中调整；默认遵循用户给定规则） */
   var RULE_CFG_LS="wb_cls_rulecfg";
-  var RULE_CFG = { attWeekBonus:1, matConsecutive:10, matLatePenalty:0.5 };
-  (function(){ try{ var s=JSON.parse(localStorage.getItem(RULE_CFG_LS)||"null"); if(s&&typeof s==="object"){ if(typeof s.attWeekBonus==="number") RULE_CFG.attWeekBonus=s.attWeekBonus; if(typeof s.matConsecutive==="number") RULE_CFG.matConsecutive=s.matConsecutive; if(typeof s.matLatePenalty==="number") RULE_CFG.matLatePenalty=s.matLatePenalty; } }catch(e){} })();
+  var RULE_CFG = { attWeekBonus:1, attAbsentPenalty:1, attLatePenalty:0.5, matConsecutive:10, matLatePenalty:0.5 };
+  (function(){ try{ var s=JSON.parse(localStorage.getItem(RULE_CFG_LS)||"null"); if(s&&typeof s==="object"){ if(typeof s.attWeekBonus==="number") RULE_CFG.attWeekBonus=s.attWeekBonus; if(typeof s.attAbsentPenalty==="number") RULE_CFG.attAbsentPenalty=s.attAbsentPenalty; if(typeof s.attLatePenalty==="number") RULE_CFG.attLatePenalty=s.attLatePenalty; if(typeof s.matConsecutive==="number") RULE_CFG.matConsecutive=s.matConsecutive; if(typeof s.matLatePenalty==="number") RULE_CFG.matLatePenalty=s.matLatePenalty; } }catch(e){} })();
   function saveRuleCfg(){ try{ localStorage.setItem(RULE_CFG_LS, JSON.stringify(RULE_CFG)); }catch(e){} }
 
   function openGrid(mod){
@@ -8093,7 +8118,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mallrobust-2026-08-29";
+  var __APP_VERSION__ = "attpenalty-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
