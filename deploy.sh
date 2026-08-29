@@ -19,6 +19,21 @@ fi
 
 cp "$SRC" "$DST"
 cd "$ROOT/gh-pages"
+# 把当前版本号注入 sw.js 的缓存名：每次部署版本号变化 → 旧缓存自动失效、拉取新页面
+VER=$(grep -oE '__APP_VERSION__\s*=\s*"[^"]+"' "$DST" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+if [ -n "$VER" ] && [ -f "$ROOT/gh-pages/sw.js" ]; then
+  python3 - "$ROOT/gh-pages/sw.js" "$VER" <<'PY'
+import sys
+p, ver = sys.argv[1], sys.argv[2]
+try:
+    s = open(p, encoding="utf-8").read()
+    s2 = s.replace("WB_VER_TOKEN", ver)
+    if s2 != s:
+        open(p, "w", encoding="utf-8").write(s2)
+except Exception as e:
+    print("sw.js 版本注入跳过:", e)
+PY
+fi
 git add -A
 git commit -m "$MSG" || echo "（无变更，跳过提交）"
 

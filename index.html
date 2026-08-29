@@ -1015,6 +1015,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pf-sec-h{font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:7px;display:flex;align-items:center;gap:7px}
   .pf-cnt{font-size:11px;font-weight:700;color:var(--ink-soft);background:#F3ECF1;border-radius:999px;padding:1px 8px}
   .pf-empty{font-size:12.5px;color:var(--ink-soft);padding:6px 2px}
+  /* 个人档案 · 资料 / Excel 附件 */
+  .pf-file{display:flex;align-items:center;gap:8px;background:#FFFDFE;border:1px solid var(--line);border-radius:11px;padding:7px 10px;font-size:13px;margin-bottom:6px}
+  .pf-file-link{color:var(--pink-d);font-weight:700;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pf-file-link:hover{text-decoration:underline}
+  .pf-file-size{font-size:11.5px;color:var(--ink-soft)}
+  .pf-file-del{border:none;background:#fdecec;color:#d8453f;border-radius:8px;width:22px;height:22px;cursor:pointer;font-size:13px;line-height:1;flex:none}
+  .pf-file-del:hover{background:#f8d4d2}
+  .gv-src{margin-left:8px;font-size:12px;font-weight:700;color:var(--pink-d);text-decoration:none;border:1px solid #f0d9e6;background:#fff5fa;border-radius:999px;padding:1px 9px}
+  .gv-src:hover{background:#ffe9f3}
   .pf-rows{display:flex;flex-direction:column;gap:6px}
   .pf-row{display:flex;flex-wrap:wrap;gap:6px 12px;background:#FFFDFE;border:1px solid var(--line);border-radius:12px;padding:8px 11px;font-size:13px}
   .pf-k{color:var(--ink-soft);font-weight:600}
@@ -1504,6 +1513,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <input type="number" id="ruleMatLate" step="0.5" min="0" value="0.5">
       <span class="field-hint">每次迟交按此分值减分（减分在「加减分」中存为正数）。</span>
     </div>
+    <div class="field">
+      <label>材料 · 未交扣分（每次）</label>
+      <input type="number" id="ruleMatNo" step="0.5" min="0" value="1">
+      <span class="field-hint">每次未交按此分值减分（减分在「加减分」中存为正数）；默认 1。</span>
+    </div>
     <div class="actions">
       <button class="btn-cancel" id="ruleCancel">取消</button>
       <button class="btn-save" id="ruleSave">保存</button>
@@ -1518,6 +1532,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <button class="x" id="profileClose">×</button>
     <div id="profileBody"></div>
   </div>
+  <!-- 学生档案 · 上传原始 Excel / 资料（存入云端，跨设备可下载查找） -->
+  <input type="file" id="pfFileInput" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx" style="display:none">
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2286,6 +2302,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       html+='    <span class="gv-caret">'+(open?'▾':'▸')+'</span>';
       html+='    <span class="gv-fname">📁 '+esc(ex.name)+'</span>';
       html+='    <span class="gv-fmeta">'+(ex.time?('· '+esc(ex.time)):'')+' · '+stus.length+' 人 · '+subjs.length+' 科 · 平均 '+avg+'</span>';
+      var src=(DATA.files||[]).filter(function(f){ return f.mod==="grades" && (f.related===ex.name); })[0];
+      if(src) html+='<a class="gv-src" href="'+esc(src.url||"#")+'" target="_blank" rel="noopener" title="下载原始 '+esc(src.name||"文件")+'">📎 原始文件</a>';
       html+='    <button class="gv-del" data-gvdel="'+esc(ex.name)+'" title="删除该考试及全部成绩">✕</button>';
       html+='  </div>';
       if(open) html+=gradeExamPivot(ex.name, stus, subjs);
@@ -5131,6 +5149,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     /* 成绩：按考试分组展示，在「一生一档」直接看到该生各科成绩与总分 */
     html += profileGradesHTML(name);
+    /* 资料 / Excel 附件：上传后存入云端，任何设备登录都能下载查找 */
+    html += profileFilesHTML(name);
     body.innerHTML=html;
     document.getElementById("profileMask").classList.add("show");
   }
@@ -5170,6 +5190,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
     html+='</div></div>';
     return html;
+  }
+  /* 个人档案 · 资料 / Excel 附件区：列出该生已上传、存入云端的文件，可下载 / 删除（任何设备登录都能看到） */
+  function profileFilesHTML(name){
+    var list=(DATA.files||[]).filter(function(f){ return (f.mod==="students") && (f.related===name); });
+    var items = list.length ? list.map(function(f){
+      var size = f.size ? (f.size>1048576 ? (f.size/1048576).toFixed(1)+"MB" : Math.round(f.size/1024)+"KB") : "";
+      var icon = (f.kind==="excel") ? "📊" : (f.kind==="pdf" ? "📕" : (f.kind==="image" ? "🖼️" : "📎"));
+      return '<div class="pf-file">'
+        + '<a class="pf-file-link" href="'+esc(f.url||"#")+'" target="_blank" rel="noopener">'+icon+' '+esc(f.name||"附件")+'</a>'
+        + (size?'<span class="pf-file-size">'+size+'</span>':'')
+        + '<button class="pf-file-del" data-pfdel="'+esc(f._id||"")+'" title="删除该附件">✕</button>'
+        + '</div>';
+    }).join("") : '<div class="pf-empty">暂无资料文件</div>';
+    return '<div class="pf-sec"><div class="pf-sec-h">📎 资料 / Excel 附件 <span class="pf-cnt">'+list.length+'</span></div>'
+      + '<div id="pfFileList">'+items+'</div>'
+      + '<button class="btn-add" id="pfUploadExcel">＋ 上传 Excel / 资料</button>'
+      + '<span class="field-hint" style="margin-top:6px;display:block">上传后存入云端，任何设备登录都能下载查找。</span>'
+      + '</div>';
   }
   /* 个人档案 · 各科「最新成绩」雷达图（纯 SVG，零依赖）
      - 取该生每个科目在**最近一次考试**中的分数（考试按时间升序，后者覆盖前者）
@@ -6156,8 +6194,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* ---------- 加减分规则（手动「应用规则」触发；自动去重、可重算） ----------
      考勤：① 缺勤每次 −attAbsentPenalty（默认 1）、迟到每次 −attLatePenalty（默认 0.5），按次计分；
            ② 周一~周五连续全勤 → 每人 +attWeekBonus（中断则该周不得分）。扣分与全勤奖励可叠加。
-     材料：作业提交 / 材料上交 分开计算，连续 matConsecutive 次已交 → +1；迟交每次 −matLatePenalty
-           （未交只中断连续、不额外扣分） */
+     材料：作业提交 / 材料上交 分开计算，连续 matConsecutive 次已交 → +1；迟交每次 −matLatePenalty、未交每次 −matNoPenalty
+           （迟交 / 未交都会中断连续） */
   function matchStu(r, no, nm){ return no ? String(r["学号"]||"")===String(no) : String(r["学生姓名"]||"")===String(nm); }
   function computeAttendancePoints(){
     var out=[], bonus=RULE_CFG.attWeekBonus||1;
@@ -6195,7 +6233,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return out;
   }
   function computeMaterialPoints(){
-    var out=[], cons=RULE_CFG.matConsecutive||10, lateP=RULE_CFG.matLatePenalty||0.5;
+    var out=[], cons=RULE_CFG.matConsecutive||10, lateP=RULE_CFG.matLatePenalty||0.5, noP=RULE_CFG.matNoPenalty!=null?RULE_CFG.matNoPenalty:1;
     (DATA.students||[]).forEach(function(s){
       var no=String(s["学号"]||"").trim(), nm=String(s["姓名"]||"").trim(); if(!nm) return;
       ["作业提交","材料上交"].forEach(function(type){
@@ -6203,14 +6241,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           .map(function(r){ return {date:String(r["日期"]||"").slice(0,10), status:r["状态"]||""}; })
           .filter(function(r){ return r.date; })
           .sort(function(a,b){ return a.date.localeCompare(b.date); });
-        var streak=0, bonus=0, late=0;
+        var streak=0, bonus=0, late=0, none=0;
         recs.forEach(function(r){
           if(r.status==="已交"){ streak++; if(streak>0 && streak%cons===0) bonus++; }
           else if(r.status==="迟交"){ late++; streak=0; }
-          else { streak=0; }
+          else { none++; streak=0; }   // 未交（含空状态）中断连续，并单独计次扣分
         });
         if(bonus>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"加分", 分值:bonus, 时间:nowHMS(), 原因:"[材料]"+type+"连续已交奖励（"+bonus*cons+"次）", 来源:"材料"});
         if(late>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(late*lateP).toFixed(2), 时间:nowHMS(), 原因:"[材料]"+type+"迟交"+late+"次（每次−"+lateP+"）", 来源:"材料"});
+        if(none>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(none*noP).toFixed(2), 时间:nowHMS(), 原因:"[材料]"+type+"未交"+none+"次（每次−"+noP+"）", 来源:"材料"});
       });
     });
     return out;
@@ -6279,6 +6318,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("ruleAttLate").value = (RULE_CFG.attLatePenalty!=null?RULE_CFG.attLatePenalty:0.5);
     document.getElementById("ruleMatCons").value = (RULE_CFG.matConsecutive!=null?RULE_CFG.matConsecutive:10);
     document.getElementById("ruleMatLate").value = (RULE_CFG.matLatePenalty!=null?RULE_CFG.matLatePenalty:0.5);
+    document.getElementById("ruleMatNo").value = (RULE_CFG.matNoPenalty!=null?RULE_CFG.matNoPenalty:1);
     document.getElementById("ruleMask").classList.add("show");
   }
   function closeRulesConfig(){ document.getElementById("ruleMask").classList.remove("show"); }
@@ -6288,12 +6328,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var al=parseFloat(document.getElementById("ruleAttLate").value);
     var c=parseInt(document.getElementById("ruleMatCons").value,10);
     var l=parseFloat(document.getElementById("ruleMatLate").value);
+    var no=parseFloat(document.getElementById("ruleMatNo").value);
     if(isNaN(a)||a<0) a=1;
     if(isNaN(ab)||ab<0) ab=1;
     if(isNaN(al)||al<0) al=0.5;
     if(isNaN(c)||c<1) c=10;
     if(isNaN(l)||l<0) l=0.5;
-    RULE_CFG.attWeekBonus=a; RULE_CFG.attAbsentPenalty=ab; RULE_CFG.attLatePenalty=al; RULE_CFG.matConsecutive=c; RULE_CFG.matLatePenalty=l;
+    if(isNaN(no)||no<0) no=1;
+    RULE_CFG.attWeekBonus=a; RULE_CFG.attAbsentPenalty=ab; RULE_CFG.attLatePenalty=al; RULE_CFG.matConsecutive=c; RULE_CFG.matLatePenalty=l; RULE_CFG.matNoPenalty=no;
     saveRuleCfg();
     closeRulesConfig();
     toast("规则已保存（下次点「应用规则」生效）");
@@ -6554,8 +6596,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 加减分规则配置（可在「⚙️ 规则」中调整；默认遵循用户给定规则） */
   var RULE_CFG_LS="wb_cls_rulecfg";
-  var RULE_CFG = { attWeekBonus:1, attAbsentPenalty:1, attLatePenalty:0.5, matConsecutive:10, matLatePenalty:0.5 };
-  (function(){ try{ var s=JSON.parse(localStorage.getItem(RULE_CFG_LS)||"null"); if(s&&typeof s==="object"){ if(typeof s.attWeekBonus==="number") RULE_CFG.attWeekBonus=s.attWeekBonus; if(typeof s.attAbsentPenalty==="number") RULE_CFG.attAbsentPenalty=s.attAbsentPenalty; if(typeof s.attLatePenalty==="number") RULE_CFG.attLatePenalty=s.attLatePenalty; if(typeof s.matConsecutive==="number") RULE_CFG.matConsecutive=s.matConsecutive; if(typeof s.matLatePenalty==="number") RULE_CFG.matLatePenalty=s.matLatePenalty; } }catch(e){} })();
+  var RULE_CFG = { attWeekBonus:1, attAbsentPenalty:1, attLatePenalty:0.5, matConsecutive:10, matLatePenalty:0.5, matNoPenalty:1 };
+  (function(){ try{ var s=JSON.parse(localStorage.getItem(RULE_CFG_LS)||"null"); if(s&&typeof s==="object"){ if(typeof s.attWeekBonus==="number") RULE_CFG.attWeekBonus=s.attWeekBonus; if(typeof s.attAbsentPenalty==="number") RULE_CFG.attAbsentPenalty=s.attAbsentPenalty; if(typeof s.attLatePenalty==="number") RULE_CFG.attLatePenalty=s.attLatePenalty; if(typeof s.matConsecutive==="number") RULE_CFG.matConsecutive=s.matConsecutive; if(typeof s.matLatePenalty==="number") RULE_CFG.matLatePenalty=s.matLatePenalty; if(typeof s.matNoPenalty==="number") RULE_CFG.matNoPenalty=s.matNoPenalty; } }catch(e){} })();
   function saveRuleCfg(){ try{ localStorage.setItem(RULE_CFG_LS, JSON.stringify(RULE_CFG)); }catch(e){} }
 
   function openGrid(mod){
@@ -7173,6 +7215,23 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     /* 家长卡片：电话直拨链接优先，避免误触发编辑/跳转 */
     if(e.target.closest("a.par-tel")){ return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
+    /* 学生档案 · 上传原始 Excel / 资料（存入云端，跨设备可下载） */
+    var upExcel=e.target.closest("#pfUploadExcel"); if(upExcel){ var finp=document.getElementById("pfFileInput"); if(finp) finp.click(); return; }
+    var delFile=e.target.closest("[data-pfdel]"); if(delFile){
+      var fid=delFile.getAttribute("data-pfdel");
+      var frec=(DATA.files||[]).filter(function(x){ return x._id===fid; })[0];
+      if(frec && confirm("确定删除该附件「"+(frec.name||"文件")+"」？此操作不可撤销。")){
+        setStatus("syncing");
+        var jobs=[];
+        if(frec.path && db && db.storage) jobs.push(db.storage.from(BUCKET).remove([frec.path]).then(function(){}, function(){}));
+        jobs.push(apiDelete("files", fid));
+        Promise.all(jobs).then(function(){
+          DATA.files=(DATA.files||[]).filter(function(x){ return x._id!==fid; });
+          setStatus("ok"); openStudentProfile(profileName); toast("已删除附件 ✓");
+        }).catch(function(err){ setStatus("offline"); toast("删除失败："+(err&&err.message||err)); });
+      }
+      return;
+    }
     var pedit=e.target.closest("[data-pedit]"); if(pedit){ openEdit("parents", pedit.getAttribute("data-pedit")); return; }
     /* 班级制度 · 方向文件夹 */
     var rctog=e.target.closest("[data-rctoggle]"); if(rctog){ toggleRuleCat(rctog.getAttribute("data-rctoggle")); return; }
@@ -7357,6 +7416,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("impGradeExamTime").addEventListener("change",function(e){ impGradeExamTime=e.target.value || ""; if(impParsed) showPreview(impParsed); });
   document.getElementById("impPick").addEventListener("click",function(){ document.getElementById("impFile").click(); });
   document.getElementById("impFile").addEventListener("change",handleImpFile);
+  /* 学生档案 · 上传 Excel / 资料到云端 */
+  var pfInp=document.getElementById("pfFileInput");
+  if(pfInp) pfInp.addEventListener("change", function(){
+    var file=pfInp.files && pfInp.files[0]; if(!file) return;
+    if(!profileName){ toast("请先打开某个学生的档案"); pfInp.value=""; return; }
+    if(!db||!db.storage){ toast("存储未初始化，请稍候重试"); pfInp.value=""; return; }
+    setStatus("syncing");
+    var ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+    var kind = /xlsx?|csv/.test(ext)?"excel":(/pdf/.test(ext)?"pdf":(/docx?/.test(ext)?"doc":(/png|jpe?g|gif|webp/.test(ext)?"image":"file")));
+    var path="students/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+    db.storage.from(BUCKET).upload(path, file, {upsert:true, cacheControl:"3600"}).then(function(r){
+      if(r.error) throw r.error;
+      var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      return apiAdd("files", {name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:"students", related:profileName, kind:kind, url:url}).then(function(o){
+        DATA.files=DATA.files||[];
+        DATA.files.push({_id:o._id, name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:"students", related:profileName, kind:kind, url:url, created_at:o.created_at});
+      });
+    }).then(function(){ setStatus("ok"); pfInp.value=""; openStudentProfile(profileName); toast("已保存附件 ✓（任何设备可见）"); })
+      .catch(function(err){ setStatus("offline"); pfInp.value=""; console.error(err); toast("上传失败："+(err&&err.message?err.message:err)); });
+  });
   document.getElementById("impDo").addEventListener("click",confirmImport);
   document.getElementById("impPreview").addEventListener("click",function(e){ var b=e.target.closest("[data-impimg]"); if(b){ if(b.getAttribute("data-impimg")==="save") saveScreenshot(impImgFile); } });
   document.getElementById("ocrClose").addEventListener("click",closeOCR);
@@ -8075,7 +8154,28 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function handleImpFile(e){
     var file=e.target.files && e.target.files[0];
     if(!file) return;
+    impFile=file;   // 记住原始文件，导入成功后存入云端（成绩模块跨设备可下载）
     parseAndPreview(file);
+  }
+  /* 把一次导入的**原始 Excel / 文档**存入 Supabase Storage，并记录到 hr_files（mod=模块，related=关联名）。
+     返回 Promise；失败不阻塞主流程。 */
+  function storeSourceFile(file, mod, related){
+    return new Promise(function(resolve, reject){
+      if(!file || !(file.size)) return reject(new Error("no file"));
+      if(!db || !db.storage) return reject(new Error("no storage"));
+      var ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+      var kind=/xlsx?|csv/.test(ext)?"excel":(/pdf/.test(ext)?"pdf":(/docx?/.test(ext)?"doc":"file"));
+      var path=mod+"/src_"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+      db.storage.from(BUCKET).upload(path, file, {upsert:true, cacheControl:"3600"}).then(function(r){
+        if(r.error) throw r.error;
+        var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+        return apiAdd("files", {name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:mod, related:related, kind:kind, url:url}).then(function(o){
+          DATA.files=DATA.files||[];
+          DATA.files.push({_id:o._id, name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:mod, related:related, kind:kind, url:url, created_at:o.created_at});
+          resolve();
+        });
+      }).catch(reject);
+    });
   }
   function confirmImport(){
     if(!impKey||!impData||!impData.rows.length) return;
@@ -8085,10 +8185,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var fields=MODULES[key].fields, map=impData.map, mainF=MODULES[key].main;
     /* 成绩模块：本次所属「考试」+ 考试时间；多科表按科建记录，单科表强制科目+分数列 */
     var fmap=map, forceProps={};
+    var importRelated="";   // 成绩导入：原始 Excel 关联到本次「考试」，便于任何设备下载查找
     if(key==="grades"){
       var examName = (impGradeExam==="__new__") ? (impGradeExamName||"").trim() : impGradeExam;
       var examTime = (impGradeExamTime||"").trim();
       if(!examName){ toast("请先选择或新建考试"); return; }
+      importRelated=examName;
       forceProps["考试"]=examName;
       if(examTime) forceProps["考试时间"]=examTime;
       if(impGradeMulti){
@@ -8129,6 +8231,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       chain=chain.then(function(){ return apiAdd(key, base).then(function(){ n++; }); });
     });
     chain.then(function(){ closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
+      .then(function(){
+        // 成绩导入：把原始 Excel 存入云端（任何设备可下载 / 查找）；失败不阻塞
+        if(key==="grades" && impFile && impFile.size && importRelated){
+          return storeSourceFile(impFile, "grades", importRelated).then(function(){ return refreshAll(); }).catch(function(){ return refreshAll(); });
+        }
+        return null;
+      })
       .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshAll(); }); })
       .then(function(){ setStatus("ok"); if(state.mod) renderList(state.mod); })
       .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
@@ -8275,10 +8384,37 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(document.getElementById("authErr")) document.getElementById("authErr").textContent="界面渲染出错："+(e&&e.message||e);
     }
   }
+  /* 启动快照缓存：把上一次成功拉取的全量数据存 localStorage，下次刷新先用缓存瞬出界面，
+     再后台静默刷新云端——把「每次刷新都要等 16 个表从 supabase 拉完」的等待降到几乎 0。
+     按版本号隔离：版本升级后旧缓存自动失效，避免数据结构变化导致渲染异常。 */
+  function bootCacheKey(){ return "wb_bootcache_"+(typeof __APP_VERSION__!=="undefined"?__APP_VERSION__:"v"); }
+  function saveBootCache(){
+    try{
+      var json=JSON.stringify(DATA);
+      if(json.length>3500000){ try{ localStorage.removeItem(bootCacheKey()); }catch(_){} return; }
+      localStorage.setItem(bootCacheKey(), json);
+    }catch(e){ try{ localStorage.removeItem(bootCacheKey()); }catch(_){} }
+  }
+  function loadBootCache(){
+    try{
+      var json=localStorage.getItem(bootCacheKey());
+      if(!json) return false;
+      var d=JSON.parse(json);
+      if(d && typeof d==="object"){ Object.keys(d).forEach(function(k){ DATA[k]=d[k]; }); return true; }
+    }catch(e){}
+    return false;
+  }
   function bootLoad(){
     setStatus("syncing");
+    // 先用上次的缓存瞬出界面（不依赖网络），再后台刷新
+    var cached=false;
+    try{ cached=loadBootCache(); }catch(_){}
+    if(cached){
+      try{ render(); if(state.mod) renderList(state.mod); setStatus("ok"); }catch(e){ console.warn("boot cache render 失败，转网络加载", e); }
+    }
     refreshAll().then(function(failed){
       setStatus((failed && failed.length===ALLKEYS.length) ? "offline" : "ok");
+      if(!(failed && failed.length>=ALLKEYS.length)) saveBootCache();   // 仅在非全失败时落缓存
     }).catch(function(e){
       console.error(e); setStatus("offline");
     });
@@ -8286,7 +8422,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "imgseries-2026-08-29";
+  var __APP_VERSION__ = "perfstore-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -8393,10 +8529,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       showAuth("认证失败，请重新登录。");
     });
   }
+  /* Service Worker：把应用外壳（index.html）缓存到本地，刷新时秒开、弱网/离线也能用。
+     缓存按版本号命名：每次部署版本号变化 → SW 自动更新并重新拉取最新页面；
+     supabase 等跨域 API 请求不进缓存。右下角「清缓存强刷」可强制清除。 */
+  if('serviceWorker' in navigator && location.protocol==='https:'){
+    window.addEventListener('load', function(){
+      try{ navigator.serviceWorker.register('sw.js?v='+encodeURIComponent(__APP_VERSION__)).catch(function(){}); }catch(_){}
+    });
+  }
   boot();
 
   // 调试/自动化验证用：暴露内部状态与函数（不影响业务）
-  window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll, gridState: gridState, setGridTargets: setGridTargets, renderMatGrid: renderMatGrid, renderMatFolders: renderMatFolders, matFoldersGroup: matFoldersGroup, _photoToStorage: _photoToStorage, dataURLToBlob: dataURLToBlob };
+  window.__app = { DATA: DATA, loadDutyRot: loadDutyRot, renderList: renderList, render: render, refreshAll: refreshAll, gridState: gridState, setGridTargets: setGridTargets, renderMatGrid: renderMatGrid, renderMatFolders: renderMatFolders, matFoldersGroup: matFoldersGroup, _photoToStorage: _photoToStorage, dataURLToBlob: dataURLToBlob, computeMaterialPoints: computeMaterialPoints, computeAttendancePoints: computeAttendancePoints, profileFilesHTML: profileFilesHTML, storeSourceFile: storeSourceFile, saveBootCache: saveBootCache, loadBootCache: loadBootCache, RULE_CFG: RULE_CFG, openStudentProfile: openStudentProfile };
   // 值日模块调试/自动化验证钩子
   window.__duty = {
     groups: function(){ return dutyRot.groups.slice(); },
