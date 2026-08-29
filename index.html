@@ -188,12 +188,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .btn-photo-add{border:none;cursor:pointer;font-weight:800;font-size:13px;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint-d));border-radius:999px;padding:8px 14px}
   .btn-photo-add:active{transform:scale(.97)}
   /* 家长通讯卡片墙 */
-  .par-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+  /* 家长通讯专用网格：比 .stu-grid（118px）更宽，保证「学生姓名 + 学号」完整显示在同一行。
+     注意 .par-card 不再渲染头像（.par-av 已移除），宽度全部留给文字。 */
+  .par-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:10px;margin-top:4px}
+  .par-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
   .par-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(255,107,157,.16);border-color:var(--pink)}
-  .par-av{width:46px;height:46px;flex:0 0 46px;border-radius:50%;overflow:hidden;background:#EEF3FF;color:var(--pink-d);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800}
-  .par-av img{width:100%;height:100%;object-fit:cover;display:block}
   .par-main{flex:1;min-width:0}
-  .par-name{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:baseline;gap:7px}
+  /* 姓名与学号同一行、不换行 */
+  .par-name{font-size:15.5px;font-weight:800;color:var(--ink);display:flex;align-items:baseline;gap:7px;white-space:nowrap}
+  .par-name .par-no{flex:0 0 auto}
   .par-no{font-size:11.5px;font-weight:700;color:#fff;background:var(--pink-d);border-radius:999px;padding:1px 8px}
   .par-rel{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
   .par-tel{display:inline-block;max-width:100%;margin-top:6px;font-size:13.5px;font-weight:700;color:var(--mint-d);text-decoration:none;word-break:break-all;overflow-wrap:anywhere;white-space:normal}
@@ -333,6 +336,51 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .mall-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
   .mall-sold{font-size:12.5px;font-weight:700;color:#bbb;padding:6px 10px}
   .mall-rd-price{font-size:13px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5}
+  /* 加减分管理 · 分组列表视图 */
+  .pts-folder{border:1.5px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:#fff}
+  .pts-fh{display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;
+    background:linear-gradient(180deg,#F7F5FA,#FCFBFE);border-bottom:1px solid transparent}
+  .pts-folder.open .pts-fh{border-bottom-color:var(--line)}
+  .pts-fh:hover{background:linear-gradient(180deg,#F1EDF7,#FAF9FC)}
+  .pts-caret{color:var(--ink-soft);font-size:12px;width:12px;text-align:center}
+  .pts-fname{font-size:15.5px;font-weight:800;color:var(--ink)}
+  .pts-fmeta{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-left:auto}
+  .pts-fmeta b{font-size:14px}
+  .pts-fmeta b.pos{color:#2E9E6B}
+  .pts-fmeta b.neg{color:#D9534F}
+  .pts-list{display:flex;flex-direction:column}
+  .pts-row{display:flex;align-items:center;gap:9px;padding:10px 14px;border-top:1px solid #F0EDF4;cursor:pointer;transition:.12s}
+  .pts-row:first-child{border-top:none}
+  .pts-row:hover{background:#F7F4FF}
+  .pts-row:active{background:#EFEAFF}
+  .pts-no{flex:0 0 auto;min-width:26px;font-size:12px;color:#fff;background:#C9C2D6;border-radius:999px;padding:1px 7px;text-align:center;font-weight:700}
+  .pts-name{flex:0 0 auto;min-width:64px;font-size:14px;font-weight:800;color:var(--ink)}
+  .pts-reason{flex:1;min-width:0;font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pts-date{flex:0 0 auto;font-size:12px;color:var(--ink-soft);font-weight:600}
+  .pts-sc{flex:0 0 auto;min-width:44px;text-align:right;font-size:15px;font-weight:800}
+  .pts-sc.pos{color:#2E9E6B}
+  .pts-sc.neg{color:#D9534F}
+  /* 班级制度 · 按方向分文件夹 */
+  .rc-folder{border:1.5px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:#fff}
+  .rc-fh{display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;
+    background:linear-gradient(180deg,#F4F1FA,#FBF9FE);border-bottom:1px solid transparent}
+  .rc-folder.open .rc-fh{border-bottom-color:var(--line)}
+  .rc-fh:hover{background:linear-gradient(180deg,#EEEAF6,#FAF8FD)}
+  .rc-caret{color:var(--ink-soft);font-size:12px;width:12px;text-align:center}
+  .rc-fname{font-size:15.5px;font-weight:800;color:var(--ink)}
+  .rc-fmeta{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-left:auto}
+  .rc-fmeta b{font-size:13.5px}
+  .rc-fmeta b.pos{color:#2E9E6B}
+  .rc-fmeta b.neg{color:#D9534F}
+  .rc-list{padding:10px 12px;display:flex;flex-direction:column;gap:10px;background:#FCFBFE}
+  .rc-list .card{margin:0}
+  /* 加减分详情弹窗 */
+  .pf-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+  .pf-row{display:flex;flex-wrap:wrap;gap:5px 10px;padding:8px 11px;background:#FBF9FC;border:1px solid var(--line);border-radius:10px}
+  .pf-k{font-size:12px;color:var(--ink-soft);font-weight:700;min-width:52px}
+  .pf-v{font-size:13.5px;color:var(--ink);flex:1;min-width:0;word-break:break-all}
+  .pf-v.pos{color:#2E9E6B;font-weight:800}
+  .pf-v.neg{color:#D9534F;font-weight:800}
   /* 教师评语 · AI 写评语 */
   .cai-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
   .cai-row label{font-size:13px;font-weight:700;color:var(--ink);min-width:36px}
@@ -1371,7 +1419,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       fields:[
         {name:"考试",type:"text",required:true,ph:"如：第一次月考 / 期中模拟"},
         {name:"考试时间",type:"date",ph:"考试日期"},
-        {name:"科目",type:"select",options:["语文","数学","英语","政治","历史","地理","生物","物理","化学"]},
+        /* 初一主科（按用户实际教学设置）：语数英 + 政史地生 + 体育。
+           若历史上录过物理/化学等其它科目，gradeSubjOptions() 会自动带上，不会丢。 */
+        {name:"科目",type:"select",options:["语文","数学","英语","政治","历史","生物","地理","体育"]},
         {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
         {name:"学号",type:"text",ph:"01"},
         {name:"分数",type:"number",ph:"0"},
@@ -1758,16 +1808,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return '<div class="sec'+(show?'':' collapsed')+'" data-sec="'+cat+'">'+head+sub+'</div>';
   }
   function onSecHead(cat){
-    // 有子栏目的分组（学生管理/班级事务/德育心理/我的功课/班会与周报/AI）：
-    // 点击大标题仅展开/收起，不再跳转栏目；进入具体模块请点子项。
-    if(ORDER[cat]){
-      state.open[cat]=!state.open[cat];
-      renderSidebar();
+    var subs = ORDER[cat] || [];
+    // 只有 1 个子项的分组（AI 小助手 / 我的功课）：展开毫无意义，
+    // 若仍只 toggle 会表现为「点了没反应」——这里直接跳转进去。
+    if(subs.length <= 1){
+      state.cat=cat; state.open[cat]=true;
+      if(subs.length===1) state.mod=subs[0];
+      render(); closeDrawer();
       return;
     }
-    // 无子分组的栏目（总览）：保持跳转
-    state.cat=cat; state.open[cat]=true;
-    render(); closeDrawer();
+    // 多子项分组（学生管理/班级事务/德育心理/班会与周报）：
+    // 点击大标题仅展开/收起，不再跳转栏目；进入具体模块请点子项。
+    state.open[cat]=!state.open[cat];
+    renderSidebar();
+    return;
   }
 
   /* ---------- 渲染：内容 ---------- */
@@ -1870,7 +1924,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* ---------- 成绩管理：考试文件夹视图 ---------- */
   var gradeView={expanded:{}, initialized:false, sortBy:"总分", sortDir:"desc"};
-  function gradeSubjOptions(){ var o=[]; (MODULES.grades.fields||[]).forEach(function(f){ if(f.name==="科目"&&f.options) o=f.options; }); return o; }
+  /* 科目列表 = 配置科目 ∪ 数据中已出现的科目。
+     后半段是兼容层：历史上录过「物理/化学」或其它自定义科目的班级，
+     改配置后旧成绩仍能在透视表与雷达图里显示，不会被静默丢掉。 */
+  function gradeSubjOptions(){
+    var o=[]; (MODULES.grades.fields||[]).forEach(function(f){ if(f.name==="科目"&&f.options) o=f.options.slice(); });
+    var seen={}; o.forEach(function(s){ seen[s]=1; });
+    (DATA.grades||[]).forEach(function(r){ var s=r["科目"]; if(s && !seen[s]){ seen[s]=1; o.push(s); } });
+    return o;
+  }
   function gradeStudentOrder(){
     return (DATA.students||[]).slice().sort(function(a,b){
       var na=Number(a["学号"])||9999, nb=Number(b["学号"])||9999;
@@ -2044,6 +2106,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       box.innerHTML = renderDutyTable();
       return;
     }
+    // 加减分管理：按「加分 / 减分 / 兑换」分文件夹收纳，一行一笔，点行看详情
+    if(key==="points"){
+      if(cnt) cnt.textContent="共 "+(DATA.points||[]).length+" "+m.unit;
+      box.innerHTML = renderPointsView();
+      return;
+    }
     // 成绩管理：按「考试」分文件夹收纳，展开为 学生×科目 透视表，支持按成绩排序
     if(key==="grades"){
       if(cnt) cnt.textContent="";
@@ -2074,6 +2142,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>'
         +(key==="affairs" && archiveHTML ? "待办都清空啦 🎉 已完成的事项都在上方「已完成归档」里" : "还没有数据，点右上角「+ 添加」开始吧～")
         +'</div></div>';
+      return;
+    }
+    // 班级制度：按「方向(类别)」分文件夹收纳，同一方向的制度放在一起，可展开/收起
+    if(key==="rules"){
+      box.innerHTML = attStrip + extra + renderRulesView(rows);
       return;
     }
     box.innerHTML = attStrip + extra + archiveHTML + rows.map(function(r){ return cardHTML(key,r); }).join("");
@@ -3871,12 +3944,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* 家长通讯卡片墙：按号数排列，点开跳学生「一生一档」，电话可直拨 */
   function renderParentCards(rows){
     if(!rows.length) return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有家长通讯，点右上角「+ 添加」或「关联学生档案」开始吧～</div></div>';
-    return '<div class="stu-grid">'+rows.map(function(r){
-      var st=(DATA.students||[]).filter(function(s){return s["姓名"]===r["学生姓名"];})[0];
-      var photo=studentPhoto(st);
+    // 注：家长通讯不再显示学生头像（用户要求），且用独立的 .par-grid 网格
+    // —— 原来复用 .stu-grid（列宽仅 118px）会把姓名挤到换行。
+    return '<div class="par-grid">'+rows.map(function(r){
       var phone=String(r["电话"]||"");
       return '<div class="par-card" data-profile="'+esc(r["学生姓名"]||"")+'">'
-        +'<div class="par-av">'+(photo?'<img src="'+esc(photo)+'" alt="">':'<span>'+esc((r["学生姓名"]||"?").slice(0,1))+'</span>')+'</div>'
         +'<div class="par-main">'
         +'<div class="par-name">'+esc(r["学生姓名"]||"（未填）")+(r["学号"]?' <span class="par-no">'+esc(r["学号"])+'</span>':'')+'</div>'
         +'<div class="par-rel">'+(r["关系"]?esc(r["关系"])+' · ':'')+esc(r["家长姓名"]||"家长未填")+'</div>'
@@ -3903,6 +3975,41 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     html+='</div></div>';
     return html;
   }
+  /* ================= 班级制度 · 按「方向(类别)」分文件夹 =================
+     同一方向的制度归到一个可折叠文件夹里，标题显示条数与得分/扣分合计，
+     展开后是该方向的全部制度卡片（保留「扣分…/加分…」、编辑、删除）。 */
+  var rulesView={open:{}};
+  function renderRulesView(rows){
+    // 分组顺序：先按 RULE_CATS 的配置顺序，再补上数据里出现但已不在配置中的类别（兼容历史）
+    var order=RULE_CATS.slice(), seen={};
+    order.forEach(function(c){ seen[c]=1; });
+    rows.forEach(function(r){ var c=String(r["类别"]||"未分类"); if(!seen[c]){ seen[c]=1; order.push(c); } });
+    var html='';
+    order.forEach(function(cat){
+      var gr=rows.filter(function(r){ return String(r["类别"]||"未分类")===cat; });
+      if(!gr.length) return;
+      var add=0, sub=0;
+      gr.forEach(function(r){
+        var v=Number(r["分值"])||0;
+        if(r["方向"]==="得分") add+=v; else sub+=v;
+      });
+      var open=rulesView.open[cat]!==false;   // 默认展开
+      html+='<div class="rc-folder'+(open?' open':'')+'">';
+      html+='  <div class="rc-fh" data-rctoggle="'+esc(cat)+'">'
+        +'<span class="rc-caret">'+(open?'▾':'▸')+'</span>'
+        +'<span class="rc-fname">📁 '+esc(cat)+'</span>'
+        +'<span class="rc-fmeta">'+gr.length+' 条'
+        +(add?(' · <b class="pos">得 +'+add+'</b>'):'')
+        +(sub?(' · <b class="neg">扣 -'+sub+'</b>'):'')
+        +'</span></div>';
+      if(open){
+        html+='<div class="rc-list">'+gr.map(function(r){ return cardHTML("rules", r); }).join("")+'</div>';
+      }
+      html+='</div>';
+    });
+    return html;
+  }
+  function toggleRuleCat(cat){ rulesView.open[cat] = (rulesView.open[cat]===false); renderList("rules"); }
   function onRuleCatAdd(){
     var name=window.prompt("新增班级方向（如：作业完成、课堂纪律）：");
     if(name===null) return;
@@ -4289,6 +4396,101 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return html;
   }
   function fmtPts(v){ return (v>0?"+":"")+v; }
+
+  /* ================= 加减分管理 · 分组列表视图 =================
+     按「加分 / 减分」分成两个可折叠的文件夹，每笔一行（姓名+分值+原因+日期），
+     点行打开该笔记录的完整详情。目标是「一眼扫完全班流水，按需再看细节」。 */
+  var pointsView={open:{}};
+  function ptsTypeOf(r){
+    var t=String(r["类型"]||"");
+    if(t==="兑换") return "兑换";
+    return (t==="加分") ? "加分" : "减分";
+  }
+  /* 分值显示：加分显示 +N，减分/兑换显示 -N */
+  function ptsSigned(r){
+    var v=Number(r["分值"])||0;
+    var t=ptsTypeOf(r);
+    return (t==="加分") ? v : -Math.abs(v);
+  }
+  function renderPointsView(){
+    var rows=(DATA.points||[]).slice();
+    var groups=[
+      {key:"加分", icon:"➕", cls:"pos"},
+      {key:"减分", icon:"➖", cls:"neg"},
+      {key:"兑换", icon:"🎁", cls:"ex"}
+    ];
+    if(!rows.length){
+      return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
+        +'<div>还没有加减分记录。点右上角「+ 添加」记一笔，或在「班级制度」里按班规直接扣分/加分。</div></div>';
+    }
+    var html='';
+    groups.forEach(function(g){
+      var gr=rows.filter(function(r){ return ptsTypeOf(r)===g.key; });
+      if(!gr.length) return;
+      // 按日期倒序，同日按时间倒序
+      gr.sort(function(a,b){
+        var da=String(a["日期"]||""), db=String(b["日期"]||"");
+        if(da!==db) return da<db?1:-1;
+        return String(b["时间"]||"").localeCompare(String(a["时间"]||""));
+      });
+      var sum=0; gr.forEach(function(r){ sum+=ptsSigned(r); });
+      var open=pointsView.open[g.key]!==false;   // 默认展开
+      html+='<div class="pts-folder '+(open?'open':'')+' '+g.cls+'">';
+      html+='  <div class="pts-fh" data-ptstoggle="'+g.key+'">'
+        +'<span class="pts-caret">'+(open?'▾':'▸')+'</span>'
+        +'<span class="pts-fname">'+g.icon+' '+g.key+'</span>'
+        +'<span class="pts-fmeta">'+gr.length+' 笔 · 合计 <b class="'+(sum>=0?'pos':'neg')+'">'+fmtPts(sum)+'</b> 分</span>'
+        +'</div>';
+      if(open){
+        html+='<div class="pts-list">';
+        gr.forEach(function(r){
+          var nm=String(r["学生姓名"]||"（未填写）");
+          var sc=ptsSigned(r);
+          var reason=String(r["原因"]||"").trim()||"（无原因）";
+          if(reason.length>26) reason=reason.slice(0,26)+"…";
+          var no=String(r["学号"]||"");
+          html+='<div class="pts-row" data-ptsdetail="'+esc(r._id)+'">'
+            +'<span class="pts-no">'+esc(no)+'</span>'
+            +'<span class="pts-name">'+esc(nm)+'</span>'
+            +'<span class="pts-reason">'+esc(reason)+'</span>'
+            +'<span class="pts-date">'+esc(fmtDate(r["日期"]))+'</span>'
+            +'<span class="pts-sc '+(sc>=0?'pos':'neg')+'">'+fmtPts(sc)+'</span>'
+            +'</div>';
+        });
+        html+='</div>';
+      }
+      html+='</div>';
+    });
+    return html;
+  }
+  function togglePointsGroup(k){ pointsView.open[k] = (pointsView.open[k]===false); renderList("points"); }
+  /* 点某一行 → 打开该笔记录的详情（只读展示 + 可编辑/删除） */
+  function openPointsDetail(id){
+    var r=(DATA.points||[]).filter(function(x){ return x._id===id; })[0];
+    if(!r){ toast("记录不存在"); return; }
+    var fields=["日期","时间","学生姓名","学号","类型","分值","原因","备注"];
+    var body=fields.map(function(f){
+      var v=r[f]; if(v==null||v==="") return "";
+      var cls="";
+      if(f==="类型") cls=(v==="加分")?"pos":((v==="减分"||v==="兑换")?"neg":"");
+      return '<div class="pf-row"><span class="pf-k">'+esc(f)+'</span><span class="pf-v '+cls+'">'+esc(v)+'</span></div>';
+    }).filter(Boolean).join("");
+    var mask=document.createElement("div"); mask.className="mask show"; mask.id="ptsDetailMask";
+    mask.innerHTML='<div class="sheet"><h3>📋 加减分详情<button type="button" class="x" data-ptsclose="1">×</button></h3>'
+      +'<div class="pf-rows">'+body+'</div>'
+      +'<div class="cai-acts">'
+        +'<button class="btn-mini" data-ptsedit="'+esc(id)+'">✏️ 编辑</button>'
+        +'<button class="btn-mini" data-ptsdel="'+esc(id)+'">🗑 删除</button>'
+      +'</div></div>';
+    document.body.appendChild(mask);
+    mask.addEventListener("click", function(e){
+      if(e.target===mask || e.target.closest("[data-ptsclose]")){ mask.remove(); return; }
+      var ed=e.target.closest("[data-ptsedit]");
+      if(ed){ mask.remove(); openEdit("points", ed.getAttribute("data-ptsedit")); return; }
+      var dl=e.target.closest("[data-ptsdel]");
+      if(dl){ mask.remove(); doDelete("points", dl.getAttribute("data-ptsdel")); return; }
+    });
+  }
 
   /* ================= 积分商城 =================
      定价：price = round(班级人均「现在积分」 × 难度 ÷ 5)；人均 ≤0 时按基准 50 计。
@@ -5584,6 +5786,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
     var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
+    /* 班级制度 · 方向文件夹 */
+    var rctog=e.target.closest("[data-rctoggle]"); if(rctog){ toggleRuleCat(rctog.getAttribute("data-rctoggle")); return; }
+    /* 加减分管理 · 分组列表 */
+    var ptog=e.target.closest("[data-ptstoggle]"); if(ptog){ togglePointsGroup(ptog.getAttribute("data-ptstoggle")); return; }
+    var pdet=e.target.closest("[data-ptsdetail]"); if(pdet){ openPointsDetail(pdet.getAttribute("data-ptsdetail")); return; }
     /* 积分商城 */
     var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
     var mallMode=e.target.closest("[data-mallmode]"); if(mallMode){ mallView.manage=!mallView.manage; render(); return; }
@@ -6573,7 +6780,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "aicloudsync-2026-08-29";
+  var __APP_VERSION__ = "uix-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
