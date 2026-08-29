@@ -6349,10 +6349,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var GRID_ST = {
     attendance: { yes:"出勤", late:"迟到", no:"缺勤", leave:"请假",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE, leave:GRID_SVG_LEAVE },
-      cycle:["yes","no","late","leave",""] },
+      cycle:["出勤","缺勤","迟到","请假",""] },
     materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE },
-      cycle:["yes","no","late",""] }
+      cycle:["已交","未交","迟交",""] }
   };
   var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"", week:null }; // week = 当前查看的周(周一日期)；null 表示本周
   /* 周导航条：prev/next/this；归档周(非本周)显示「回到本周」 */
@@ -6470,10 +6470,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var r=gridFindRecord(mod, s["学号"]||"", date);
       if(!r){ out.empty++; return; }
       var v=r["状态"]||"";
-      if(v===st.yes) out.yes++;
-      else if(v===st.no) out.no++;
-      else if(v===st.late) out.late++;
-      else if(v===st.leave) out.leave++;
+      if(st.yes && v===st.yes) out.yes++;
+      else if(st.no && v===st.no) out.no++;
+      else if(st.late && v===st.late) out.late++;
+      else if(st.leave && v===st.leave) out.leave++;
       else out.empty++;
     });
     return out;
@@ -6598,11 +6598,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         var v=rec?(rec["状态"]||""):"";
         var cls="grid-cell empty";
         var icon="＋";
-        if(v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes; }
-        else if(v===st.no){ cls="grid-cell s-no"; icon=st.labels.no; }
-        else if(v===st.late){ cls="grid-cell s-late"; icon=st.labels.late; }
-        else if(v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave; }
+        // 仅在状态值为非空时匹配（materials.leave="" 避免误命中空格"")
+        if(st.yes && v===st.yes){ cls="grid-cell s-yes"; icon=st.labels.yes||st.yes; }
+        else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
+        else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
+        else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
         if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
+        if(typeof icon==="undefined" || icon==null) icon="＋"; // 兜底：避免任何情况下渲染出 "undefined"
         html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
       });
       html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="为该生新增日期">+</td>';
@@ -8038,7 +8040,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "weekauto-2026-08-29";
+  var __APP_VERSION__ = "cellclick-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
