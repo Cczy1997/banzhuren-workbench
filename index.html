@@ -412,6 +412,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .ocr-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #F2ECF0;font-size:14px}
   .ocr-row:last-child{border-bottom:none}
   .ocr-row.late{background:#FFF1F1}
+  .ocr-row.ok{background:#EFFAF4}
+  .ocr-row.ok .ocr-st{color:#2fa37e}
+  .ocr-row.miss{background:#FFF1F1}
+  .ocr-row.miss .ocr-st{color:#e23c3c}
   .ocr-no{font-weight:800;min-width:36px}
   .ocr-nm{color:var(--ink-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ocr-st{font-weight:800}
@@ -438,6 +442,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .imp-empty{font-size:13px;color:var(--ink-soft);text-align:center;padding:16px;background:#FAF5F8;border-radius:14px}
   .imp-stats{font-size:13px;margin-bottom:8px;color:var(--ink)}
   .imp-stats b{color:var(--pink-d)}
+  .mat-local-note{font-size:12.5px;line-height:1.6;color:var(--ink-soft);background:#FFF7EC;border:1px dashed #E8B873;border-radius:12px;padding:10px 12px;margin-top:10px}
+  .mat-local-note code{background:#FBEFD9;padding:1px 6px;border-radius:6px;color:#9a6a16}
   .imp-map{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
   .imp-map .mp{font-size:12px;background:#EAFBF5;border:1px solid #CDEFE4;border-radius:999px;padding:5px 10px;color:#2E8B73}
   .imp-map .mp b{color:var(--ink)}
@@ -1229,6 +1235,45 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   </div>
 </div>
 
+<!-- 材料收集识别弹窗 -->
+<div class="mask" id="matOCRMask">
+  <div class="sheet">
+    <h3>📎 识别材料上交表</h3>
+    <button class="x" id="matOCRClose">×</button>
+    <p class="imp-tip">上传「作业 / 材料上交表」照片，AI 识别 <b>✓=已交 / ⏰=迟交 / ✗=未交</b>。<br>勾选「未列出的学生视为未交」后，照片里没出现的学生自动记为未交，保证每人每次都区分。Key 仅保存在本机浏览器。</p>
+    <div class="field">
+      <label>通义千问 API Key <span class="req">*</span></label>
+      <input type="text" id="matOCRKey" placeholder="sk-...">
+    </div>
+    <div class="field">
+      <label>日期</label>
+      <input type="date" id="matOCRDate">
+    </div>
+    <div class="field">
+      <label>类型</label>
+      <select id="matOCRType"><option value="作业提交">作业提交</option><option value="材料上交">材料上交</option></select>
+    </div>
+    <div class="field">
+      <label>事项（本次区分，如：数学作业 / 社会实践表）</label>
+      <input type="text" id="matOCRItem" placeholder="如：数学作业">
+    </div>
+    <div class="field" style="flex-direction:row;align-items:center;gap:8px">
+      <input type="checkbox" id="matOCRMissing" checked>
+      <label style="margin:0">未列出的学生视为未交</label>
+    </div>
+    <div class="field">
+      <label>上交表照片</label>
+      <input type="file" id="matOCRFile" accept="image/*">
+    </div>
+    <button class="imp-pick" id="matOCRRecognize">🔍 开始识别</button>
+    <div id="matOCRPreview" class="imp-preview"></div>
+    <div class="actions">
+      <button class="btn-cancel" id="matOCRCancel">取消</button>
+      <button class="btn-save" id="matOCRDo" disabled>确认并保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 一生一档 · 学生档案 -->
 <div class="mask" id="profileMask">
   <div class="sheet" style="max-width:680px">
@@ -1403,6 +1448,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         {name:"备注",type:"text",ph:"选填"}
       ]
     },
+    materials:{
+      title:"📎 材料收集", cat:"aff", unit:"条", main:"学生姓名",
+      fields:[
+        {name:"日期",type:"date"},
+        {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
+        {name:"学号",type:"text",ph:"01"},
+        {name:"类型",type:"select",options:["作业提交","材料上交"]},
+        {name:"事项",type:"text",required:true,ph:"如：数学作业 / 社会实践表（每次区分）"},
+        {name:"状态",type:"select",options:["已交","迟交","未交"]},
+        {name:"备注",type:"text",ph:"选填"}
+      ]
+    },
     seats:{
       title:"🪑 座位安排", cat:"aff", unit:"个", main:"学生姓名", grid:true,
       fields:[
@@ -1532,7 +1589,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   var ORDER = {
     stu:["students","committee","parents"],
-    aff:["affairs","rules","attendance","seats","duty","grades","points","honor","honorboard","mall"],
+    aff:["affairs","rules","attendance","materials","seats","duty","grades","points","honor","honorboard","mall"],
     mor:["talk","comm","comment"],
     mine:["sched_hwk"],
     meet:["meeting","weekly"],
@@ -1547,7 +1604,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     meet:{icon:"📣",label:"班会与周报"},
     ai:{icon:"🤖",label:"AI 小助手"}
   };
-  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","seats","duty","grades","points","honor","talk","comm","comment","mall"];
+  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","materials","seats","duty","grades","points","honor","talk","comm","comment","mall"];
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
@@ -1885,7 +1942,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function renderModule(key){
     var m=MODULES[key];
     var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':(key==="seats"?'座位网格':'卡片视图'))+'</button>' : '';
-    var ocrBtn = key==="attendance" ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别考勤表</button>' : '';
+    var ocrBtn = (key==="attendance"||key==="materials") ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别'+(key==="attendance"?"考勤表":"材料上交表")+'</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
@@ -2145,10 +2202,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       archiveHTML=renderAffArchive(doneRows);
     }
     if(!rows.length){
+      var emptyNote = (key==="affairs" && archiveHTML) ? "待办都清空啦 🎉 已完成的事项都在上方「已完成归档」里" : "还没有数据，点右上角「+ 添加」开始吧～";
+      var matWarn = (key==="materials" && matUseLocal) ? '<div class="mat-local-note">📎 当前为「本机存储」模式：尚未在 Supabase 建表，数据仅存此设备。在后台执行 <code>hr_materials</code> 建表 SQL 后刷新即自动转为云端同步（已建的本机记录会自动迁移上云）。</div>' : '';
       box.innerHTML = attStrip + extra + archiveHTML
-        +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>'
-        +(key==="affairs" && archiveHTML ? "待办都清空啦 🎉 已完成的事项都在上方「已完成归档」里" : "还没有数据，点右上角「+ 添加」开始吧～")
-        +'</div></div>';
+        +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>'+emptyNote+'</div></div>'+matWarn;
       return;
     }
     // 班级制度：按「方向(类别)」分文件夹收纳，同一方向的制度放在一起，可展开/收起
@@ -4748,6 +4805,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var PF_SECTIONS=[
     {key:"points",title:"➕➖ 加减分记录",nameField:"学生姓名",fields:["日期","时间","类型","分值","原因","备注"],sort:"日期",desc:true},
     {key:"attendance",title:"🕒 考勤",nameField:"学生姓名",fields:["日期","状态","事由","备注"],sort:"日期",desc:true},
+    {key:"materials",title:"📎 材料收集",nameField:"学生姓名",fields:["日期","类型","事项","状态","备注"],sort:"日期",desc:true},
     {key:"comment",title:"✍️ 评语",nameField:"学生姓名",fields:["学期","日期","评语"],sort:"日期"},
     {key:"talk",title:"💬 谈话谈心",nameField:"学生姓名",fields:["日期","类型","主题","内容","跟进"],sort:"日期",desc:true},
     {key:"comm",title:"💌 家校沟通",nameField:"学生",fields:["日期","家长","方式","事由","结果","跟进"],sort:"日期",desc:true},
@@ -5039,8 +5097,55 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* 单轮加载：返回失败模块 key 列表（每个 key 内部已自带重试） */
   function loadPass(keys){
     return mapLimit(keys, 5, function(k){
+      if(k==="materials"){ return loadMaterialsSafe().then(function(rows){ DATA.materials=rows; sortData("materials"); }); }
       return apiQuery(k).then(function(res){ DATA[k]=res.results||[]; sortData(k); });
     }).then(function(res){ return res.filter(function(x){return !x.ok;}).map(function(x){return {k:x.k, e:x.e};}); });
+  }
+  /* ---------- 材料收集：本地优先存储（hr_materials 表不存在时回退 localStorage，建表后自动上云） ---------- */
+  var MAT_LOCAL_KEY="wb_cls_materials_local";
+  var matUseLocal=false;
+  var matMigrated=false;
+  function genLocalId(){ return "loc_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
+  function matLocalAll(){ try{ return JSON.parse(localStorage.getItem(MAT_LOCAL_KEY)||"[]"); }catch(_){ return []; } }
+  function matLocalSave(a){ try{ localStorage.setItem(MAT_LOCAL_KEY, JSON.stringify(a)); }catch(_){} }
+  function loadMaterialsSafe(){
+    return apiQuery("materials").then(function(res){
+      var cloud=res.results||[];
+      if(!matMigrated){
+        var local=matLocalAll();
+        matMigrated=true;
+        if(local.length){
+          return Promise.all(local.map(function(r){ var c=Object.assign({},r); delete c._id; return apiAdd("materials",c); }))
+            .then(function(){ matLocalSave([]); return apiQuery("materials"); })
+            .then(function(r2){ return r2.results||[]; })
+            .catch(function(){ return cloud; });
+        }
+      }
+      return cloud;
+    }).catch(function(e){
+      if(classifyError(e).kind==="schema"){ matUseLocal=true; return matLocalAll(); }
+      throw e;
+    });
+  }
+  function apiAddMat(props){
+    if(matUseLocal){
+      var rec=Object.assign({_id:genLocalId()}, props);
+      var arr=matLocalAll(); arr.push(rec); matLocalSave(arr);
+      DATA.materials=(DATA.materials||[]).concat([rec]);
+      return Promise.resolve(rec);
+    }
+    return apiAdd("materials", props).then(function(o){ var rec=Object.assign({_id:o._id}, props); DATA.materials=(DATA.materials||[]).concat([rec]); return rec; });
+  }
+  function apiUpdMat(id, props){
+    if(matUseLocal){
+      var arr=matLocalAll().map(function(r){ return r._id===id?Object.assign({},r,props,{_id:id}):r; });
+      matLocalSave(arr); DATA.materials=arr; return Promise.resolve({id:id});
+    }
+    return apiUpdate("materials", id, props).then(function(o){ DATA.materials=(DATA.materials||[]).map(function(r){ return r._id===id?Object.assign({},r,props,{_id:id}):r; }); return o; });
+  }
+  function apiDelMat(id){
+    if(matUseLocal){ matLocalSave(matLocalAll().filter(function(r){return r._id!==id;})); DATA.materials=(DATA.materials||[]).filter(function(r){return r._id!==id;}); return Promise.resolve(); }
+    return apiDelete("materials", id).then(function(o){ DATA.materials=(DATA.materials||[]).filter(function(r){return r._id!==id;}); return o; });
   }
   /* 课表单独容错加载：表不存在/网络异常都不影响主链路与全局提示 */
   function loadSchedulesSafe(){
@@ -5406,7 +5511,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         var rec=(DATA[key]||[]).filter(function(r){return r._id===current.id;})[0];
         if(rec){ propsFull={}; Object.keys(rec).forEach(function(k){ if(k!=="_id") propsFull[k]=rec[k]; }); Object.keys(props).forEach(function(k){ propsFull[k]=props[k]; }); }
       }
-      var p = current.id ? apiUpdate(key, current.id, propsFull) : apiAdd(key, props);
+      var p = current.id ? (key==="materials"?apiUpdMat(current.id, propsFull):apiUpdate(key, current.id, propsFull)) : (key==="materials"?apiAddMat(props):apiAdd(key, props));
       return p.then(function(saved){
         // 座位去重：同一学生不能同时出现，删掉「先填入的」（其它同名学生），保留刚保存的
         var after=Promise.resolve();
@@ -5428,6 +5533,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }).then(function(){
       // 班委成员增删改后，把职务+任职时间回写学生档案的「班干部」字段并维护「关注标签」
       if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll(); }); }
+      // 材料收集：保存后按该生全部材料记录重算积分（未交-1 / 连续10次已交+1）
+      if(key==="materials"){ return applyMaterialScoring(propsFull["学生姓名"]||props["学生姓名"]); }
     }).then(function(){ setStatus("ok"); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败：上传或写入出错"); });
   }
@@ -5449,10 +5556,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function doDelete(key,id){
     if(!confirm("确定删除这条记录吗？")) return;
+    var delRec=(DATA[key]||[]).filter(function(r){return r._id===id;})[0];
     setStatus("syncing");
-    apiDelete(key,id)
+    (key==="materials"?apiDelMat(id):apiDelete(key,id))
       .then(function(){ toast("已删除"); return refreshAll(); })
       .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshAll(); }); })
+      .then(function(){ if(key==="materials" && delRec) return applyMaterialScoring(delRec["学生姓名"]); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败"); });
   }
@@ -5527,9 +5636,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function closeOCR(){ document.getElementById("ocrMask").classList.remove("show"); }
 
-  function qwenVLRecognize(imageB64, apiKey){
+  function qwenVLRecognize(imageB64, apiKey, promptOverride){
     var url="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-    var prompt="你是一名助教，负责识别班级考勤表图片。图中有一个学生名单，每个学生有「号数」，旁边有标记：\n"
+    var prompt = promptOverride || "你是一名助教，负责识别班级考勤表图片。图中有一个学生名单，每个学生有「号数」，旁边有标记：\n"
       +"· 「✓」或「√」或对勾表示准时到（出勤）\n"
       +"· 「✗」或「×」或叉号表示迟到\n"
       +"请逐行识别，返回 JSON 数组，每个元素为 {\"号数\":\"字符串\",\"状态\":\"出勤\" 或 \"迟到\"}。\n"
@@ -5547,7 +5656,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        if(res.json && res.json.__notJson) throw new Error("dashscope 接口返回的不是 JSON（可能是网络/网关拦截，HTTP "+(res.json.status||"?")+"）。请检查网络后重试；若反复出现请关闭代理/VPN 再试。");
        if(!res.ok) throw new Error("API错误："+(res.json&&res.json.error&&(res.json.error.message||JSON.stringify(res.json.error))||JSON.stringify(res.json)));
        var content=res.json&&res.json.choices&&res.json.choices&&res.json.choices[0]&&res.json.choices[0].message&&res.json.choices[0].message.content;
-       return parseOCRContent(content);
+       return promptOverride ? parseMatOCRContent(content) : parseOCRContent(content);
      });
   }
   function parseOCRContent(text){
@@ -5625,6 +5734,172 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var haos=late.map(function(x){return x.号数;}).join("、");
       toast("已登记迟到 "+late.length+" 人并扣分 ✓");
       closeOCR();
+      return refreshAll();
+    }).then(function(){ setStatus("ok"); })
+     .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+
+  /* ---------- 材料收集 · 自动计分（未交-1 / 连续10次已交+1） ---------- */
+  function applyMaterialScoring(name){
+    name=String(name||"").trim(); if(!name) return Promise.resolve();
+    var all=(DATA.materials||[]);
+    var recs=all.filter(function(r){ return (r["学生姓名"]||"")===name; });
+    var idxMap={}; all.forEach(function(r,i){ idxMap[r._id]=i; });
+    recs.sort(function(a,b){
+      var da=String(a["日期"]||""), db=String(b["日期"]||"");
+      if(da<db) return -1; if(da>db) return 1;
+      return (idxMap[a._id]||0)-(idxMap[b._id]||0);
+    });
+    var streak=0, awardDates=[], deducts=[];
+    recs.forEach(function(r){
+      var st=String(r["状态"]||"");
+      if(st==="已交"){ streak++; if(streak>0 && streak%10===0) awardDates.push(String(r["日期"]||todayStr())); }
+      else { streak=0; deducts.push(r); }   // 迟交 / 未交 → 扣 1 分
+    });
+    var chain=Promise.resolve();
+    // 先删除该生所有 [材料] 来源积分，再按当前规则重建（幂等，编辑/删除后重算也不重复）
+    var existing=(DATA.points||[]).filter(function(p){ return (p["学生姓名"]||"")===name && String(p["原因"]||"").indexOf("[材料]")===0; });
+    existing.forEach(function(p){ chain=chain.then(function(){ return apiDelete("points", p._id); }); });
+    deducts.forEach(function(r){
+      chain=chain.then(function(){
+        return apiAdd("points", {日期:String(r["日期"]||todayStr()), 学生姓名:name, 学号:String(r["学号"]||""), 类型:"减分", 分值:1, 时间:nowHMS(), 原因:"[材料]未按时上交："+String(r["事项"]||"材料")});
+      });
+    });
+    awardDates.forEach(function(d, i){
+      chain=chain.then(function(){
+        return apiAdd("points", {日期:d, 学生姓名:name, 类型:"加分", 分值:1, 时间:nowHMS(), 原因:"[材料]连续上交奖励（连续"+((i+1)*10)+"次）"});
+      });
+    });
+    return chain.then(function(){ return refreshAll(); });
+  }
+
+  /* ---------- 材料收集图片识别 ---------- */
+  var matOCRState={ rows:[], date:"", type:"作业提交", item:"", treatMissing:true };
+  function openMatOCR(){
+    document.getElementById("matOCRKey").value = getAIKey()||"";
+    document.getElementById("matOCRDate").value = todayStr();
+    document.getElementById("matOCRType").value = "作业提交";
+    document.getElementById("matOCRItem").value = "";
+    document.getElementById("matOCRMissing").checked = true;
+    document.getElementById("matOCRFile").value = "";
+    document.getElementById("matOCRPreview").innerHTML = '<div class="imp-empty">上传上交表照片后点「开始识别」。</div>';
+    document.getElementById("matOCRDo").disabled = true;
+    document.getElementById("matOCRMask").classList.add("show");
+  }
+  function closeMatOCR(){ document.getElementById("matOCRMask").classList.remove("show"); }
+  var MAT_OCR_PROMPT="你是一名助教，负责识别班级「作业 / 材料上交表」图片。图中是一个学生名单（可能含「号数」或姓名），每行旁有标记：\n"
+    +"· 「✓」「√」对勾、或文字「已交」「交了」表示该生已交\n"
+    +"· 「迟」「⏰」或文字「迟交」表示该生迟交\n"
+    +"· 「✗」「×」、文字「未」「缺」「无」、或该行留空/无任何标记表示该生未交\n"
+    +"请逐行识别，返回 JSON 数组，每个元素为 {\"号数\":\"字符串\",\"姓名\":\"字符串\",\"状态\":\"已交\" 或 \"迟交\" 或 \"未交\"}。\n"
+    +"只输出 JSON 数组本身，不要任何额外说明或代码块包裹。无法判断的状态填\"未交\"。";
+  function normMatOCRArr(a){
+    if(!Array.isArray(a)) return [];
+    return a.map(function(it){
+      if(!it||typeof it!=="object") return null;
+      var no=it["号数"]!=null?it["号数"]:(it.no!=null?it.no:(it["学号"]!=null?it["学号"]:""));
+      var nm=it["姓名"]!=null?it["姓名"]:(it.name!=null?it.name:"");
+      var st=it["状态"]!=null?it["状态"]:(it.status!=null?it.status:"");
+      st=String(st);
+      var status = st.indexOf("迟")>=0 ? "迟交"
+        : (st.indexOf("未")>=0||st.indexOf("✗")>=0||st.indexOf("×")>=0||st.indexOf("缺")>=0||st.indexOf("无")>=0||st.indexOf("没")>=0) ? "未交" : "已交";
+      return { 号数:String(no).trim(), 姓名:String(nm).trim(), 状态:status };
+    }).filter(Boolean);
+  }
+  function resolveMatName(row){
+    var nm=String(row.姓名||"").trim(); if(nm) return nm;
+    var no=String(row.号数||"").trim(); if(no) return studentNameByNo(no)||no;
+    return "";
+  }
+  function parseMatOCRContent(text){
+    if(!text) return [];
+    var s=String(text).trim().replace(/^```(?:json)?/i,"").replace(/```$/,"").trim();
+    try { return normMatOCRArr(JSON.parse(s)); } catch(e){}
+    var i=s.indexOf("["), j=s.lastIndexOf("]");
+    if(i>=0&&j>i){ try{ return normMatOCRArr(JSON.parse(s.slice(i,j+1))); }catch(e){} }
+    var i2=s.indexOf("{"), j2=s.lastIndexOf("}");
+    if(i2>=0&&j2>i2){ try{ var o=JSON.parse(s.slice(i2,j2+1)); return normMatOCRArr(Array.isArray(o)?o:[o]); }catch(e){} }
+    return [];
+  }
+  function matOCRRecognize(){
+    var key=(document.getElementById("matOCRKey").value||"").trim();
+    if(!key){ toast("请先填写通义千问 API Key"); return; }
+    localStorage.setItem("wb_cls_dashscope_key", key);
+    var f=document.getElementById("matOCRFile").files[0];
+    if(!f){ toast("请选择上交表照片"); return; }
+    matOCRState.date = document.getElementById("matOCRDate").value || todayStr();
+    matOCRState.type = document.getElementById("matOCRType").value || "作业提交";
+    matOCRState.item = (document.getElementById("matOCRItem").value||"").trim();
+    matOCRState.treatMissing = document.getElementById("matOCRMissing").checked;
+    if(!matOCRState.item){ toast("请填写事项（如：数学作业）"); return; }
+    setStatus("syncing"); toast("识别中…");
+    var reader=new FileReader();
+    reader.onload=function(){
+      qwenVLRecognize(reader.result, key, MAT_OCR_PROMPT).then(function(rows){
+        matOCRState.rows=rows; renderMatOCRResult(rows); setStatus("ok");
+      }).catch(function(e){
+        console.error(e); setStatus("offline");
+        document.getElementById("matOCRPreview").innerHTML='<div class="imp-empty">识别失败：'+esc(e&&e.message||e)+'</div>';
+      });
+    };
+    reader.readAsDataURL(f);
+  }
+  function renderMatOCRResult(rows){
+    var box=document.getElementById("matOCRPreview");
+    if(!rows.length){ box.innerHTML='<div class="imp-empty">未识别到有效条目，请检查图片清晰度或重试。</div>'; document.getElementById("matOCRDo").disabled=true; return; }
+    var yj=rows.filter(function(x){return x.状态==="已交";}).length;
+    var cj=rows.filter(function(x){return x.状态==="迟交";}).length;
+    var wj=rows.filter(function(x){return x.状态==="未交";}).length;
+    var html='<div class="imp-stats">共识别 <b>'+rows.length+'</b> 人：'
+      +'<b style="color:#2fa37e">已交 '+yj+'</b> · <b style="color:#e8a33d">迟交 '+cj+'</b> · <b style="color:#e23c3c">未交 '+wj+'</b></div>';
+    html+='<div class="ocr-list">';
+    rows.forEach(function(x){
+      var cls=x.状态==="已交"?"ok":(x.状态==="迟交"?"late":"miss");
+      var nm=resolveMatName(x)||"（未匹配学生）";
+      var stTxt=x.状态==="已交"?"✓ 已交":(x.状态==="迟交"?"⏰ 迟交":"✗ 未交");
+      html+='<div class="ocr-row '+cls+'"><span class="ocr-no">'+esc(x.号数||"")+'</span><span class="ocr-nm">'+esc(nm)+'</span><span class="ocr-st">'+stTxt+'</span></div>';
+    });
+    html+='</div>';
+    if(matOCRState.treatMissing){
+      var gotNames={}, gotNos={};
+      rows.forEach(function(r){ var n=resolveMatName(r); if(n) gotNames[n]=1; if(r.号数) gotNos[String(r.号数)]=1; });
+      var miss=(DATA.students||[]).filter(function(s){ var nm=s["姓名"]||"", no=String(s["学号"]||"").trim(); return !((nm&&gotNames[nm])||(no&&gotNos[no])); }).length;
+      if(miss>0) html+='<div class="ocr-out">未列出 <b>'+miss+'</b> 人 → 将记为「未交」（-1 分/人）</div>';
+    }
+    box.innerHTML=html;
+    document.getElementById("matOCRDo").disabled=false;
+  }
+  function applyMatOCR(){
+    var st=matOCRState;
+    if(!st.item){ toast("请填写事项"); return; }
+    if(!st.rows.length){ toast("没有可保存的识别结果"); return; }
+    setStatus("syncing");
+    var chain=Promise.resolve();
+    st.rows.forEach(function(row){
+      var nm=resolveMatName(row); if(!nm) return;
+      var rec={日期:st.date, 学生姓名:nm, 学号:String(row.号数||""), 类型:st.type, 事项:st.item, 状态:row.状态};
+      chain=chain.then(function(){ return apiAddMat(rec); });
+    });
+    if(st.treatMissing){
+      var gotNames={}, gotNos={};
+      st.rows.forEach(function(r){ var n=resolveMatName(r); if(n) gotNames[n]=1; if(r.号数) gotNos[String(r.号数)]=1; });
+      (DATA.students||[]).forEach(function(s){
+        var nm=s["姓名"]||"", no=String(s["学号"]||"").trim();
+        if((nm&&gotNames[nm])||(no&&gotNos[no])) return;
+        var rec={日期:st.date, 学生姓名:nm, 学号:no, 类型:st.type, 事项:st.item, 状态:"未交"};
+        chain=chain.then(function(){ return apiAddMat(rec); });
+      });
+    }
+    chain.then(function(){
+      var names={};
+      st.rows.forEach(function(r){ var n=resolveMatName(r); if(n) names[n]=1; });
+      if(st.treatMissing){ (DATA.students||[]).forEach(function(s){ if(s["姓名"]) names[s["姓名"]]=1; }); }
+      var seq=Promise.resolve();
+      Object.keys(names).forEach(function(nm){ seq=seq.then(function(){ return applyMaterialScoring(nm); }); });
+      return seq;
+    }).then(function(){
+      toast("已登记材料收集并自动计分 ✓");
+      closeMatOCR();
       return refreshAll();
     }).then(function(){ setStatus("ok"); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
@@ -5792,7 +6067,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){ openAdd(add.getAttribute("data-add")); return; }
-    var ocr=e.target.closest("[data-ocr]"); if(ocr){ openOCR(); return; }
+    var ocr=e.target.closest("[data-ocr]"); if(ocr){ var ok=ocr.getAttribute("data-ocr"); if(ok==="materials") openMatOCR(); else openOCR(); return; }
     var pf=e.target.closest("[data-profile]"); if(pf){ openStudentProfile(pf.getAttribute("data-profile")); return; }
     /* 班级制度 · 方向文件夹 */
     var rctog=e.target.closest("[data-rctoggle]"); if(rctog){ toggleRuleCat(rctog.getAttribute("data-rctoggle")); return; }
@@ -5980,6 +6255,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("ocrMask").addEventListener("click",function(e){ if(e.target===this) closeOCR(); });
   document.getElementById("ocrRecognize").addEventListener("click",ocrRecognize);
   document.getElementById("ocrDo").addEventListener("click",applyOCR);
+  document.getElementById("matOCRClose").addEventListener("click",closeMatOCR);
+  document.getElementById("matOCRCancel").addEventListener("click",closeMatOCR);
+  document.getElementById("matOCRMask").addEventListener("click",function(e){ if(e.target===this) closeMatOCR(); });
+  document.getElementById("matOCRRecognize").addEventListener("click",matOCRRecognize);
+  document.getElementById("matOCRDo").addEventListener("click",applyMatOCR);
 
   /* 一生一档 · 学生档案 */
   document.getElementById("profileMask").addEventListener("click",function(e){
@@ -6788,7 +7068,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "pflay-2026-08-29";
+  var __APP_VERSION__ = "materials-2026-08-29";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
