@@ -2218,6 +2218,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var tableBtn = (key==="attendance"||key==="materials") ? '<button class="btn-grid-table" data-gridtoggle="'+key+'">'+(attMatGrid(key)?'📋 列表':'📊 表格')+'</button>' : '';
     var ruleBtn = (key==="attendance"||key==="materials") ? '<button class="btn-rule" data-ruleapply="'+key+'">✅ 应用规则</button><button class="btn-rule" data-rulecfg="'+key+'" title="规则设置">⚙️</button>' : '';
     var stuGroupBtn = (key==="students") ? '<button class="btn-rule" data-stuGroupBatch title="批量分小组（每组人数均衡）">👥 批量分小组</button>' : '';
+    var comMonthlyBtn = (key==="committee") ? '<button class="btn-rule" data-comMonthly title="按职务加分值批量给所有在任班委写入当月积分（已标「不尽责」或当月已加的跳过）">🎖 班委月度加分</button>' : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
@@ -2228,6 +2229,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + ruleBtn
       + ocrBtn
       + stuGroupBtn
+      + comMonthlyBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
       +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
       +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
@@ -4043,6 +4045,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       acts+='<button class="mini restore" data-act="undone" data-id="'+id+'" title="撤销完成，移回待办列表">↺ 恢复待办</button>';
     }
     if(key==="committee" && !r["卸任时间"]){
+      var ymNow=(new Date()).getFullYear()+"-"+pad((new Date()).getMonth()+1);
+      var isBad=Array.isArray(r["不尽责月份"]) && r["不尽责月份"].indexOf(ymNow)>=0;
+      if(isBad){
+        acts+='<span class="mini bad" title="当月已标记不尽责，下月自动恢复">⚠ '+ymNow+' 不尽责</span>';
+        acts+='<button class="mini" data-act="unmark-bad" data-mod="committee" data-id="'+id+'">恢复</button>';
+      } else {
+        acts+='<button class="mini bad-mark" data-act="mark-bad" data-mod="committee" data-id="'+id+'" title="标记本月不尽责，下次月度加分将跳过">标记不尽责</button>';
+      }
       acts+='<button class="mini resign" data-act="resign" data-mod="committee" data-id="'+id+'">卸任</button>';
     }
     acts+='<button class="mini edit" data-act="edit" data-mod="'+key+'" data-id="'+id+'">编辑</button>';
@@ -5917,7 +5927,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       // 班委成员增删改后，把职务+任职时间回写学生档案的「班干部」字段并维护「关注标签」
       if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll().catch(function(e){ console.warn(e); }); }); }
       // 材料收集：保存后由教师点「✅ 应用规则」统一计算加减分（手动，避免误算）
-    }).then(function(){ setStatus("ok"); })
+     }).then(function(){ setStatus("ok"); })
      .catch(function(e){
        console.error("[saveForm] failed:", e);
        setStatus("offline");
@@ -5932,6 +5942,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        else if(!msg) msg = "未知错误（看 console.error 完整堆栈）";
        toast("保存失败："+msg);
      });
+  }
 
   /* 班委「卸任」：标记卸任时间=今天，写回学生档案的「班干部」任期记录，并维护「关注标签」 */
   function resignCommittee(id){
@@ -6404,6 +6415,73 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("ruleMask").classList.add("show");
   }
   function closeRulesConfig(){ document.getElementById("ruleMask").classList.remove("show"); }
+  /* 班委月度加分：对所有在任班委（未卸任）按"职务 → 月度加分值"批量写一条 points 记录。
+     若班委「不尽责月份」包含当月 YYYY-MM，则跳过（当月不加分）。
+     重复执行同一月份会被去重（同一班委同一月份已有"来源=班委月度"记录则跳过）。 */
+  function applyCommitteeMonthlyBonus(){
+    var now=new Date();
+    var ym = now.getFullYear()+"-"+pad(now.getMonth()+1);
+    var coms=(DATA.committee||[]).filter(function(r){return !r["卸任时间"];});
+    if(!coms.length){ toast("暂无在任班委"); return; }
+    var bonusMap = (RULE_CFG.comMonthly||{});
+    var chain=Promise.resolve(), applied=0, skipped=0, fail=0, list=[];
+    coms.forEach(function(c){
+      var pos=String(c["职务"]||"").trim();
+      var v=Number(bonusMap[pos]);
+      if(!v || isNaN(v) || v<=0){ skipped++; return; }
+      // 跳过已标"不尽责"的当月
+      var bad=(Array.isArray(c["不尽责月份"])?c["不尽责月份"]:[]);
+      if(bad.indexOf(ym)>=0){ list.push("⊘ "+c["学生姓名"]+"（"+pos+"·当月已标不尽责）"); skipped++; return; }
+      // 重复去重：该班委当月已有"来源=班委月度"的 points 记录则跳过
+      var already=(DATA.points||[]).some(function(p){return String(p["学生姓名"]||"")===String(c["学生姓名"]||"") && p["来源"]==="班委月度" && String(p["日期"]||"").substr(0,7)===ym;});
+      if(already){ list.push("· "+c["学生姓名"]+"（"+pos+"·当月已加）"); skipped++; return; }
+      var rec={ 日期:todayStr(), 学生姓名:c["学生姓名"]||"", 学号:String(c["学号"]||""), 类别:"加分", 方向:pos, 分值:v, 原因:"[班委月度] "+pos+" · "+ym, 时间:nowHMS(), 来源:"班委月度" };
+      chain=chain.then(function(){
+        return apiAdd("points", rec).then(function(o){ applied++; list.push("✓ "+c["学生姓名"]+"（"+pos+" +"+v+"）"); (DATA.points=DATA.points||[]).push(o); }).catch(function(){ fail++; list.push("✗ "+c["学生姓名"]+"（保存失败）"); });
+      });
+    });
+    chain.then(function(){
+      setStatus("ok");
+      toast("班委月度加分：成功 "+applied+"，跳过 "+skipped+(fail?"，失败 "+fail:"")+"。详细见控制台");
+      console.log("[班委月度 "+ym+"]\n"+list.join("\n"));
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("执行失败："+(e&&e.message||e)); });
+  }
+  /* 班委「不尽责」标记：把当月 YYYY-MM 加入该委员的「不尽责月份」数组；
+     当月已加的月度分不会自动扣回（避免数据混淆），但下月再点月度加分会被跳过。 */
+  function markCommitteeNegligent(id){
+    var rows=DATA.committee||[];
+    var c=rows.filter(function(r){return r._id===id;})[0];
+    if(!c) return;
+    var ym=(new Date()).getFullYear()+"-"+pad((new Date()).getMonth()+1);
+    var bad=Array.isArray(c["不尽责月份"])?c["不尽责月份"].slice():[];
+    if(bad.indexOf(ym)>=0){ toast(c["学生姓名"]+" 在 "+ym+" 已标记为不尽责"); return; }
+    bad.push(ym);
+    var copy=Object.assign({},c); copy["不尽责月份"]=bad;
+    setStatus("syncing");
+    apiUpdate("committee", c._id, copy).then(function(){
+      Object.assign(c, copy);
+      setStatus("ok");
+      toast("已标记 "+c["学生姓名"]+"（"+c["职务"]+"）"+ym+" 不尽责。下次月度加分将跳过该月。");
+      renderList("committee");
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败"); });
+  }
+  /* 班委「恢复尽责」：移除当月的不尽责标记。 */
+  function unmarkCommitteeNegligent(id){
+    var c=(DATA.committee||[]).filter(function(r){return r._id===id;})[0];
+    if(!c) return;
+    var ym=(new Date()).getFullYear()+"-"+pad((new Date()).getMonth()+1);
+    var bad=Array.isArray(c["不尽责月份"])?c["不尽责月份"].slice():[];
+    var idx=bad.indexOf(ym);
+    if(idx<0){ toast("当月未标记不尽责"); return; }
+    bad.splice(idx,1);
+    var copy=Object.assign({},c); copy["不尽责月份"]=bad;
+    setStatus("syncing");
+    apiUpdate("committee", c._id, copy).then(function(){
+      Object.assign(c, copy);
+      setStatus("ok"); toast("已恢复尽责");
+      renderList("committee");
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败"); });
+  }
   /* 学习小组批量分配：选择组数（2~8），系统按学号顺序均分到各组（蛇形分），并写入每名学生「学习小组」字段。
      已有分组的同学会被覆盖；可重复执行（不同组数快速切换）。 */
   function openStuGroupBatch(){
@@ -6802,7 +6880,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 加减分规则配置（可在「⚙️ 规则」中调整；默认遵循用户给定规则） */
   var RULE_CFG_LS="wb_cls_rulecfg";
-  var RULE_CFG = { attWeekBonus:1, attAbsentPenalty:1, attLatePenalty:0.5, matConsecutive:10, matLatePenalty:0.5, matNoPenalty:1 };
+  var RULE_CFG = { attWeekBonus:1, attAbsentPenalty:1, attLatePenalty:0.5, matConsecutive:10, matLatePenalty:0.5, matNoPenalty:1,
+    comMonthly: { '班长':3, '副班长':2, '学习委员':2, '纪律委员':2, '卫生委员':2, '体育委员':1, '文艺委员':1, '生活委员':1, '宣传委员':1, '课代表':0.5, '小组长':0.5, '电教委员':1, '心理委员':1, '安全委员':1 }
+  };
   (function(){ try{ var s=JSON.parse(localStorage.getItem(RULE_CFG_LS)||"null"); if(s&&typeof s==="object"){ if(typeof s.attWeekBonus==="number") RULE_CFG.attWeekBonus=s.attWeekBonus; if(typeof s.attAbsentPenalty==="number") RULE_CFG.attAbsentPenalty=s.attAbsentPenalty; if(typeof s.attLatePenalty==="number") RULE_CFG.attLatePenalty=s.attLatePenalty; if(typeof s.matConsecutive==="number") RULE_CFG.matConsecutive=s.matConsecutive; if(typeof s.matLatePenalty==="number") RULE_CFG.matLatePenalty=s.matLatePenalty; if(typeof s.matNoPenalty==="number") RULE_CFG.matNoPenalty=s.matNoPenalty; } }catch(e){} })();
   function saveRuleCfg(){ try{ localStorage.setItem(RULE_CFG_LS, JSON.stringify(RULE_CFG)); }catch(e){} }
 
@@ -7605,12 +7685,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var clr=e.target.closest("[data-clear]"); if(clr){ var ck=clr.getAttribute("data-clear"); if(ck==="attendance"||ck==="materials") clearWeek(ck); else clearModule(ck); return; }
     var sgb=e.target.closest("[data-stuGroupBatch]");
     if(sgb){ openStuGroupBatch(); return; }
+    var cmb=e.target.closest("[data-comMonthly]");
+    if(cmb){
+      if(confirm("给所有在任班委按「职务月度加分值」写入当月积分？\n\n• 已标「不尽责」的本月跳过\n• 当月已加过月度分的跳过（不会重复加分）\n\n月分值可在「⚙️ 规则」中调整（默认：班长3、副班长2、其他1~2、课代表/小组长 0.5）。")) applyCommitteeMonthlyBonus();
+      return;
+    }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
       if(act==="done") doDone(id);
       else if(act==="edit") openEdit(mod,id);
       else if(act==="del") doDelete(mod,id);
       else if(act==="resign") resignCommittee(id);
+      else if(act==="mark-bad") markCommitteeNegligent(id);
+      else if(act==="unmark-bad") unmarkCommitteeNegligent(id);
       else if(act==="ruleapply") ruleApplyToStudent(id);
       else if(act==="undone") undoDone(id);
     }
@@ -8801,7 +8888,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "tonight8-2026-08-30";
+  var __APP_VERSION__ = "tonight8.1-2026-08-30";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
