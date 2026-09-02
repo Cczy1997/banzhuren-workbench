@@ -2062,16 +2062,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }catch(_){}
     return k;
   }
-  /* 分类错误：true = 表缺失/权限等"结构性"失败（不应再重试，直接交给用户修复）；false = 瞬时网络错误（再重试有意义） */
-  function classifyError(e){
-    var msg = (e && e.message) || (typeof e==="string" ? e : "") || JSON.stringify(e||{});
-    var low = String(msg).toLowerCase();
-    if(/42p01|does not exist|relation|schema cache|no such table|not_found|resource_not_found/.test(low)) return {kind:"schema", msg:String(msg)};
-    if(/42501|permission denied|row-level security|insufficient_privilege/.test(low)) return {kind:"rls", msg:String(msg)};
-    return {kind:"transient", msg:String(msg)};
-  }
-  function errSnippet(s, n){ n = n||80; s = String(s||""); return s.length>n ? s.slice(0,n)+"…" : s; }
-
+  /* 注意：classifyError / errSnippet 统一定义在下方（materials 数据层附近），此处不再重复声明，
+     避免同名函数互相覆盖导致"改了一处另一处没生效"。 */
 
   /* ---------- Supabase 数据层（Postgres + Auth + RLS） ---------- */
   function apiQuery(key){
@@ -5008,7 +5000,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     apiAdd("points", pointRec)
       .then(function(o){ Object.assign(o, pointRec); (DATA.points=DATA.points||[]).push(o); return apiUpdate("mall", prize._id, np); })
       .then(function(){ prize["已兑换"]=np["已兑换"]; setStatus("ok"); toast("兑换成功 ✓ 已扣 "+price+" 分"); render(); })
-      .catch(function(e){ console.error(e); setStatus("offline"); toast("兑换失败："+(e&&e.message||e)); });
+       .catch(function(e){
+         console.error(e); setStatus("offline");
+         var _m=(e && (e.message || (e.error && e.error.message) || e)) || "";
+         if(typeof _m!=="string") _m=JSON.stringify(_m);
+         if(trySchemaFix(_m)) return;                       // 表缺失 → 弹建表引导
+         toast("兑换失败："+_m);
+       });
   }
 
   /* ---------- 课表 / 功课表：网格渲染 + 本周调课 ---------- */
@@ -5866,6 +5864,70 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function closeForm(){ document.getElementById("mask").classList.remove("show"); }
 
+  /* ---------- 数据表缺失的自助修复 ----------
+     新增模块（积分商城/材料收集/课表等）若线上 Supabase 尚未建表，写入会返回
+     PGRST205「Could not find the table 'public.hr_mall' in the schema cache」。
+     这类错误用户完全无从下手，这里提取表名并直接给出可一键复制的建表 SQL，
+     用户自己去 Supabase 执行一次即可，不需要改代码。 */
+  function extractMissingTable(msg){
+    var s=String(msg||"");
+    var m=/['"]?(?:public\.)?(hr_[a-z0-9_]+)['"]?/i.exec(s);
+    return m ? m[1] : "";
+  }
+  function sqlForTable(t){
+    if(!/^hr_[a-z0-9_]+$/i.test(t)) return "";
+    return "create table if not exists "+t+" (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists "+t+"_user_idx on "+t+"(user_id);\n"
+      +"alter table "+t+" enable row level security;\n"
+      +"drop policy if exists "+t+"_own on "+t+";\n"
+      +"create policy "+t+"_own on "+t+"\n"
+      +"  for all\n  using (auth.uid() = user_id)\n  with check (auth.uid() = user_id);";
+  }
+  /* 弹出建表引导：返回 true 表示已展示（调用方应 return，不再走通用 toast） */
+  function showSchemaFix(table, rawMsg){
+    try{
+      var sql=sqlForTable(table);
+      if(!sql) return false;
+      var mask=document.createElement("div");
+      mask.className="mask show"; mask.id="schemaFixMask";
+      mask.innerHTML='<div class="sheet"><h3>⚠️ 数据表尚未创建<button type="button" class="x" data-sfclose="1">×</button></h3>'
+        +'<div style="font-size:13px;line-height:1.75;color:var(--ink-soft)">'
+        +'线上数据库里还没有 <b style="color:var(--ink)">'+esc(table)+'</b> 这张表，所以保存失败。<br>'
+        +'请到 Supabase 控制台执行下面的建表语句（每个表只需做一次）：'
+        +'<div style="margin:10px 0 3px;font-size:12.5px">① 打开 Supabase 项目 → 左侧 <b>SQL Editor</b> → <b>New query</b></div>'
+        +'<div style="margin-bottom:3px;font-size:12.5px">② 粘贴下方 SQL → 点 <b>Run</b></div>'
+        +'<div style="font-size:12.5px">③ 回到本页面硬刷新（Ctrl / Cmd + Shift + R）</div>'
+        +'</div>'
+        +'<textarea readonly id="sfSql" style="width:100%;height:196px;margin:10px 0 8px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.55;border:1px solid var(--line);border-radius:10px;padding:8px;box-sizing:border-box;resize:vertical">'+esc(sql)+'</textarea>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button type="button" class="btn-mini" data-sfcopy="1">📋 复制建表 SQL</button>'
+        +'<button type="button" class="btn-mini" data-sfclose="1">关闭</button>'
+        +'</div>'
+        +(rawMsg?'<div style="margin-top:8px;font-size:11.5px;color:#aaa;word-break:break-all">原始错误：'+esc(String(rawMsg).slice(0,200))+'</div>':'')
+        +'</div>';
+      document.body.appendChild(mask);
+      mask.addEventListener("click", function(e){
+        if(e.target===mask || e.target.closest("[data-sfclose]")){ mask.remove(); return; }
+        if(e.target.closest("[data-sfcopy]")){
+          copyText(sql).then(function(ok){ toast(ok?"已复制建表 SQL ✓":"复制失败，请手动选中复制"); });
+        }
+      });
+      return true;
+    }catch(e){ console.warn("showSchemaFix 失败", e); return false; }
+  }
+  /* 表缺失判定：命中则弹建表引导 */
+  function trySchemaFix(msg){
+    if(!/schema cache|does not exist|42p01|pgrst205|no such table|could not find the table/i.test(String(msg||""))) return false;
+    var t=extractMissingTable(msg);
+    if(!t) return false;
+    return showSchemaFix(t, msg);
+  }
+
   function saveForm(){
     if(!current.mod) return;
     var key=current.mod, props=collectProps(key);
@@ -5964,6 +6026,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        // 把真实错误暴露给用户（之前统一 toast 掩盖了根因，导致 RLS / 字段类型不匹配等问题无法定位）
        var msg = (e && (e.message || e.msg || (e.error && e.error.message) || (e.error_description) || e)) || "";
        if(typeof msg !== "string") msg = JSON.stringify(msg);
+       // 数据表缺失：直接弹可复制的建表 SQL（PGRST205 之类用户无法自行定位，优先于通用提示）
+       if(trySchemaFix(msg)){ return; }
        // Supabase 常见错误码中文提示
        if(/row.level security|new row violates|permission denied|42501/i.test(msg)) msg = "RLS 权限拒绝：当前账号对该表没有写入权限。\n详情："+msg;
        else if(/duplicate key|23505/i.test(msg)) msg = "记录已存在（重复键）："+msg;
@@ -8963,7 +9027,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "perf1-2026-08-30";
+  var __APP_VERSION__ = "mallfix-2026-09-02";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
