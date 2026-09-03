@@ -8391,7 +8391,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         var el=document.getElementById("wb-xlsx-bundle");
         if(!el) { rej(new Error("找不到内联 xlsx 块")); return; }
         var txt=el.textContent||"";
-        if(txt.length<50000 || !/SheetNames/.test(txt.slice(0,400))){ rej(new Error("内联 xlsx 内容不完整")); return; }
+        /* 完整性校验（勿再只查前 N 字符）：xlsx.full.min.js 开头是近 300KB 的 cptable 码表，
+           "SheetNames" 实际出现在第 ~29 万字符处；旧写法只在 slice(0,400) 里找它，
+           必然找不到 → 误判"内容不完整" → 回退走 CDN（境内基本不通）→ 导入 .xlsx 必失败。
+           这里改为全文检索 + 长度门槛，两者都能容忍正常的压缩/换行差异。 */
+        if(txt.length<100000 || txt.indexOf("SheetNames")<0){ rej(new Error("内联 xlsx 内容不完整（len="+txt.length+"）")); return; }
         _injectXLSX(txt).then(res).catch(rej);
       }catch(e){ rej(e); }
     });
@@ -8647,7 +8651,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function showImpError(err){
     console.error(err);
-    document.getElementById("impPreview").innerHTML='<div class="imp-empty">解析出错：'+esc(err&&err.message?err.message:err)+'<br><br>支持直接导入 Excel(.xlsx/.xls)、Word(.docx，表格或每行一条名单)、PDF、CSV，无需另存转换。若仍失败，请确认文件未损坏或重新导出。</div>';
+    var m=esc(err&&err.message?err.message:err);
+    var tip='支持直接导入 Excel(.xlsx/.xls)、Word(.docx，表格或每行一条名单)、PDF、CSV，无需另存转换。若仍失败，请确认文件未损坏或重新导出。';
+    /* Excel 解析库加载失败（内置副本异常 / 网络不通导致 CDN 兜底也失败）：
+       这类错误用户无从下手，给出可自行处理的替代方案。 */
+    if(/xlsx|sheetjs|解析库|脚本|预加载|加载失败|timeout|超时|网络|network/i.test(String(err&&err.message||err))){
+      tip='<b>Excel 解析库未能加载</b>，可以这样处理：<br>'
+        +'① 先<b>硬刷新</b>页面（Mac <b>Cmd+Shift+R</b> / Windows <b>Ctrl+Shift+R</b>）再重试；<br>'
+        +'② 或在 Excel 里「<b>另存为 → CSV UTF-8</b>」后导入（CSV 不依赖解析库，最稳妥）；<br>'
+        +'③ 若换网络后仍失败，把本页右下角版本号发我，我据此排查。';
+    }
+    document.getElementById("impPreview").innerHTML='<div class="imp-empty">解析出错：'+m+'<br><br>'+tip+'</div>';
     document.getElementById("impDo").disabled=true;
   }
   function showPreview(parsed){
@@ -9027,7 +9041,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mallfix-2026-09-02";
+  var __APP_VERSION__ = "xlsxfix-2026-09-03";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
