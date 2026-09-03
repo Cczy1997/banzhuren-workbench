@@ -5464,21 +5464,27 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     });
   }
   /* ---------- 材料收集：本地优先存储（hr_materials 表不存在时回退 localStorage，建表后自动上云） ---------- */
-  var MAT_LOCAL_KEY="wb_cls_materials_local";
+  /* 本地回退键按账号隔离：不同登录账号即使共用同一浏览器，也各自独立存储，不会串数据 */
+  function matLocalKey(){ return "wb_cls_materials_local_" + (curUid || "anon"); }
+  var MAT_LOCAL_LEGACY_KEY="wb_cls_materials_local"; /* 旧版全局键（不区分账号），仅用于一次性迁移 */
   var matUseLocal=false;
   var matMigrated=false;
   function genLocalId(){ return "loc_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
-  function matLocalAll(){ try{ return JSON.parse(localStorage.getItem(MAT_LOCAL_KEY)||"[]"); }catch(_){ return []; } }
-  function matLocalSave(a){ try{ localStorage.setItem(MAT_LOCAL_KEY, JSON.stringify(a)); }catch(_){} }
+  function matLocalAll(){ try{ return JSON.parse(localStorage.getItem(matLocalKey())||"[]"); }catch(_){ return []; } }
+  function matLocalSave(a){ try{ localStorage.setItem(matLocalKey(), JSON.stringify(a)); }catch(_){} }
+  function matLocalLegacyAll(){ try{ return JSON.parse(localStorage.getItem(MAT_LOCAL_LEGACY_KEY)||"[]"); }catch(_){ return []; } }
+  function matLocalLegacyClear(){ try{ localStorage.removeItem(MAT_LOCAL_LEGACY_KEY); }catch(_){} }
   function loadMaterialsSafe(){
     return apiQuery("materials").then(function(res){
       var cloud=res.results||[];
       if(!matMigrated){
-        var local=matLocalAll();
         matMigrated=true;
-        if(local.length){
-          return Promise.all(local.map(function(r){ var c=Object.assign({},r); delete c._id; return apiAdd("materials",c); }))
-            .then(function(){ matLocalSave([]); return apiQuery("materials"); })
+        /* 合并：旧版全局键（历史残留，一次性迁到当前账号云端）+ 当前账号专属本地键；
+           旧键不区分账号，若不隔离直接整批上云会把其他账号的本地数据误归到当前账号 */
+        var pending = matLocalLegacyAll().concat(matLocalAll());
+        if(pending.length){
+          return Promise.all(pending.map(function(r){ var c=Object.assign({},r); delete c._id; return apiAdd("materials",c); }))
+            .then(function(){ matLocalLegacyClear(); matLocalSave([]); return apiQuery("materials"); })
             .then(function(r2){ return r2.results||[]; })
             .catch(function(){ return cloud; });
         }
@@ -8376,7 +8382,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       try{
         var blob=new Blob([txt],{type:"text/javascript"}); var url=URL.createObjectURL(blob);
         var s=document.createElement("script"); s.src=url;
-        s.onload=function(){ try{ URL.revokeObjectURL(url); }catch(e){} res(); };
+        /* 关键：onload 只代表"脚本下载成功"，不代表"执行成功"。
+           若脚本内部抛异常，onload 照样触发但 window.XLSX 并未挂上，
+           旧逻辑会误判为注入成功，后面 XLSX.read 才报莫名其妙的错。
+           这里加载后必须再验一次 XLSX 真可用，否则按失败处理（好回退到网络源）。 */
+        s.onload=function(){
+          try{ URL.revokeObjectURL(url); }catch(e){}
+          if(typeof XLSX!=="undefined" && XLSX && typeof XLSX.read==="function") res();
+          else rej(new Error("xlsx 脚本已加载，但 XLSX 未定义（执行可能出错）"));
+        };
         s.onerror=function(){ try{ URL.revokeObjectURL(url); }catch(e){} rej(new Error("xlsx 脚本执行失败")); };
         document.head.appendChild(s);
       }catch(e){ rej(e); }
@@ -8651,17 +8665,38 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function showImpError(err){
     console.error(err);
-    var m=esc(err&&err.message?err.message:err);
-    var tip='支持直接导入 Excel(.xlsx/.xls)、Word(.docx，表格或每行一条名单)、PDF、CSV，无需另存转换。若仍失败，请确认文件未损坏或重新导出。';
-    /* Excel 解析库加载失败（内置副本异常 / 网络不通导致 CDN 兜底也失败）：
-       这类错误用户无从下手，给出可自行处理的替代方案。 */
-    if(/xlsx|sheetjs|解析库|脚本|预加载|加载失败|timeout|超时|网络|network/i.test(String(err&&err.message||err))){
+    var raw=String(err&&err.message?err.message:err);
+    var m=esc(raw);
+    /* 判定「Excel 解析库是否真的没加载」必须看 XLSX 是否可用，
+       不能匹配错误文案里的 xlsx 字样——文件名常是 xxx.xlsx，一旦错误信息带文件名就会误报，
+       把真正的解析错误伪装成"库没加载"，反而误导排查方向。 */
+    var libMissing=(typeof XLSX==="undefined" || !XLSX || typeof XLSX.read!=="function");
+    var fname=impFile?(impFile.name||""):"";
+    var isExcel=/\.xlsx?$/i.test(fname);
+    var tip;
+    if(isExcel && libMissing){
       tip='<b>Excel 解析库未能加载</b>，可以这样处理：<br>'
         +'① 先<b>硬刷新</b>页面（Mac <b>Cmd+Shift+R</b> / Windows <b>Ctrl+Shift+R</b>）再重试；<br>'
-        +'② 或在 Excel 里「<b>另存为 → CSV UTF-8</b>」后导入（CSV 不依赖解析库，最稳妥）；<br>'
-        +'③ 若换网络后仍失败，把本页右下角版本号发我，我据此排查。';
+        +'② 或在 Excel 里「<b>另存为 → CSV UTF-8</b>」后导入（CSV 不依赖解析库，最稳妥）。';
+    } else {
+      tip='支持直接导入 Excel(.xlsx/.xls)、Word(.docx，表格或每行一条名单)、PDF、CSV。'
+        +'若文件是合并单元格/多行表头/带说明行的复杂表格，可先另存为 CSV 再导入。';
     }
-    document.getElementById("impPreview").innerHTML='<div class="imp-empty">解析出错：'+m+'<br><br>'+tip+'</div>';
+    /* 诊断信息：一键复制，便于把完整现场发给维护者，避免来回追问 */
+    var diag=[
+      "【版本】"+(typeof __APP_VERSION__!=="undefined"?__APP_VERSION__:"?"),
+      "【文件】"+(fname||"（未知）")+(impFile&&impFile.size?("  "+impFile.size+" 字节"):""),
+      "【解析库】"+(libMissing?"XLSX 未加载 ✗":"XLSX 可用 ✓"),
+      "【错误】"+raw,
+      "【设备】"+navigator.userAgent
+    ].join("\n");
+    document.getElementById("impPreview").innerHTML='<div class="imp-empty">'
+      +'<div style="font-weight:600;margin-bottom:6px">解析出错：'+m+'</div>'
+      +'<div style="margin-bottom:8px">'+tip+'</div>'
+      +'<button type="button" class="btn-mini" data-impdiag="1">📋 复制诊断信息</button>'
+      +'</div>';
+    var btn=document.querySelector('[data-impdiag]');
+    if(btn) btn.onclick=function(){ copyText(diag).then(function(ok){ toast(ok?"已复制诊断信息 ✓":"复制失败，请手动截图"); }); };
     document.getElementById("impDo").disabled=true;
   }
   function showPreview(parsed){
@@ -9041,7 +9076,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "xlsxfix-2026-09-03";
+  var __APP_VERSION__ = "matiso-2026-09-03";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };

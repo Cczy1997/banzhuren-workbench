@@ -3,7 +3,7 @@
  * 缓存名含版本号：每次部署版本号变化 → 旧缓存自动失效、拉取新页面。
  * 仅缓存同源的 HTML 导航请求；supabase / 外部 API 等跨域请求一律走网络，绝不缓存。
  */
-const CACHE = "wb-shell-xlsxfix-2026-09-03";
+const CACHE = "wb-shell-matiso-2026-09-03";
 self.addEventListener("install", function(){ self.skipWaiting(); });
 self.addEventListener("activate", function(e){
   e.waitUntil((async function(){
@@ -30,6 +30,16 @@ self.addEventListener("fetch", function(e){
       if(res && res.status === 200 && res.type !== "opaque") cache.put(req, res.clone());
       return res;
     }).catch(function(){ return cached; });
-    return cached || network;
+    /* 网络优先：本应用部署频繁，缓存优先会导致"刚修好的版本用户要刷新两三次才拿得到"，
+       被反复误判为"修复没生效"。这里改为先拿网络最新版，失败/弱网超时才回退缓存，
+       既保证部署即时生效，又保留离线可用。 */
+    try{
+      return await Promise.race([
+        network,
+        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("net-timeout")); }, 3000); })
+      ]);
+    }catch(_){
+      return cached || network;   // 离线或 3 秒内没拿到 → 用本地缓存兜底
+    }
   })());
 });
