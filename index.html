@@ -1698,6 +1698,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var SUPABASE_URL = "https://ffuslbsknqqsjqjbvpjr.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_gpIn1xpywnjQnxP-OM_s-Q_Gz9Gj6L-";
   var db = null;
+  var dbGuest = null;   // 仅用于「创建家长账号」时的 signUp：persistSession:false 不落盘，避免污染主客户端 db 的班主任会话（gotrue 会自动切到新用户会话并轮换刷新令牌，恢复失败时会导致成员写入被 RLS 拒绝）
   /* 网络拦截层：给 Supabase 客户端包一层自定义 fetch，避免网关/代理返回的非 JSON 拦截页
      直接命中内部 JSON.parse 抛出 "Unexpected token ':'" 拖崩整页。
      仅对非 2xx 且非 JSON 的响应做转换（网关拦截页典型为 502/403 的 HTML）；
@@ -1728,6 +1729,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   try {
     if (window.supabase && SUPABASE_URL && SUPABASE_URL.indexOf("__")!==0) {
       db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { fetch: supaFetch });
+      try {
+        dbGuest = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY,
+          { fetch: supaFetch, auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+      } catch(_) { dbGuest = null; }
     }
   } catch(e) {
     console.error("[Supabase] 客户端初始化失败（已降级为离线模式）：", e);
@@ -6065,32 +6070,28 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      ③ setSession 恢复班主任会话（supabase-js 无 onAuthStateChange，不会自动切换界面）；
      ④ 以班主任身份写 hr_members 映射（user_id=班主任，uid=新家长）。 */
   /* 核心：用学生姓名创建一个家长 auth 账号并绑定到班主任。返回 {email,stu,pwd,id,confirmed}。
-     顺序：signUp（会话变家长）→ setSession 恢复班主任（RLS 要求 user_id=班主任）→ 写 hr_members。 */
+     关键修复：用「不落盘」的独立客户端 dbGuest 做 signUp —— signUp 自动切到家长会话、轮换刷新令牌时，
+     只污染 dbGuest（内存态，不写 localStorage），主客户端 db 的班主任会话始终完好。
+     随后用 db（班主任会话）直接写成员行（user_id=班主任），RLS with check 必然通过。
+     彻底消除「setSession 恢复班主任会话失败 → 成员写入被 RLS 拒绝 → 邮箱已建但工作台不显示」的坑。 */
   function createOneParent(stu, pwd){
-    var me=null;
-    return db.auth.getSession().then(function(g){
-      me=g.data&&g.data.session;
+    if(!db) return Promise.reject(new Error("未连接后端"));
+    var signer = dbGuest || db;   // 优先用独立客户端，避免污染班主任会话
     var slug=stu.replace(/[^a-zA-Z0-9]/g,"")||"stu";
-    var email="parent_"+slug+"_"+Math.random().toString(36).slice(2,8)+"@banzhuren.app";
-    return db.auth.signUp({email:email,password:pwd,
-      options:{data:{role:"家长",student:stu,displayName:stu}}}
-    ).then(function(res){
+    var email="parent_"+slug+"_"+(Date.now().toString(36))+Math.random().toString(36).slice(2,6)+"@banzhuren.app";
+    return signer.auth.signUp({email:email,password:pwd,
+      options:{data:{role:"家长",student:stu,displayName:stu}}
+    }).then(function(res){
       if(res.error) throw res.error;
       var u=res.data&&res.data.user;
       if(!u||!u.id) throw new Error("未返回新账号信息");
-      if(me) return db.auth.setSession(me).then(function(){ return u; });  // 恢复班主任会话后再写（RLS 要求 user_id=班主任）
-      return u;
-    }).then(function(u){
-      return apiAdd("members",{uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd})
-        .then(function(){ return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)}; });
-    }).catch(function(e){
-      // signUp 已把当前会话切到家长态时，尽力恢复班主任会话，避免污染后续批量循环
-      return db.auth.getSession().then(function(g){
-        var cs=g.data&&g.data.session;
-        if(cs&&cs.user&&cs.user.id===curUid) return Promise.reject(e);   // 已是班主任，无需恢复
-        return db.auth.setSession(me).then(function(){ return Promise.reject(e); }, function(){ return Promise.reject(e); });
-      }, function(){ return Promise.reject(e); });
-    });
+      // 用主客户端 db（仍是班主任会话）写成员行，user_id=班主任，RLS 直接通过
+      return db.from(tbl("members")).insert({ user_id: curUid,
+        data: {uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd} })
+        .select('id').then(function(r2){
+          if(r2.error) throw r2.error;
+          return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)};
+        });
     });
   }
   /* 班主任用学生姓名创建家长登录账号（单个，供「关联学生」入口调用） */
@@ -9867,7 +9868,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "batch-parent-fix-2026-09-05";
+  var __APP_VERSION__ = "parent-signup-fix-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
