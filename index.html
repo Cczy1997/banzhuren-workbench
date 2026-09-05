@@ -5980,6 +5980,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'<input id="memPwd" type="text" placeholder="登录密码（≥6位）" style="flex:1.4;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<button class="btn-mini" data-mcreate="1">创建账号</button></div>'
       +'<div id="memCreateInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 2px;line-height:1.6">用学生姓名创建家长登录账号：选学生、设密码，系统自动生成账号并绑定到你的班级，账号密码发给家长即可登录（只读查看）。</div>'
+      +'<div style="margin:12px 0 6px;font-weight:800;color:var(--ink);font-size:13.5px">⚡ 批量创建</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<button class="btn-mini" data-mcreateall="1">⚡ 一键创建全体家长账号</button>'
+      +'<button class="btn-mini" data-mexport="1" id="memExport" style="display:none">📋 导出账号（CSV）</button></div>'
+      +'<div id="memBatchInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 6px;line-height:1.6"></div>'
       +'<div style="margin:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<input id="memUid" placeholder="成员账号 ID" style="flex:2;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<input id="memName" placeholder="姓名 / 称呼" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
@@ -5994,6 +5999,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(e.target===mask || e.target.closest("[data-mclose]")){ mask.remove(); return; }
       if(e.target.closest("[data-madd]")){ addMember(mask); return; }
       if(e.target.closest("[data-mcreate]")){ createParentAccount(mask); return; }
+      if(e.target.closest("[data-mcreateall]")){ createAllParents(mask); return; }
+      if(e.target.closest("[data-mexport]")){ exportAccountsFile(); return; }
       var del=e.target.closest("[data-mdel]");
       if(del){
         if(!confirm("移除该成员？移除后对方将看不到班级数据。")) return;
@@ -6041,6 +6048,28 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      ① 记住班主任当前会话；② signUp 生成新 auth 用户（role=家长, student=姓名）；
      ③ setSession 恢复班主任会话（supabase-js 无 onAuthStateChange，不会自动切换界面）；
      ④ 以班主任身份写 hr_members 映射（user_id=班主任，uid=新家长）。 */
+  /* 核心：用学生姓名创建一个家长 auth 账号并绑定到班主任。返回 {email,stu,pwd,id,confirmed}。
+     顺序：signUp（会话变家长）→ setSession 恢复班主任（RLS 要求 user_id=班主任）→ 写 hr_members。 */
+  function createOneParent(stu, pwd, tSess){
+    var slug=stu.replace(/[^a-zA-Z0-9]/g,"")||"stu";
+    var email="parent_"+slug+"_"+Math.random().toString(36).slice(2,8)+"@banzhuren.app";
+    return db.auth.signUp({email:email,password:pwd,
+      options:{data:{role:"家长",student:stu,displayName:stu}}}
+    ).then(function(res){
+      if(res.error) throw res.error;
+      var u=res.data&&res.data.user;
+      if(!u||!u.id) throw new Error("未返回新账号信息");
+      if(tSess) return db.auth.setSession(tSess).then(function(){ return u; });  // 恢复班主任会话后再写
+      return u;
+    }).then(function(u){
+      return apiAdd("members",{uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd})
+        .then(function(){ return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)}; });
+    }).catch(function(e){
+      if(tSess) return db.auth.setSession(tSess).then(function(){ throw e; }, function(){ throw e; });  // 尽力恢复班主任会话
+      throw e;
+    });
+  }
+  /* 班主任用学生姓名创建家长登录账号（单个，供「关联学生」入口调用） */
   function createParentAccount(mask){
     if(!isHead()){ toast("仅班主任可创建家长账号"); return; }
     if(!db){ toast("未连接后端"); return; }
@@ -6053,37 +6082,69 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(info) info.textContent="正在创建账号…";
     db.auth.getSession().then(function(g){
       var tSess=g.data&&g.data.session;
-      var slug=stu.replace(/[^a-zA-Z0-9]/g,"")||"stu";
-      var email="parent_"+slug+"_"+Math.random().toString(36).slice(2,8)+"@banzhuren.app";
-      return db.auth.signUp({email:email,password:pwd,
-        options:{data:{role:"家长",student:stu,displayName:stu}}}
-      ).then(function(res){
-        if(res.error) throw res.error;
-        var u=res.data&&res.data.user;
-        if(!u||!u.id) throw new Error("未返回新账号信息");
-        if(tSess) return db.auth.setSession(tSess).then(function(){ return u; });  // 恢复班主任会话后再写
-        return u;
-      }).then(function(u){
-        return apiAdd("members",{uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd})
-          .then(function(){ return u; });
-      }).then(function(u){
-        var confirmed = u && u.email_confirmed_at;
-        var note = confirmed ? ""
-          : '<br><span style="color:#e0a000">⚠️ 该账号尚未通过邮箱验证，家长可能登录失败。请到 Supabase 后台 Authentication → Providers → Email 关闭「Confirm email」，再让家长登录（已创建的账号无需重建，关掉开关即生效）。</span>';
-        if(info) info.innerHTML="✅ 已创建：「"+esc(stu)+"」的家长账号<br>邮箱：<code>"+esc(email)
-          +"</code><br>密码："+esc(pwd)+"<br>把这两样发给家长即可登录（只读查看）。"+note;
-        if(pwdEl) pwdEl.value="";
-        renderMembersList(mask); render(); toast("家长账号已创建 ✓");
-      }).catch(function(e){
-        if(tSess) db.auth.setSession(tSess).catch(function(){});  // 尽力恢复班主任会话
-        var m=(e&&e.message)||String(e||"");
-        if(info) info.textContent="创建失败："+m;
-        toast("创建失败："+m);
-      });
+      return createOneParent(stu, pwd, tSess);
+    }).then(function(r){
+      var note = r.confirmed ? ""
+        : '<br><span style="color:#e0a000">⚠️ 该账号尚未通过邮箱验证，家长可能登录失败。请到 Supabase 后台 Authentication → Providers → Email 关闭「Confirm email」，再让家长登录（已创建的账号无需重建，关掉开关即生效）。</span>';
+      if(info) info.innerHTML="✅ 已创建：「"+esc(stu)+"」的家长账号<br>邮箱：<code>"+esc(r.email)
+        +"</code><br>密码："+esc(pwd)+"<br>把这两样发给家长即可登录（只读查看）。"+note;
+      if(pwdEl) pwdEl.value="";
+      renderMembersList(mask); render(); toast("家长账号已创建 ✓");
     }).catch(function(e){
       var m=(e&&e.message)||String(e||"");
       if(info) info.textContent="创建失败："+m;
+      toast("创建失败："+m);
     });
+  }
+  /* 一键为全班尚未建账号的学生创建家长账号（初始密码统一 123456）；已建的跳过，不重复。 */
+  function createAllParents(mask){
+    if(!isHead()){ toast("仅班主任可创建家长账号"); return; }
+    if(!db){ toast("未连接后端"); return; }
+    var stus=(DATA.students||[]).map(function(s){ return String(s["姓名"]||"").trim(); }).filter(Boolean);
+    if(!stus.length){ toast("花名册里还没有学生"); return; }
+    var existing={}; (DATA.members||[]).forEach(function(m){ if(m.role==="家长"&&m.student) existing[String(m.student).trim()]=1; });
+    var todo=stus.filter(function(n){ return !existing[n]; });
+    if(!todo.length){ toast("所有学生都已有家长账号"); return; }
+    var pwd="123456";
+    if(!confirm("将为全班 "+todo.length+" 名尚未建账号的学生，一键创建家长账号，初始密码统一为 123456。\n已建过的不重复创建。继续？")) return;
+    var info=mask.querySelector("#memBatchInfo"); if(info) info.textContent="正在创建 0/"+todo.length+" …";
+    var created=[];
+    db.auth.getSession().then(function(g){
+      var tSess=g.data&&g.data.session;
+      return todo.reduce(function(p, stu){
+        return p.then(function(){
+          return createOneParent(stu, pwd, tSess).then(function(r){
+            created.push(r);
+            if(info) info.textContent="正在创建 "+created.length+"/"+todo.length+"（"+stu+"）…";
+          }).catch(function(e){
+            if(info) info.textContent="创建「"+stu+"」失败："+((e&&e.message)||e)+"；继续其余…";
+          });
+        });
+      }, Promise.resolve());
+    }).then(function(){
+      renderMembersList(mask); render();
+      var expBtn=mask.querySelector("#memExport"); if(expBtn) expBtn.style.display="";
+      if(info) info.innerHTML="✅ 已创建 "+created.length+" 个家长账号，初始密码均为 <b>123456</b>。"+(created.length?"<br>点「📋 导出账号（CSV）」可保存名单。":"");
+      toast("一键创建完成："+created.length+" 个");
+    }).catch(function(e){
+      var m=(e&&e.message)||String(e||"");
+      if(info) info.textContent="创建中断："+m;
+      toast("创建中断："+m);
+    });
+  }
+  /* 导出全部带账号（邮箱+密码）的成员为 CSV，带 BOM 供 Excel 正常显示中文 */
+  function exportAccountsFile(){
+    var rows=(DATA.members||[]).filter(function(r){ return r["email"]; });
+    if(!rows.length){ toast("还没有可导出的账号（需通过「关联学生」或「一键创建」生成才有邮箱/密码）"); return; }
+    var lines=['姓名,身份,账号(邮箱),密码'];
+    rows.forEach(function(r){
+      lines.push('"'+String(r["name"]||"").replace(/"/g,'""')+'","'+String(r["role"]||"")+'","'+String(r["email"]||"")+'","'+String(r["pwd"]||"")+'"');
+    });
+    var csv="﻿"+lines.join("\n");
+    var blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="家长账号.csv"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(_){} }, 1000);
+    toast("已导出家长账号 CSV ✓");
   }
   /* 账号管理：班主任查看自己创建的所有成员账号（邮箱 + 密码）。
      密码在 createParentAccount 创建时存入成员 data；通过「添加成员（填 ID）」加入的账号不含密码，显示「—」。 */
@@ -9769,7 +9830,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mat-folder-del-2026-09-05";
+  var __APP_VERSION__ = "batch-parent-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
