@@ -2468,7 +2468,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; comMonthlyBtn=""; }
     var roAdd = canEdit()
       ? '<button class="btn-imp" data-imp="'+key+'">导入</button>'
-        +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
+        +((key==="attendance"||key==="materials")
+            ? '<button class="btn-clear" data-clearmenu="'+key+'" title="清空本周 / 清空本周之前的历史 / 清空全部">清空 ▾</button>'
+            : '<button class="btn-clear" data-clear="'+key+'">清空</button>')
         +'<button class="btn-add" data-add="'+key+'">+ 添加</button>'
       : '';
     return ''
@@ -7456,28 +7458,76 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       .catch(function(e){ console.error(e); setStatus("offline"); toast("清空失败："+(e&&e.message||e)); });
   }
 
-  /* 清空【材料收集】的全部记录（含所有历史周），并联动清除对应的加减分。
-     与 clearWeek 不同：不限定周，直接删除 DATA.materials 里的全部行（历史周记录一并清空）。
-     删除后由 applyRules("materials") 自动删掉所有「来源=材料」的加减分（剩余材料为空、重算结果为 0）。*/
-  function clearAllMaterials(){
+  /* 清空【材料收集 / 考勤】的全部记录（含所有历史周），并联动重算加减分。
+     与 clearWeek 不同：不限定周，直接删除 DATA[mod] 里的全部行（历史周记录一并清空）。
+     删除后由 applyRules(mod) 自动删掉该来源产生的加减分（剩余记录为空、重算结果为 0）。*/
+  function clearAllModule(mod){
+    if(mod!=="attendance" && mod!=="materials") return;
     if(!canEdit()) return;
-    var all=(DATA.materials||[]);
-    if(!all.length){ toast("材料收集暂无记录"); return; }
-    if(!confirm("确定清空【材料收集】的全部记录吗？\n将删除所有历史周的材料记录（共 "+all.length+" 条），并清除对应的加减分，此操作不可恢复！")) return;
+    var name = mod==="materials" ? "材料收集" : "考勤记录";
+    var all=(DATA[mod]||[]);
+    if(!all.length){ toast(name+"暂无记录"); return; }
+    if(!confirm("确定清空【"+name+"】的全部记录吗？\n将删除所有历史周的记录（共 "+all.length+" 条），并清除对应的加减分，此操作不可恢复！")) return;
+    clearRows(mod, all, "【"+name+"】全部记录（共 "+all.length+" 条，含所有历史周）");
+  }
+  function clearAllMaterials(){ clearAllModule("materials"); }
+  /* 清空本周（自然周，周一~周日）之前的全部历史记录，本周记录保留。 */
+  function clearHistoryModule(mod){
+    if(mod!=="attendance" && mod!=="materials") return;
+    if(!canEdit()) return;
+    var name = mod==="materials" ? "材料收集" : "考勤记录";
+    var curMon = isoWeek(todayStr()).monday;
+    var all=(DATA[mod]||[]);
+    var targets=all.filter(function(r){
+      var d=String(r["日期"]||"").trim();
+      return d && isoWeek(d).monday < curMon;   // 无日期的记录不参与（无法判定所属周）
+    });
+    if(!targets.length){ toast(name+"没有本周之前的历史记录"); return; }
+    var ds=targets.map(function(r){ return String(r["日期"]||"").trim(); }).sort();
+    if(!confirm("确定清空【"+name+"】本周之前的全部历史记录吗？\n将删除 "+targets.length+" 条（"+ds[0]+" ~ "+ds[ds.length-1]+"），本周记录保留。\n对应加减分会同步重算，此操作不可恢复！")) return;
+    clearRows(mod, targets, "【"+name+"】历史记录（"+targets.length+" 条，本周已保留）");
+  }
+  /* 统一的「删除 + 刷新 + 重算」流程（清空本周 / 清空历史 / 清空全部 共用） */
+  function clearRows(mod, targets, okLabel){
     setStatus("syncing");
-    var delIds=all.map(function(r){ return r._id; }).filter(Boolean);
+    var delIds=targets.map(function(r){ return r._id; }).filter(Boolean);
+    var ids={}; delIds.forEach(function(id){ ids[id]=1; });
     var done=function(){
-      DATA.materials=[];
-      if(gridState.mod==="materials") renderMatFolders();
-      refreshModule("materials");
-      applyRules("materials");
+      DATA[mod]=(DATA[mod]||[]).filter(function(r){ return !ids[r._id]; });
+      if(mod==="materials" && gridState.mod==="materials" && !gridState.curItem) renderMatFolders();
+      refreshModule(mod);
+      applyRules(mod);
       setStatus("ok");
-      toast("已清空全部材料记录（共 "+all.length+" 条，含历史周）✓ 对应加减分已同步清除");
+      toast("已清空"+okLabel+" ✓ 对应加减分已同步重算");
     };
-    if(matUseLocal){ matLocalSave([]); done(); return; }
-    apiDeleteBatch("materials", delIds).then(done).catch(function(e){
+    if(mod==="materials" && matUseLocal){
+      matLocalSave(matLocalAll().filter(function(r){ return !ids[r._id]; }));
+      done(); return;
+    }
+    apiDeleteBatch(mod, delIds).then(done).catch(function(e){
       console.error(e); setStatus("offline"); toast("清空失败："+((e&&e.message)||e));
     });
+  }
+  /* 清空菜单：三选一（低调入口，避免误点「全部清空」）。
+     菜单项：清空本周（当前查看周）/ 清空历史（本周之前，保留本周）/ 清空全部。 */
+  function closeClearMenu(){ var m=document.getElementById("clearMenu"); if(m) m.remove(); }
+  function showClearMenu(mod, anchor){
+    if(mod!=="attendance" && mod!=="materials") return;
+    closeClearMenu();
+    var m=document.createElement("div"); m.id="clearMenu"; m.className="col-menu show";
+    m.innerHTML =
+       '<button class="col-menu-item" data-clearweek="'+mod+'">🧹 清空本周（当前查看周）</button>'
+      +'<button class="col-menu-item" data-clearhist="'+mod+'">📚 清空历史（本周之前的全部，保留本周）</button>'
+      +'<div class="col-menu-sep"></div>'
+      +'<button class="col-menu-item danger" data-clearall="'+mod+'">🗑 清空全部（含所有历史周）</button>';
+    document.body.appendChild(m);
+    var r=anchor.getBoundingClientRect();
+    m.style.left=Math.max(6, Math.min(window.innerWidth-240, r.left))+"px";
+    m.style.top=(r.bottom+4)+"px";
+    setTimeout(function(){
+      function close(ev){ if(m.contains(ev.target)) return; m.remove(); document.removeEventListener("click",close,true); }
+      document.addEventListener("click",close,true);
+    },10);
   }
 
   /* ---------- 规则配置弹窗 ---------- */
@@ -7920,7 +7970,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var tb=document.getElementById(gridTargets.tb);
     var wrap=document.getElementById(gridTargets.wrap);
     var foot=document.getElementById(gridTargets.foot);
-    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 选择文件夹进入，或新建一个</span>';
+    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 选择文件夹进入，或新建一个</span>'
+      +'<span class="gt-sep"></span>'
+      +'<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>';
     var groups=matFoldersGroup();
     if(!groups.length){
       var empty='<div class="empty-state" style="padding:32px 14px">'
@@ -8173,7 +8225,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>'
        +'<span class="gt-sep"></span>'
-       +'<button class="gt-btn" data-clearall="materials" title="清空全部材料记录（含所有历史周），并清除对应的加减分，不可恢复">🗑 清空全部</button>';
+       +'<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>';
     } else {
       // 考勤：常规 / 晚自习 模式切换
       var isNight = gridState.curItem==="晚自习";
@@ -8810,7 +8862,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var attdel=e.target.closest("[data-attdel]"); if(attdel){ deleteAttachment(attdel.getAttribute("data-attdel"), attdel.getAttribute("data-attpath")); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
-    var clrAll=e.target.closest("[data-clearall]"); if(clrAll){ var ca=clrAll.getAttribute("data-clearall"); if(ca==="materials") clearAllMaterials(); return; }
+    var cmenu=e.target.closest("[data-clearmenu]"); if(cmenu){ showClearMenu(cmenu.getAttribute("data-clearmenu"), cmenu); return; }
+    var clrAll=e.target.closest("[data-clearall]"); if(clrAll){ closeClearMenu(); clearAllModule(clrAll.getAttribute("data-clearall")); return; }
+    var clrHist=e.target.closest("[data-clearhist]"); if(clrHist){ closeClearMenu(); clearHistoryModule(clrHist.getAttribute("data-clearhist")); return; }
+    var clrWk=e.target.closest("[data-clearweek]"); if(clrWk){ closeClearMenu(); clearWeek(clrWk.getAttribute("data-clearweek")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ var ck=clr.getAttribute("data-clear"); if(ck==="attendance"||ck==="materials") clearWeek(ck); else clearModule(ck); return; }
     var sgb=e.target.closest("[data-stuGroupBatch]");
     if(sgb){ openStuGroupBatch(); return; }
@@ -10109,7 +10164,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "chart-top10-2026-09-06";
+  var __APP_VERSION__ = "clear-history-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
