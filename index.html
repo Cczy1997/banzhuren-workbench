@@ -2292,6 +2292,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(!keys.length) return;          // 该栏目下没有可见模块 → 整个分组不显示
       html += secHTML(cat, meta, keys);
     });
+    if(isHead()){
+      html += '<div class="sec"><div class="sec-h" data-cat="acct" style="cursor:pointer">'
+        + '<span>🔑</span><span>账号管理</span></div></div>';
+    }
     nav.innerHTML=html;
   }
   function secHTML(cat, meta, keys){
@@ -2317,6 +2321,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return '<div class="sec'+(show?'':' collapsed')+'" data-sec="'+cat+'">'+head+sub+'</div>';
   }
   function onSecHead(cat){
+    if(cat==="acct"){ openAccountMgr(); closeDrawer(); return; }
     var subs = ORDER[cat] || [];
     // 只有 1 个子项的分组（AI 小助手 / 我的功课）：展开毫无意义，
     // 若仍只 toggle 会表现为「点了没反应」——这里直接跳转进去。
@@ -6038,7 +6043,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if(tSess) return db.auth.setSession(tSess).then(function(){ return u; });  // 恢复班主任会话后再写
         return u;
       }).then(function(u){
-        return apiAdd("members",{uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid})
+        return apiAdd("members",{uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd})
           .then(function(){ return u; });
       }).then(function(u){
         if(info) info.innerHTML="✅ 已创建：「"+esc(stu)+"」的家长账号<br>邮箱：<code>"+esc(email)
@@ -6055,6 +6060,74 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var m=(e&&e.message)||String(e||"");
       if(info) info.textContent="创建失败："+m;
     });
+  }
+  /* 账号管理：班主任查看自己创建的所有成员账号（邮箱 + 密码）。
+     密码在 createParentAccount 创建时存入成员 data；通过「添加成员（填 ID）」加入的账号不含密码，显示「—」。 */
+  function openAccountMgr(){
+    if(!isHead()){ toast("仅班主任可管理账号"); return; }
+    var mask=document.createElement("div");
+    mask.className="mask show"; mask.id="acctMask";
+    mask.innerHTML='<div class="sheet"><h3>🔑 账号管理<button type="button" class="x" data-mclose="1">×</button></h3>'
+      +'<div style="font-size:12.5px;color:#9a9aa2;margin-bottom:8px">班主任创建的所有成员账号（家长 / 科任老师）及登录密码。密码默认隐藏，点「显示」查看或「复制」发给家长。</div>'
+      +'<div id="acctList"></div>'
+      +'<div style="margin-top:12px;display:flex;gap:8px">'
+      +'<button class="btn-mini" data-acopyall="1">📋 复制全部账号</button></div>'
+      +'<div style="margin-top:10px;font-size:11.5px;color:#9a9aa2">说明：密码在创建账号时记录于成员表；通过「添加成员（填账号 ID）」加入的账号不含密码，显示为「—」。</div>'
+      +'</div>';
+    document.body.appendChild(mask);
+    mask.addEventListener("click", function(e){
+      if(e.target===mask || e.target.closest("[data-mclose]")){ mask.remove(); return; }
+      if(e.target.closest("[data-acopyall]")){ copyAllAccts(); return; }
+      var rev=e.target.closest("[data-reveal]");
+      if(rev){ togglePwd(rev.getAttribute("data-reveal")); return; }
+      var cp=e.target.closest("[data-copy]");
+      if(cp){ copyText(cp.getAttribute("data-copy")).then(function(){ toast("已复制 ✓"); }); return; }
+    });
+    renderAcctList(mask);
+  }
+  function renderAcctList(mask){
+    var box=mask?mask.querySelector("#acctList"):null;
+    if(!box) return;
+    var rows=(DATA.members||[]).slice().sort(function(a,b){
+      var ra=a.role==="家长"?0:1, rb=b.role==="家长"?0:1; if(ra!==rb) return ra-rb;
+      return String(a.name||"").localeCompare(String(b.name||""),"zh");
+    });
+    if(!rows.length){ box.innerHTML='<div class="empty" style="padding:12px">还没有任何成员账号</div>'; return; }
+    box.innerHTML='<table style="width:100%;font-size:12.5px;border-collapse:collapse">'
+      +'<tr style="text-align:left;color:#9a9aa2"><th style="padding:6px 4px">关联学生 / 姓名</th><th>身份</th><th>账号（邮箱）</th><th>密码</th></tr>'
+      + rows.map(function(r){
+          var pwd=r["pwd"]||"";
+          var em=r["email"]||"";
+          var pwdCell = pwd
+            ? '<span data-pwd="'+esc(r._id)+'">••••••</span> '
+              + '<button class="mini" data-reveal="'+esc(r._id)+'">显示</button> '
+              + '<button class="mini" data-copy="'+esc(pwd)+'">复制</button>'
+            : '<span style="color:#9a9aa2">—</span>';
+          var sub = (r["student"] && r["student"]!==r["name"]) ? '<br><span style="color:#9a9aa2;font-size:11px">'+esc(r["student"])+'</span>' : '';
+          return '<tr style="border-top:1px solid var(--line)">'
+            +'<td style="padding:6px 4px">'+esc(r["name"]||"")+sub+'</td>'
+            +'<td>'+esc(r["role"]||"")+'</td>'
+            +'<td style="font-size:11px;color:#888;max-width:150px;word-break:break-all">'+esc(em||"（无邮箱）")+'</td>'
+            +'<td style="white-space:nowrap">'+pwdCell+'</td></tr>';
+        }).join("")
+      +'</table>';
+  }
+  function togglePwd(id){
+    var r=(DATA.members||[]).filter(function(x){ return x._id===id; })[0];
+    if(!r) return;
+    var span=document.querySelector('[data-pwd="'+id+'"]');
+    if(!span) return;
+    var btn=document.querySelector('[data-reveal="'+id+'"]');
+    if(span.getAttribute("data-show")==="1"){ span.textContent="••••••"; span.removeAttribute("data-show"); if(btn) btn.textContent="显示"; }
+    else { span.textContent=r["pwd"]||""; span.setAttribute("data-show","1"); if(btn) btn.textContent="隐藏"; }
+  }
+  function copyAllAccts(){
+    var rows=(DATA.members||[]).filter(function(r){ return r["email"]; });
+    if(!rows.length){ toast("还没有带账号的邮箱可复制"); return; }
+    var txt=rows.map(function(r){
+      return (r["name"]||"")+"（"+(r["role"]||"")+"）：账号 "+r["email"]+"　密码 "+(r["pwd"]||"（无记录）");
+    }).join("\n");
+    copyText(txt).then(function(ok){ toast(ok?"已复制全部账号 ✓":"复制失败，请手动选中"); });
   }
   /* 分类错误：true = 表缺失/权限等"结构性"失败（不应再重试，直接交给用户修复）；false = 瞬时网络错误（再重试有意义） */
   function classifyError(e){
@@ -9669,7 +9742,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "cover-clean-2026-09-05";
+  var __APP_VERSION__ = "acct-mgr-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
