@@ -6079,24 +6079,102 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      只污染 dbGuest（内存态，不写 localStorage），主客户端 db 的班主任会话始终完好。
      随后用 db（班主任会话）直接写成员行（user_id=班主任），RLS with check 必然通过。
      彻底消除「setSession 恢复班主任会话失败 → 成员写入被 RLS 拒绝 → 邮箱已建但工作台不显示」的坑。 */
+  /* 拼音转换（内联 pinyin-pro，离线可用）：把学生姓名转成小写拼音串，如「张三」→「zhangsan」。
+     仅在创建家长账号时 lazy 注入，不阻塞首屏；组件不可用则回退随机方案，保证创建不中断。 */
+  function _injectPinyin(txt){
+    return new Promise(function(res,rej){
+      try{
+        if(typeof window.Blob==="undefined"||typeof URL==="undefined"||!URL.createObjectURL){ rej(new Error("环境不支持 Blob")); return; }
+        var blob=new Blob([txt],{type:"text/javascript"});
+        var url=URL.createObjectURL(blob);
+        var s=document.createElement("script");
+        s.src=url;
+        s.onload=function(){ try{ URL.revokeObjectURL(url); }catch(e){} res(); };
+        s.onerror=function(){ try{ URL.revokeObjectURL(url); }catch(e){} rej(new Error("拼音组件加载失败")); };
+        document.head.appendChild(s);
+      }catch(e){ rej(e); }
+    });
+  }
+  function _loadPinyinNet(){
+    var hosts=[
+      "https://cdn.jsdelivr.net/npm/pinyin-pro@3.26.0/dist/index.js",
+      "https://unpkg.com/pinyin-pro@3.26.0/dist/index.js"
+    ];
+    return new Promise(function(res,rej){
+      var i=0;
+      function tryNext(){
+        if(i>=hosts.length){ rej(new Error("拼音组件 CDN 全部失败")); return; }
+        var url=hosts[i++];
+        fetch(url).then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+          .then(function(t){ return _injectPinyin(t); }).then(res).catch(tryNext);
+      }
+      tryNext();
+    });
+  }
+  var _pinyinReady=null;
+  function ensurePinyin(){
+    if(typeof window!=="undefined" && window.pinyinPro && typeof window.pinyinPro.pinyin==="function") return Promise.resolve(true);
+    if(_pinyinReady) return _pinyinReady;
+    var el=document.getElementById("wb-pinyin-bundle");
+    var txt=el?(el.textContent||""):"";
+    if(txt && txt.length>50000 && txt.indexOf("pinyinPro")>=0){
+      _pinyinReady=_injectPinyin(txt).then(function(){ return true; }).catch(function(e){ console.warn("内联拼音注入失败",e); _pinyinReady=null; return false; });
+    } else {
+      _pinyinReady=_loadPinyinNet().then(function(){ return true; }).catch(function(){ return false; });
+    }
+    return _pinyinReady;
+  }
+  function nameToPinyin(name){
+    var p=(typeof window!=="undefined"&&window.pinyinPro)?window.pinyinPro:(typeof pinyinPro!=="undefined"?pinyinPro:null);
+    if(!p||typeof p.pinyin!=="function") return "";
+    try{
+      var s=p.pinyin(String(name||""),{toneType:"none",type:"string",separator:"",nonZh:"removed"});
+      return (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+    }catch(e){ return ""; }
+  }
+  var _parentEmailUsed=null;
+  function seedParentEmailUsed(){
+    if(_parentEmailUsed) return;
+    _parentEmailUsed={};
+    (DATA.members||[]).forEach(function(m){ if(m.email) _parentEmailUsed[String(m.email).toLowerCase()]=1; });
+  }
+  /* 用拼音生成账号前缀：<拼音>c19；同拼音重名（如张伟/张薇）自动追加 _2/_3 去重。 */
+  function uniqParentEmail(py){
+    seedParentEmailUsed();
+    py=(py||"stu").toLowerCase().replace(/[^a-z0-9]/g,"")||"stu";
+    var cand=py+"c19", n=2;
+    while(_parentEmailUsed[cand]){ cand=py+"c19_"+n; n++; }
+    _parentEmailUsed[cand]=1;
+    return cand+"@banzhuren.app";
+  }
   function createOneParent(stu, pwd){
     if(!db) return Promise.reject(new Error("未连接后端"));
     var signer = dbGuest || db;   // 优先用独立客户端，避免污染班主任会话
-    var slug=stu.replace(/[^a-zA-Z0-9]/g,"")||"stu";
-    var email="parent_"+slug+"_"+(Date.now().toString(36))+Math.random().toString(36).slice(2,6)+"@banzhuren.app";
-    return signer.auth.signUp({email:email,password:pwd,
-      options:{data:{role:"家长",student:stu,displayName:stu}}
-    }).then(function(res){
-      if(res.error) throw res.error;
-      var u=res.data&&res.data.user;
-      if(!u||!u.id) throw new Error("未返回新账号信息");
-      // 用主客户端 db（仍是班主任会话）写成员行，user_id=班主任，RLS 直接通过
-      return db.from(tbl("members")).insert({ user_id: curUid,
-        data: {uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd} })
-        .select('id').then(function(r2){
-          if(r2.error) throw r2.error;
-          return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)};
-        });
+    return ensurePinyin().then(function(ok){
+      var email;
+      if(ok){
+        var py=nameToPinyin(stu);
+        if(py) email=uniqParentEmail(py);   // 账号前缀 = 拼音 + c19，如 zhangsanc19@banzhuren.app
+      }
+      if(!email){
+        // 拼音不可用（离线且 CDN 均失败）：退回随机可读方案，保证创建不中断
+        var slug=stu.replace(/[^a-zA-Z0-9]/g,"")||"stu";
+        email="parent_"+slug+"_"+(Date.now().toString(36))+Math.random().toString(36).slice(2,6)+"@banzhuren.app";
+      }
+      return signer.auth.signUp({email:email,password:pwd,
+        options:{data:{role:"家长",student:stu,displayName:stu}}
+      }).then(function(res){
+        if(res.error) throw res.error;
+        var u=res.data&&res.data.user;
+        if(!u||!u.id) throw new Error("未返回新账号信息");
+        // 用主客户端 db（仍是班主任会话）写成员行，user_id=班主任，RLS 直接通过
+        return db.from(tbl("members")).insert({ user_id: curUid,
+          data: {uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd} })
+          .select('id').then(function(r2){
+            if(r2.error) throw r2.error;
+            return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)};
+          });
+      });
     });
   }
   /* 班主任用学生姓名创建家长登录账号（单个，供「关联学生」入口调用） */
