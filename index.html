@@ -6236,7 +6236,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var stu=todo[i];
       if(info) info.textContent="正在创建 "+created.length+"/"+todo.length+"（"+stu+"）…";
       createOneParent(stu, pwd).then(function(r){
-        created.push(r); i++; setTimeout(step, 250);   // 间隔 250ms，避免触发注册频率限制
+        created.push(r); renderMembersList(mask); i++; setTimeout(step, 250);   // 间隔 250ms，避免触发注册频率限制
       }).catch(function(e){
         var m=(e&&e.message)||String(e||"");
         if(!firstErr) firstErr=m;
@@ -6244,7 +6244,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           // 频率限制：等待后重试一次该学生
           if(info) info.textContent="触发频率限制，2 秒后重试（"+stu+"）…";
           setTimeout(function(){
-            createOneParent(stu, pwd).then(function(r){ created.push(r); i++; setTimeout(step,250); },
+            createOneParent(stu, pwd).then(function(r){ created.push(r); renderMembersList(mask); i++; setTimeout(step,250); },
               function(e2){ var m2=(e2&&e2.message)||String(e2||""); if(!firstErr) firstErr=m2; i++; setTimeout(step,200); });
           }, 2000);
         } else {
@@ -7348,7 +7348,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function autoApply(mod){
     if(mod!=="attendance" && mod!=="materials") return;
     if(_autoApplyTimer) clearTimeout(_autoApplyTimer);
-    _autoApplyTimer=setTimeout(function(){ _autoApplyTimer=null; applyRules(mod); }, 900);
+    setStatus("syncing");
+    _autoApplyTimer=setTimeout(function(){ _autoApplyTimer=null; applyRules(mod); }, 500);
   }
   /* 清空「当周」（周一~周日）的考勤/材料记录，并联动清除对应的加减分；
      旧周记录已随 Supabase 持久化，自动归档到历史周（经周导航可查），不再出现在明面 */
@@ -9663,8 +9664,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function parseAndPreview(file){
     var t=detectType(file);
     var prev=document.getElementById("impPreview");
-    if(t==="img"){ previewImage(file); return; }
+    if(t==="img"){ prev.innerHTML='<div class="imp-empty">⏳ 正在读取图片 '+esc(file.name)+' …</div>'; previewImage(file); return; }
     if(t==="csv"){
+      prev.innerHTML='<div class="imp-empty">⏳ 正在解析 '+esc(file.name)+' …</div>';
       var reader=new FileReader();
       reader.onload=function(){ try{ showPreview(parseCSV(String(reader.result||""))); }catch(err){ showImpError(err); } };
       reader.readAsText(file,"UTF-8");
@@ -9757,7 +9759,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
     }
     setStatus("syncing");
-    var chain=Promise.resolve(), n=0;
+    var batchProps=[], n=0;
     impData.rows.forEach(function(r){
       var base=Object.assign({}, forceProps);
       fields.forEach(function(f){
@@ -9774,16 +9776,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           var props=Object.assign({}, base);
           props["科目"]=sc2.subject;
           props["分数"]=sv;
-          chain=chain.then(function(){ return apiAdd(key, props).then(function(){ n++; }); });
+          batchProps.push(props);
         });
         return;
       }
       if(Object.keys(base).length===0) return;
       var mainV=base[mainF];
       if(mainV==null || String(mainV).trim()==="") return;
-      chain=chain.then(function(){ return apiAdd(key, base).then(function(){ n++; }); });
+      batchProps.push(base);
     });
-    chain.then(function(){ closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
+    apiAddBatch(key, batchProps).then(function(created){ (DATA[key]=DATA[key]||[]).push.apply(DATA[key], created); n=created.length; closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
       .then(function(){
         // 成绩导入：把原始 Excel 存入云端（任何设备可下载 / 查找）；失败不阻塞
         if(key==="grades" && impFile && impFile.size && importRelated){
@@ -9834,19 +9836,22 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       else { batch[nm]=mergeStudentRecords(key, batch[nm], props); }
     });
     // 2) 与「已有档案」合并：已有则更新（补齐/并集），没有则新增 —— 绝不产生重复姓名
-    var chain=Promise.resolve(), n=0;
+    /* 已有学生走逐条 apiUpdate（合并补齐，数量通常很少）；新学生用 apiAddBatch 一次性批量插入，
+       解决首建花名册几十人串行写入慢、易超时的问题。 */
+    var addProps=[], upJobs=[], n=0;
     order.forEach(function(nm){
       var props=batch[nm];
       var ex=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"").trim()===nm; })[0];
       if(ex){
         var merged=mergeStudentRecords(key, ex, props);
         var data={}; Object.keys(merged).forEach(function(k){ if(k!=="_id") data[k]=merged[k]; });
-        chain=chain.then(function(){ return apiUpdate(key, ex._id, data).then(function(){ n++; }); });
+        upJobs.push(apiUpdate(key, ex._id, data).then(function(){ n++; }));
       } else {
-        chain=chain.then(function(){ return apiAdd(key, props).then(function(){ n++; }); });
+        addProps.push(props);
       }
     });
-    chain.then(function(){ closeImp(); toast("已导入 / 合并 "+n+" 名学生 ✓"); return refreshAll(); })
+    Promise.all([ apiAddBatch(key, addProps).then(function(c){ n+=c.length; (DATA.students=DATA.students||[]).push.apply(DATA.students, c); }), Promise.all(upJobs) ])
+      .then(function(){ closeImp(); toast("已导入 / 合并 "+n+" 名学生 ✓"); return refreshAll(); })
       .then(function(){ setStatus("ok"); })
       .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
   }
@@ -9982,7 +9987,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mat-clearall-2026-09-05";
+  var __APP_VERSION__ = "resp-speed-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
