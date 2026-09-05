@@ -2178,6 +2178,22 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* ---------- 网络韧性：自动重试 + 并发限制 + 失败可恢复 ---------- */
   /* 给任意 Promise 加超时：Supabase 在某些网络/RLS 场景下会"永远 pending"，必须主动判失败，否则整页卡在「正在加载」 */
+  /* 启动快失败探测：先做一次轻量请求判断后端是否可达。若不可达，后续查询改用「短超时 + 不重试」，
+     避免 16 个模块 × 8s 超时 × 3 次重试 = 最长近两分钟空转才提示离线；
+     同时立刻切「离线模式」并提示用户（显示上次缓存数据），而不是让用户一直盯着转圈。 */
+  var _netDown=false;
+  function probeBackend(){
+    if(!db) return Promise.resolve(false);
+    var p = db.from(tbl("settings")).select('id').limit(1);
+    return withTimeout(p, 3500, "网络探测").then(function(){
+      _netDown=false; return true;
+    }).catch(function(e){
+      var kind="transient";
+      try{ kind=classifyError(e).kind; }catch(_){}
+      if(kind==="transient"){ _netDown=true; return false; }   /* 网络/超时：判定后端不可达 */
+      _netDown=false; return true;                            /* schema/RLS：后端是通的，正常继续 */
+    });
+  }
   function withTimeout(p, ms, label){
     ms = ms || 9000;
     return new Promise(function(resolve, reject){
@@ -2233,13 +2249,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     function go(){
       return withTimeout(
         db.from(tbl(key)).select('id, data').order('created_at',{ascending:true}),
-        8000, "表 "+key+" 查询"
+        _netDown?3000:8000, "表 "+key+" 查询"
       ).then(function(res){
+        _netDown=false;   /* 任一查询成功即认为网络已恢复，后续恢复长超时+重试 */
         if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; }
         return { results: (res.data||[]).map(function(r){ var o={_id:r.id}; if(r.data) Object.keys(r.data).forEach(function(k){o[k]=r.data[k];}); return o; }) };
       });
     }
-    return retry(go, 3);
+    /* 已判定后端不可达时：单次请求、不再重试（retry(fn,1) 仍会重试一次，故直接调 go()） */
+    return _netDown ? go() : retry(go, 3);
   }
   function apiAdd(key, props){
     return db.from(tbl(key)).insert({ user_id: curUid, data: props }).select('id, data').then(function(res){
@@ -9977,9 +9995,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(cached){
       try{ render(); if(state.mod) renderList(state.mod); setStatus("ok"); }catch(e){ console.warn("boot cache render 失败，转网络加载", e); }
     }
-    refreshAll().then(function(failed){
-      setStatus((failed && failed.length===ALLKEYS.length) ? "offline" : "ok");
-      if(!(failed && failed.length>=ALLKEYS.length)) saveBootCache();   // 仅在非全失败时落缓存
+    probeBackend().then(function(up){
+      if(!up){ setStatus("offline"); toast("网络不可用，已切换到离线模式（显示上次数据），恢复后会自动同步"); }
+      return refreshAll().then(function(failed){
+        var allDown = failed && failed.length===ALLKEYS.length;
+        setStatus(allDown ? "offline" : "ok");
+        if(!allDown) saveBootCache();   // 仅在非全失败时落缓存
+      });
     }).catch(function(e){
       console.error(e); setStatus("offline");
     });
@@ -9987,7 +10009,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "resp-speed-2026-09-05";
+  var __APP_VERSION__ = "fastfail-offline-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
