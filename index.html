@@ -5703,16 +5703,32 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(!item) return;
     var matching=(DATA.materials||[]).filter(function(r){ return String(r["事项"]||"").trim()===item && (r["类型"]||"作业提交")===type; });
     if(!matching.length){ toast("该文件夹已无记录"); return; }
-    if(!confirm("确定删除文件夹「"+item+"」（"+type+"）吗？\n该文件夹下的全部 "+matching.length+" 条材料记录会一并删除，不可撤销。")) return;
+    // 受影响的学生的姓名：删除后需同步清除其由该文件夹产生的加分/扣分
+    var names={}; matching.forEach(function(r){ var n=String(r["学生姓名"]||"").trim(); if(n) names[n]=1; });
+    var nameList=Object.keys(names);
+    if(!confirm("确定删除文件夹「"+item+"」（"+type+"）吗？\n该文件夹下的全部 "+matching.length+" 条材料记录会一并删除，不可撤销。\n相关学生的「材料」加分 / 扣分也会同步清除。")) return;
+    // 材料删完后，对受影响学生重算材料积分（删除其全部 [材料] 积分再从剩余材料重建），
+    // 从而清掉本文件夹产生的加分/扣分，同时保留其它文件夹的积分。单条失败不影响整体。
+    var syncPoints=function(){
+      if(!nameList.length) return Promise.resolve();
+      var chain=Promise.resolve();
+      nameList.forEach(function(nm){
+        chain=chain.then(function(){ return applyMaterialScoring(nm).catch(function(e){ console.warn("材料删除后重算积分失败",nm,e); }); });
+      });
+      return chain.then(function(){ return refreshAll().catch(function(e){ console.warn("积分刷新失败",e); }); })
+        .catch(function(e){ console.warn("积分同步异常",e); });
+    };
     if(matUseLocal){
       var ids={}; matching.forEach(function(r){ ids[r._id]=1; });
       var arr=matLocalAll().filter(function(r){ return !ids[r._id]; });
-      matLocalSave(arr); DATA.materials=arr; renderMatFolders(); toast("已删除文件夹「"+item+"」"); return;
+      matLocalSave(arr); DATA.materials=arr; renderMatFolders(); toast("已删除文件夹「"+item+"」");
+      syncPoints(); return;
     }
     var delIds=matching.map(function(r){ return r._id; }).filter(Boolean);
     apiDeleteBatch("materials", delIds).then(function(){
       DATA.materials=(DATA.materials||[]).filter(function(r){ return !(String(r["事项"]||"").trim()===item && (r["类型"]||"作业提交")===type); });
       renderMatFolders(); toast("已删除文件夹「"+item+"」（"+matching.length+" 条）");
+      return syncPoints();
     }).catch(function(e){ toast("删除失败："+((e&&e.message)||e)); });
   }
   /* 课表单独容错加载：表不存在/网络异常都不影响主链路与全局提示 */
@@ -9830,7 +9846,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "batch-parent-2026-09-05";
+  var __APP_VERSION__ = "mat-folder-del-pts-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
