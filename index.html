@@ -7370,6 +7370,30 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       .catch(function(e){ console.error(e); setStatus("offline"); toast("清空失败："+(e&&e.message||e)); });
   }
 
+  /* 清空【材料收集】的全部记录（含所有历史周），并联动清除对应的加减分。
+     与 clearWeek 不同：不限定周，直接删除 DATA.materials 里的全部行（历史周记录一并清空）。
+     删除后由 applyRules("materials") 自动删掉所有「来源=材料」的加减分（剩余材料为空、重算结果为 0）。*/
+  function clearAllMaterials(){
+    if(!canEdit()) return;
+    var all=(DATA.materials||[]);
+    if(!all.length){ toast("材料收集暂无记录"); return; }
+    if(!confirm("确定清空【材料收集】的全部记录吗？\n将删除所有历史周的材料记录（共 "+all.length+" 条），并清除对应的加减分，此操作不可恢复！")) return;
+    setStatus("syncing");
+    var delIds=all.map(function(r){ return r._id; }).filter(Boolean);
+    var done=function(){
+      DATA.materials=[];
+      if(gridState.mod==="materials") renderMatFolders();
+      refreshModule("materials");
+      applyRules("materials");
+      setStatus("ok");
+      toast("已清空全部材料记录（共 "+all.length+" 条，含历史周）✓ 对应加减分已同步清除");
+    };
+    if(matUseLocal){ matLocalSave([]); done(); return; }
+    apiDeleteBatch("materials", delIds).then(done).catch(function(e){
+      console.error(e); setStatus("offline"); toast("清空失败："+((e&&e.message)||e));
+    });
+  }
+
   /* ---------- 规则配置弹窗 ---------- */
   function openRulesConfig(mod){
     document.getElementById("ruleTitle").textContent = "⚙️ "+(mod==="attendance"?"考勤":"材料收集")+" · 加减分规则";
@@ -8061,7 +8085,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为已交（只补当天）">🪄 一键补齐已交</button>'
        +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
-       +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
+       +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>'
+       +'<span class="gt-sep"></span>'
+       +'<button class="gt-btn" data-clearall="materials" title="清空全部材料记录（含所有历史周），并清除对应的加减分，不可恢复">🗑 清空全部</button>';
     } else {
       // 考勤：常规 / 晚自习 模式切换
       var isNight = gridState.curItem==="晚自习";
@@ -8697,6 +8723,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var attdel=e.target.closest("[data-attdel]"); if(attdel){ deleteAttachment(attdel.getAttribute("data-attdel"), attdel.getAttribute("data-attpath")); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
+    var clrAll=e.target.closest("[data-clearall]"); if(clrAll){ var ca=clrAll.getAttribute("data-clearall"); if(ca==="materials") clearAllMaterials(); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ var ck=clr.getAttribute("data-clear"); if(ck==="attendance"||ck==="materials") clearWeek(ck); else clearModule(ck); return; }
     var sgb=e.target.closest("[data-stuGroupBatch]");
     if(sgb){ openStuGroupBatch(); return; }
@@ -9955,7 +9982,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "robust-schemafix-all-2026-09-05";
+  var __APP_VERSION__ = "mat-clearall-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
