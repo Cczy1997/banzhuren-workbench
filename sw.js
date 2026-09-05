@@ -3,7 +3,7 @@
  * 缓存名含版本号：每次部署版本号变化 → 旧缓存自动失效、拉取新页面。
  * 仅缓存同源的 HTML 导航请求；supabase / 外部 API 等跨域请求一律走网络，绝不缓存。
  */
-const CACHE = "wb-shell-multrole-2026-09-05";
+const CACHE = "wb-shell-cover-clean-2026-09-05";
 self.addEventListener("install", function(){ self.skipWaiting(); });
 self.addEventListener("activate", function(e){
   e.waitUntil((async function(){
