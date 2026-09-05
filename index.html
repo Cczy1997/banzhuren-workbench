@@ -6066,7 +6066,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      ④ 以班主任身份写 hr_members 映射（user_id=班主任，uid=新家长）。 */
   /* 核心：用学生姓名创建一个家长 auth 账号并绑定到班主任。返回 {email,stu,pwd,id,confirmed}。
      顺序：signUp（会话变家长）→ setSession 恢复班主任（RLS 要求 user_id=班主任）→ 写 hr_members。 */
-  function createOneParent(stu, pwd, tSess){
+  function createOneParent(stu, pwd){
+    var me=null;
+    return db.auth.getSession().then(function(g){
+      me=g.data&&g.data.session;
     var slug=stu.replace(/[^a-zA-Z0-9]/g,"")||"stu";
     var email="parent_"+slug+"_"+Math.random().toString(36).slice(2,8)+"@banzhuren.app";
     return db.auth.signUp({email:email,password:pwd,
@@ -6075,14 +6078,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(res.error) throw res.error;
       var u=res.data&&res.data.user;
       if(!u||!u.id) throw new Error("未返回新账号信息");
-      if(tSess) return db.auth.setSession(tSess).then(function(){ return u; });  // 恢复班主任会话后再写
+      if(me) return db.auth.setSession(me).then(function(){ return u; });  // 恢复班主任会话后再写（RLS 要求 user_id=班主任）
       return u;
     }).then(function(u){
       return apiAdd("members",{uid:u.id,name:stu,role:"家长",student:stu,ownerUid:curUid,email:email,pwd:pwd})
         .then(function(){ return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)}; });
     }).catch(function(e){
-      if(tSess) return db.auth.setSession(tSess).then(function(){ throw e; }, function(){ throw e; });  // 尽力恢复班主任会话
-      throw e;
+      // signUp 已把当前会话切到家长态时，尽力恢复班主任会话，避免污染后续批量循环
+      return db.auth.getSession().then(function(g){
+        var cs=g.data&&g.data.session;
+        if(cs&&cs.user&&cs.user.id===curUid) return Promise.reject(e);   // 已是班主任，无需恢复
+        return db.auth.setSession(me).then(function(){ return Promise.reject(e); }, function(){ return Promise.reject(e); });
+      }, function(){ return Promise.reject(e); });
+    });
     });
   }
   /* 班主任用学生姓名创建家长登录账号（单个，供「关联学生」入口调用） */
@@ -6096,10 +6104,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(pwd.length<6){ toast("密码至少 6 位"); return; }
     var info=mask.querySelector("#memCreateInfo");
     if(info) info.textContent="正在创建账号…";
-    db.auth.getSession().then(function(g){
-      var tSess=g.data&&g.data.session;
-      return createOneParent(stu, pwd, tSess);
-    }).then(function(r){
+    createOneParent(stu, pwd).then(function(r){
       var note = r.confirmed ? ""
         : '<br><span style="color:#e0a000">⚠️ 该账号尚未通过邮箱验证，家长可能登录失败。请到 Supabase 后台 Authentication → Providers → Email 关闭「Confirm email」，再让家长登录（已创建的账号无需重建，关掉开关即生效）。</span>';
       if(info) info.innerHTML="✅ 已创建：「"+esc(stu)+"」的家长账号<br>邮箱：<code>"+esc(r.email)
@@ -6124,29 +6129,45 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var pwd="123456";
     if(!confirm("将为全班 "+todo.length+" 名尚未建账号的学生，一键创建家长账号，初始密码统一为 123456。\n已建过的不重复创建。继续？")) return;
     var info=mask.querySelector("#memBatchInfo"); if(info) info.textContent="正在创建 0/"+todo.length+" …";
-    var created=[];
-    db.auth.getSession().then(function(g){
-      var tSess=g.data&&g.data.session;
-      return todo.reduce(function(p, stu){
-        return p.then(function(){
-          return createOneParent(stu, pwd, tSess).then(function(r){
-            created.push(r);
-            if(info) info.textContent="正在创建 "+created.length+"/"+todo.length+"（"+stu+"）…";
-          }).catch(function(e){
-            if(info) info.textContent="创建「"+stu+"」失败："+((e&&e.message)||e)+"；继续其余…";
-          });
-        });
-      }, Promise.resolve());
-    }).then(function(){
+    var created=[]; var firstErr=null; var i=0;
+    function done(){
       renderMembersList(mask); render();
       var expBtn=mask.querySelector("#memExport"); if(expBtn) expBtn.style.display="";
-      if(info) info.innerHTML="✅ 已创建 "+created.length+" 个家长账号，初始密码均为 <b>123456</b>。"+(created.length?"<br>点「📋 导出账号（CSV）」可保存名单。":"");
-      toast("一键创建完成："+created.length+" 个");
-    }).catch(function(e){
-      var m=(e&&e.message)||String(e||"");
-      if(info) info.textContent="创建中断："+m;
-      toast("创建中断："+m);
-    });
+      if(info){
+        var msg="✅ 已创建 <b>"+created.length+"</b> / "+todo.length+" 个家长账号，初始密码均为 <b>123456</b>。";
+        if(created.length && created.length<todo.length){
+          msg+="<br><span style=\"color:#d8453f\">有 "+(todo.length-created.length)+" 个未创建"
+            +(firstErr?("（首个原因："+esc(firstErr)+"）"):"")+"。可稍后重试，或检查 Supabase 后台：是否开启 Allow new signups、是否触发注册频率限制。</span>";
+        } else if(created.length){
+          msg+="<br>点「📋 导出账号（CSV）」可保存名单。";
+        }
+        info.innerHTML=msg;
+      }
+      toast("一键创建完成："+created.length+"/"+todo.length);
+    }
+    function step(){
+      if(i>=todo.length){ done(); return; }
+      var stu=todo[i];
+      if(info) info.textContent="正在创建 "+created.length+"/"+todo.length+"（"+stu+"）…";
+      createOneParent(stu, pwd).then(function(r){
+        created.push(r); i++; setTimeout(step, 250);   // 间隔 250ms，避免触发注册频率限制
+      }).catch(function(e){
+        var m=(e&&e.message)||String(e||"");
+        if(!firstErr) firstErr=m;
+        if(/rate|too many|429|limit|频率/i.test(m||"")){
+          // 频率限制：等待后重试一次该学生
+          if(info) info.textContent="触发频率限制，2 秒后重试（"+stu+"）…";
+          setTimeout(function(){
+            createOneParent(stu, pwd).then(function(r){ created.push(r); i++; setTimeout(step,250); },
+              function(e2){ var m2=(e2&&e2.message)||String(e2||""); if(!firstErr) firstErr=m2; i++; setTimeout(step,200); });
+          }, 2000);
+        } else {
+          if(info) info.textContent="创建「"+stu+"」失败："+m+"；继续其余…";
+          i++; setTimeout(step, 150);
+        }
+      });
+    }
+    step();
   }
   /* 导出全部带账号（邮箱+密码）的成员为 CSV，带 BOM 供 Excel 正常显示中文 */
   function exportAccountsFile(){
@@ -9846,7 +9867,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mat-folder-del-pts-2026-09-05";
+  var __APP_VERSION__ = "batch-parent-fix-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
