@@ -1174,6 +1174,35 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     box-shadow:0 6px 16px rgba(255,107,157,.3)}
   .auth-btn:active{transform:scale(.98)}
   .auth-btn.ghost{background:#FFF3F7;color:var(--pink-d);box-shadow:none;font-weight:700}
+  .auth-role{display:flex;align-items:center;gap:8px;margin:2px 0 0;font-size:13px;color:var(--ink-soft)}
+  .auth-role select{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;
+    font-size:14px;color:var(--ink);font-family:inherit}
+  .auth-roletip{margin:6px 0 2px;font-size:11.5px;line-height:1.6;color:#9a9aa2}
+
+  /* ===== 留言板 ===== */
+  .msg-form{margin:10px 0 14px}
+  .msg-form textarea{width:100%;min-height:88px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+    font-size:14px;font-family:inherit;color:var(--ink);box-sizing:border-box;resize:vertical}
+  .msg-form-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .msg-form-row select{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;background:#fff;color:var(--ink)}
+  .msg-thread{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px;background:#fff}
+  .msg-thread-h{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px}
+  .msg-b{border-radius:12px;padding:8px 10px;margin:6px 0;background:#F7F8FA;max-width:86%}
+  .msg-b.mine{background:#FFF3F7;margin-left:auto}
+  .msg-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9a9aa2;margin-bottom:3px}
+  .msg-meta b{color:var(--ink);font-size:12px}
+  .msg-role{background:#EEF2FF;color:#4B5BD6;border-radius:6px;padding:1px 6px;font-size:10.5px}
+  .msg-time{margin-left:auto}
+  .msg-del{border:none;background:transparent;color:#c9c9d1;cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+  .msg-del:hover{color:#d8453f}
+  .msg-stu{font-size:11.5px;color:#7a7a85;margin-bottom:3px}
+  .msg-c{font-size:14px;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .msg-reply{display:flex;gap:8px;margin-top:8px}
+  .msg-reply input{flex:1;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;min-width:0}
+  .msg-uidcard{border:1px dashed var(--line);border-radius:12px;padding:12px;background:#FCFCFD;font-size:13px}
+  .msg-uidcard code{display:inline-block;background:#F2F3F5;padding:3px 8px;border-radius:6px;
+    font-family:ui-monospace,Menlo,monospace;font-size:11.5px;word-break:break-all}
+  .msg-uidtip{font-size:11.5px;color:#9a9aa2;margin-top:6px;line-height:1.6}
   .auth-err{margin-top:6px;font-size:12.5px;color:var(--danger);min-height:16px;line-height:1.4}
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
@@ -1563,6 +1592,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <p class="auth-sub" id="authSub">登录后即可在云端同步你的班级数据</p>
     <input type="email" id="authEmail" placeholder="邮箱" autocomplete="username">
     <input type="password" id="authPwd" placeholder="密码（至少 6 位）" autocomplete="current-password">
+    <div class="auth-role">
+      <span>注册身份</span>
+      <select id="authRole">
+        <option value="家长">家长</option>
+        <option value="科任老师">科任老师</option>
+      </select>
+    </div>
+    <p class="auth-roletip">此选择仅用于<b>注册新账号</b>；登录时以账号自身身份为准。班主任身份不可自行注册，需由班主任在「⚙️ 成员管理」中提升。</p>
     <button class="auth-btn" id="authLogin">登录</button>
     <button class="auth-btn ghost" id="authSignup">注册新账号</button>
     <div class="auth-err" id="authErr"></div>
@@ -1644,6 +1681,54 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   var curUid = null;                 // 当前登录用户 id（写入每行 user_id）
   function tbl(key){ return "hr_"+key; }   // 模块 key → 表名 hr_<key>
+
+  /* ===== 身份与权限（班主任 / 科任老师 / 家长） =====
+     身份存在 auth.user_metadata.role，登录后从 session 读出。
+     老账号（没有 role 元数据）一律按「班主任」处理，保证原有用法完全不受影响。 */
+  var ROLE_HEAD="班主任", ROLE_SUBJECT="科任老师", ROLE_PARENT="家长";
+  var curRole = ROLE_HEAD;           // 当前身份，默认班主任
+  function isHead(){ return curRole===ROLE_HEAD; }
+  /* 仅班主任可增删改；科任老师 / 家长一律只读 */
+  function canEdit(){ return isHead(); }
+  /* 各身份可见模块（null = 全部）。留言板 messages 三身份通用。
+     班主任侧不受影响：ORDER 里不会多出 schedule，仍走总览里的班级课表。 */
+  var ROLE_MODS = {};
+  ROLE_MODS[ROLE_HEAD]    = null;
+  ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
+  ROLE_MODS[ROLE_PARENT]  = ["duty","honorboard","materials","schedule","messages"];
+  function canSee(key){
+    if(isHead()) return true;
+    var list=ROLE_MODS[curRole]||[];
+    return list.indexOf(key)>=0;
+  }
+  /* 当前身份可见的栏目（按模块所属 cat 聚合） */
+  function visibleCats(){
+    if(isHead()) return ["overview","stu","aff","mor","mine","meet","ai","board"];
+    var list=ROLE_MODS[curRole]||[], out=[];
+    list.forEach(function(k){
+      var c=(MODULES[k]&&MODULES[k].cat)||"aff";
+      if(out.indexOf(c)<0) out.push(c);
+    });
+    return out;
+  }
+  /* 某栏目下当前身份可见的模块 key */
+  function catKeys(cat){
+    if(isHead()) return (ORDER[cat]||[]).slice();
+    var list=ROLE_MODS[curRole]||[];
+    return list.filter(function(k){ return ((MODULES[k]&&MODULES[k].cat)||"aff")===cat; });
+  }
+  /* 只读身份点到的「写操作」入口，统一拦截（隐藏按钮之外的兜底） */
+  var RO_MUT_SEL = "[data-add],[data-imp],[data-clear],[data-ocr],[data-ruleapply],[data-rulecfg],"
+    + "[data-edit],[data-del],[data-edit-mall],[data-del-mall],[data-attdel],[data-seat],[data-sched],"
+    + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-comMonthly],.seatcell,[contenteditable=true]";
+  function blockIfReadOnly(e){
+    if(canEdit()) return false;
+    var mut = e.target.closest ? e.target.closest(RO_MUT_SEL) : null;
+    if(!mut) return false;
+    e.preventDefault(); e.stopPropagation();
+    toast("当前身份（"+curRole+"）仅可查看，不能修改");
+    return true;
+  }
   var BUCKET="classfiles";                 // 文件存储桶（Supabase Storage）
   var formFiles={};                        // 表单内文件字段的运行时状态：{字段名:{kept:[url],pending:[File]}}
   var formPhotos=[];                       // 学生照片运行时状态：[{url,year,ts}]（按年份保留历史）
@@ -1856,6 +1941,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     },
     weekly:{
       title:"🗞️ 班级周报", cat:"meet", unit:"份", main:"标题", fields:[]
+    },
+    /* 班级课表：班主任侧仍显示在「总览」里（此处不入 ORDER.aff，避免改动班主任原有侧边栏）；
+       科任老师 / 家长没有总览入口，故作为独立模块供其只读查看。 */
+    schedule:{
+      title:"🗓️ 班级课表", cat:"aff", unit:"", main:"", fields:[]
+    },
+    /* 留言板：三种身份都可发帖。可见范围 = 发帖人本人 + 被指定接收的班主任（data.owner），
+       即每位成员与班主任之间是一对一私密会话，班主任能看到全部。 */
+    messages:{
+      title:"📝 留言板", cat:"board", unit:"", main:"", fields:[]
     }
   };
 
@@ -1865,7 +1960,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     mor:["talk","comm","comment"],
     mine:["sched_hwk"],
     meet:["meeting","weekly"],
-    ai:["ai"]
+    ai:["ai"],
+    board:["messages"]
   };
   var CAT_META = {
     overview:{icon:"🏠",label:"总览"},
@@ -1874,7 +1970,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     mor:{icon:"💗",label:"德育心理"},
     mine:{icon:"📚",label:"我的功课"},
     meet:{icon:"📣",label:"班会与周报"},
-    ai:{icon:"🤖",label:"AI 小助手"}
+    ai:{icon:"🤖",label:"AI 小助手"},
+    board:{icon:"📝",label:"留言板"}
   };
   var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","materials","seats","duty","grades","points","honor","talk","comm","comment","mall"];
 
@@ -2136,13 +2233,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function renderSidebar(){
     var nav=document.getElementById("nav");
     var html="";
-    html += secHTML("overview",CAT_META.overview,null);
-    html += secHTML("stu",CAT_META.stu,ORDER.stu);
-    html += secHTML("aff",CAT_META.aff,ORDER.aff);
-    html += secHTML("mor",CAT_META.mor,ORDER.mor);
-    html += secHTML("mine",CAT_META.mine,ORDER.mine);
-    html += secHTML("meet",CAT_META.meet,ORDER.meet);
-    html += secHTML("ai",CAT_META.ai,ORDER.ai);
+    /* 按身份渲染栏目：班主任 = 原有全部 + 留言板；其它身份 = 仅其可见模块所属的栏目 */
+    visibleCats().forEach(function(cat){
+      var meta=CAT_META[cat]; if(!meta) return;
+      if(cat==="overview"){ html += secHTML("overview", meta, null); return; }
+      var keys=catKeys(cat);
+      if(!keys.length) return;          // 该栏目下没有可见模块 → 整个分组不显示
+      html += secHTML(cat, meta, keys);
+    });
     nav.innerHTML=html;
   }
   function secHTML(cat, meta, keys){
@@ -2154,8 +2252,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + '</div>';
     var sub="";
     if(keys){
+      var vis=keys.filter(canSee);
+      if(!vis.length) return "";
       sub='<div class="sub'+(show?'':' collapsed')+'">';
-      keys.forEach(function(k){
+      vis.forEach(function(k){
         var m=MODULES[k];
         sub+='<a class="'+(state.mod===k?'active':'')+'" data-mod="'+k+'">'
           + '<span>'+esc(stripEmoji(m.title))+'</span>'
@@ -2188,8 +2288,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     renderSidebar();
     syncMobileTitle();
     var box=document.getElementById("content");
+    /* 非班主任：没有「总览」入口，也不允许停留在不可见模块 → 自动落到首个可见模块 */
+    if(!isHead()){
+      if(state.cat==="overview" || !canSee(state.mod)){
+        var _vm=(ROLE_MODS[curRole]||[]).filter(canSee);
+        if(_vm.length){ state.mod=_vm[0]; state.cat=(MODULES[state.mod]&&MODULES[state.mod].cat)||"aff"; }
+      }
+    }
     if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadOverviewAffairs(); renderScheduleInto("class","overviewSched"); return; }
     if(state.mod==="sched_hwk"){ box.innerHTML='<div class="phead"><h3>📚 个人功课表</h3><span class="hint">按星期×节次记录每节课要布置的功课 / 个人教学安排；支持本周调课，下周自动还原</span></div>'+renderScheduleHTML("hwk"); return; }
+    /* 班级课表（独立模块，主要给科任老师 / 家长只读查看；班主任仍在总览里看） */
+    if(state.mod==="schedule"){
+      box.innerHTML='<div class="phead"><h3>🗓️ 班级课表</h3>'
+        +'<span class="hint">'+(canEdit()?'点击单元格即可编辑':'当前身份仅可查看')+'</span></div>'
+        +renderScheduleHTML("class", canEdit());
+      return;
+    }
+    /* 留言板：三种身份都能发帖，可见范围由后端 RLS 控制（本人 + 班主任） */
+    if(state.mod==="messages"){ box.innerHTML=renderMessages(); bindMessages(); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(state.mod==="mall"){ box.innerHTML=renderMall(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
@@ -2241,6 +2357,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var ruleBtn = (key==="attendance"||key==="materials") ? '<button class="btn-rule" data-ruleapply="'+key+'">✅ 应用规则</button><button class="btn-rule" data-rulecfg="'+key+'" title="规则设置">⚙️</button>' : '';
     var stuGroupBtn = (key==="students") ? '<button class="btn-rule" data-stuGroupBatch title="批量分小组（每组人数均衡）">👥 批量分小组</button>' : '';
     var comMonthlyBtn = (key==="committee") ? '<button class="btn-rule" data-comMonthly title="按职务加分值批量给所有在任班委写入当月积分（已标「不尽责」或当月已加的跳过）">🎖 班委月度加分</button>' : '';
+    /* 只读身份（科任老师 / 家长）：隐藏一切写操作入口，只留视图切换与导出 */
+    if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; comMonthlyBtn=""; }
+    var roAdd = canEdit()
+      ? '<button class="btn-imp" data-imp="'+key+'">导入</button>'
+        +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
+        +'<button class="btn-add" data-add="'+key+'">+ 添加</button>'
+      : '';
     return ''
       +'<div class="phead">'
       +'<h3>'+esc(m.title)+'</h3>'
@@ -2253,9 +2376,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + stuGroupBtn
       + comMonthlyBtn
       +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
-      +'<button class="btn-imp" data-imp="'+key+'">导入</button>'
-      +'<button class="btn-clear" data-clear="'+key+'">清空</button>'
-      +'<button class="btn-add" data-add="'+key+'">+ 添加</button>'
+      + roAdd
       +'</div>'
       + (key==="students" ? '<div class="stu-search-wrap"><input class="stu-search" id="stuSearch" placeholder="🔍 搜索姓名 / 学号 / 标签 / 小组…" value="'+esc(state.stuQ||"")+'"></div>' : '')
       + (key==="parents" ? '<div class="stu-search-wrap"><input class="stu-search" id="parSearch" placeholder="🔍 搜索学生姓名 / 学号 / 家长…" value="'+esc(state.parQ||"")+'"></div>' : '')
@@ -5014,7 +5135,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var c=document.getElementById(cid); if(!c) return;
     c.innerHTML=renderScheduleHTML(sid);
   }
-  function renderScheduleHTML(sid){
+  /* allowEdit=false 时（科任老师 / 家长）不渲染任何编辑入口，纯只读查看 */
+  function renderScheduleHTML(sid, allowEdit){
     var cfg=schedCfg(sid);
     var periods=cfg.periods, days=cfg.days;
     var wk=isoWeek(new Date());
@@ -5022,15 +5144,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var overGrid=(overRec&&overRec.grid)||{};
     var baseGrid=(SCHED.base[sid]&&SCHED.base[sid].grid)||{};
     var mode=schedMode[sid]||"base";
-    var edit=!!schedEdit[sid];
+    var _allow=(allowEdit===undefined)?true:!!allowEdit;
+    var edit=_allow && !!schedEdit[sid];
 
-    var tools='<div class="sched-bar">'
+    var tools = _allow ? ('<div class="sched-bar">'
       +'<button class="btn-sched" data-sched="edit">'+(edit?"✅ 完成":"✏️ 编辑")+'</button>'
       + (edit?'<button class="btn-sched" data-sched="mode">'+(mode==="base"?"📌 基础课表":"🔧 本周调课")+'</button>':'')
       + (overRec?'<button class="btn-sched btn-ghost" data-sched="restore">↩ 恢复本周原课表</button>':'')
       +'<button class="btn-sched btn-ghost" data-sched="cfg">⚙ 设置</button>'
       + (edit&&mode==="week"?'<span class="sched-tip">本周期课仅当周生效，下周自动还原</span>':'')
-      +'</div>';
+      +'</div>') : '';
 
     var wkInfo='<div class="sched-wk">当前周：<b>'+wk.key+'</b>（'+wk.monday+' ~ '+wk.sunday+'）'
       + (overRec?' <span class="sched-over-tag">本周有调课</span>':'')
@@ -5521,6 +5644,240 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return apiQuery("schedule").then(function(res){ DATA.schedule=res.results||[]; loadSchedules(); })
       .catch(function(){ loadSchedules(); });
   }
+
+  /* ===== 成员绑定 hr_members =====
+     班主任把成员（科任老师 / 家长）的账号 UID 加进来，写入 {uid, name, role, ownerUid}。
+     ownerUid 记在 data 里（apiQuery 只回传 _id + data，不会带出 user_id），
+     这样成员登录后能读到「我属于哪个班主任的班级」，并据此获得只读查看权与留言对象。 */
+  var myMemberRow=null, MSG_OWNER=null, membersTableMissing=false;
+  function loadMembersSafe(){
+    DATA.members=DATA.members||[];
+    return apiQuery("members").then(function(res){
+      DATA.members=res.results||[];
+      myMemberRow=null;
+      if(!isHead()){
+        var mine=(DATA.members||[]).filter(function(r){ return r["uid"]===curUid; })[0];
+        if(mine){ myMemberRow=mine; MSG_OWNER=mine["ownerUid"]||null; }
+      }
+    }).catch(function(e){
+      if(classifyError(e).kind==="schema"){ membersTableMissing=true; DATA.members=[]; return; }
+      /* 其它错误不拖垮主流程 */
+    });
+  }
+  function memberName(uid){
+    var m=(DATA.members||[]).filter(function(r){ return r["uid"]===uid; })[0];
+    return m?(m["name"]||"成员"):"成员";
+  }
+  function memberRole(uid){
+    var m=(DATA.members||[]).filter(function(r){ return r["uid"]===uid; })[0];
+    return m?(m["role"]||""):"";
+  }
+
+  /* ===== 留言板 hr_messages =====
+     可见范围完全由后端 RLS 决定：作者本人可读写自己的；data.owner == auth.uid() 的可读。
+       · 成员发帖   → owner = 班主任 uid（班主任能看到）
+       · 班主任回复 → owner = 那位成员的 uid（只有那位成员能看到）
+     于是每位成员与班主任之间是一对一私密会话，班主任能看到全部会话。 */
+  var msgTableMissing=false;
+  function loadMessagesSafe(){
+    DATA.messages=DATA.messages||[];
+    return apiQuery("messages").then(function(res){ DATA.messages=res.results||[]; })
+      .catch(function(e){
+        if(classifyError(e).kind==="schema"){ msgTableMissing=true; DATA.messages=[]; return; }
+        throw e;
+      });
+  }
+  function msgTime(ts){
+    if(!ts) return "";
+    var d=new Date(ts);
+    if(isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+  }
+  function myUidCard(){
+    return '<div class="msg-uidcard">我的账号 ID：<code>'+esc(curUid||"")+'</code>'
+      +'<button class="btn-mini" id="copyUid">📋 复制</button>'
+      +'<div class="msg-uidtip">把这段 ID 发给班主任，由班主任在「⚙️ 成员管理」里添加你，之后即可查看班级内容与留言。</div></div>';
+  }
+  function msgBubble(m){
+    var mine=(m.authorUid===curUid);
+    var who=mine?"我":(isHead()?memberName(m.authorUid):"班主任");
+    return '<div class="msg-b'+(mine?' mine':'')+'">'
+      +'<div class="msg-meta"><b>'+esc(who)+'</b>'
+      +(m.authorRole?' <span class="msg-role">'+esc(m.authorRole)+'</span>':'')
+      +'<span class="msg-time">'+esc(msgTime(m.ts))+'</span>'
+      +'<button class="msg-del" data-msgdel="'+esc(m._id)+'" title="删除">×</button>'
+      +'</div>'
+      +(m.student?'<div class="msg-stu">关联学生：'+esc(m.student)+'</div>':'')
+      +'<div class="msg-c">'+esc(m.content||"")+'</div></div>';
+  }
+  function renderMessages(){
+    var isH=isHead();
+    var head='<div class="phead"><h3>📝 留言板</h3><span class="hint">'
+      +(isH?'你能看到全部成员的留言；回复只有对应成员能看到'
+           :'你的留言仅班主任可见，班主任的回复也只有你能看到')
+      +'</span><span class="spacer"></span>'
+      +(isH?'<button class="btn-rule" id="btnMembers">⚙️ 成员管理</button>':'')
+      +'</div>';
+    if(msgTableMissing){
+      return head+'<div class="empty">留言板数据表 <code>hr_messages</code> / 成员表 <code>hr_members</code> 尚未创建。'
+        +'请到 Supabase 执行本次提供的建表 SQL，再硬刷新本页。</div>';
+    }
+    if(!isH && !MSG_OWNER){
+      return head+'<div class="empty">你还没有加入班级。</div>'+myUidCard();
+    }
+    var list=(DATA.messages||[]).slice().sort(function(a,b){
+      return String(a.ts||"").localeCompare(String(b.ts||""));
+    });
+    var stuOpts=(DATA.students||[]).map(function(s){ return s["姓名"]; }).filter(Boolean);
+    var form='<div class="msg-form">'
+      +'<textarea id="msgText" placeholder="写下你想说的话…"></textarea>'
+      +'<div class="msg-form-row">'
+      + (stuOpts.length?'<select id="msgStu"><option value="">关联学生（选填）</option>'
+          + stuOpts.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join("")
+          +'</select>':'')
+      +'<button class="btn-add" id="msgSend">发送</button>'
+      +'</div></div>';
+    if(!list.length) return head+form+'<div class="empty">还没有留言，来写第一条吧～</div>';
+    var body="";
+    if(isH){
+      /* 班主任：按「对方」分组成会话——成员帖按 authorUid 归组，我的回复按 owner 归到对应成员 */
+      var groups={}, order=[];
+      list.forEach(function(m){
+        var other=(m.authorUid && m.authorUid!==curUid) ? m.authorUid : (m.owner||"未知");
+        if(!groups[other]){ groups[other]=[]; order.push(other); }
+        groups[other].push(m);
+      });
+      order.forEach(function(uid){
+        var msgs=groups[uid];
+        var who=(uid===curUid)?"我自己":memberName(uid);
+        var role=memberRole(uid);
+        body+='<div class="msg-thread"><div class="msg-thread-h">👤 '+esc(who)
+          +(role?' <span class="msg-role">'+esc(role)+'</span>':'')+'</div>';
+        msgs.forEach(function(m){ body+=msgBubble(m); });
+        if(uid!==curUid){
+          body+='<div class="msg-reply"><input type="text" placeholder="回复 '+esc(who)+'…" data-msgreply="'+esc(uid)+'">'
+            +'<button class="btn-mini" data-msgsend="'+esc(uid)+'">回复</button></div>';
+        }
+        body+='</div>';
+      });
+    } else {
+      body='<div class="msg-thread">';
+      list.forEach(function(m){ body+=msgBubble(m); });
+      body+='</div>';
+    }
+    return head+form+body;
+  }
+  function bindMessages(){
+    var cu=document.getElementById("copyUid");
+    if(cu) cu.onclick=function(){ copyText(curUid||"").then(function(ok){ toast(ok?"已复制账号 ID ✓":"复制失败，请手动选中"); }); };
+    var bm=document.getElementById("btnMembers");
+    if(bm) bm.onclick=openMembers;
+    var send=document.getElementById("msgSend");
+    if(send) send.onclick=function(){
+      var t=document.getElementById("msgText"); var txt=(t&&t.value||"").trim();
+      if(!txt){ toast("请先写点内容"); return; }
+      var st=document.getElementById("msgStu");
+      postMessage(txt, (st&&st.value)||"", null);
+      if(t) t.value="";
+    };
+    Array.prototype.forEach.call(document.querySelectorAll("[data-msgsend]"), function(b){
+      b.onclick=function(){
+        var uid=b.getAttribute("data-msgsend");
+        var inp=document.querySelector('[data-msgreply="'+uid+'"]');
+        var txt=(inp&&inp.value||"").trim();
+        if(!txt){ toast("请先写点内容"); return; }
+        postMessage(txt, "", uid);
+        if(inp) inp.value="";
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-msgdel]"), function(b){
+      b.onclick=function(){
+        var id=b.getAttribute("data-msgdel");
+        if(!confirm("删除这条留言？")) return;
+        apiDelete("messages", id).then(function(){
+          DATA.messages=(DATA.messages||[]).filter(function(r){ return r._id!==id; });
+          render(); toast("已删除");
+        }).catch(function(e){ toast("删除失败："+(e&&e.message||e)); });
+      };
+    });
+  }
+  /* owner 显式指定接收人；不传时：成员→班主任，班主任→留空（仅自己可见） */
+  function postMessage(content, student, owner){
+    var rec={ content:content, student:student||"", ts:new Date().toISOString(),
+              authorUid:curUid, authorRole:curRole, owner: owner || (isHead()?"":(MSG_OWNER||"")) };
+    apiAdd("messages", rec).then(function(o){
+      DATA.messages=(DATA.messages||[]).concat([Object.assign({_id:o._id}, rec)]);
+      render(); toast("已发送 ✓");
+    }).catch(function(e){
+      var m=(e&&e.message)||String(e||"");
+      if(!trySchemaFix(m)) toast("发送失败："+m);
+    });
+  }
+  /* ---------- 成员管理（仅班主任） ---------- */
+  function openMembers(){
+    if(!isHead()){ toast("仅班主任可管理成员"); return; }
+    var mask=document.createElement("div");
+    mask.className="mask show"; mask.id="membersMask";
+    mask.innerHTML='<div class="sheet"><h3>⚙️ 成员管理<button type="button" class="x" data-mclose="1">×</button></h3>'
+      +'<div style="font-size:13px;line-height:1.75;color:var(--ink-soft)">'
+      +'把科任老师 / 家长的<b>账号 ID</b>加进来，他们登录后即可<b>只读查看</b>对应模块，并给你留言。'
+      +'<br>对方在「📝 留言板」里能看到并复制自己的账号 ID，发给你即可。</div>'
+      +'<div style="margin:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap">'
+      +'<input id="memUid" placeholder="成员账号 ID" style="flex:2;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<input id="memName" placeholder="姓名 / 称呼" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<select id="memRole" style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<option value="家长">家长</option><option value="科任老师">科任老师</option></select>'
+      +'<button class="btn-mini" data-madd="1">＋ 添加</button></div>'
+      +'<div id="memList"></div>'
+      +'<div style="margin-top:10px;font-size:11.5px;color:#9a9aa2">提示：对方需用该账号登录后，在「留言板」复制自己的账号 ID 发给你；身份由你在这里指定，不随对方注册时的选择而变。</div>'
+      +'</div>';
+    document.body.appendChild(mask);
+    mask.addEventListener("click", function(e){
+      if(e.target===mask || e.target.closest("[data-mclose]")){ mask.remove(); return; }
+      if(e.target.closest("[data-madd]")){ addMember(mask); return; }
+      var del=e.target.closest("[data-mdel]");
+      if(del){
+        if(!confirm("移除该成员？移除后对方将看不到班级数据。")) return;
+        apiDelete("members", del.getAttribute("data-mdel")).then(function(){
+          return loadMembersSafe();
+        }).then(function(){ renderMembersList(mask); render(); toast("已移除"); })
+        .catch(function(e){ toast("移除失败："+(e&&e.message||e)); });
+      }
+    });
+    renderMembersList(mask);
+  }
+  function renderMembersList(mask){
+    var box=mask?mask.querySelector("#memList"):document.getElementById("memList");
+    if(!box) return;
+    var rows=DATA.members||[];
+    if(!rows.length){ box.innerHTML='<div class="empty" style="padding:12px">还没有成员</div>'; return; }
+    box.innerHTML='<table style="width:100%;font-size:12.5px;border-collapse:collapse">'
+      +'<tr style="text-align:left;color:#9a9aa2"><th style="padding:6px 4px">姓名</th><th>身份</th><th>账号 ID</th><th></th></tr>'
+      + rows.map(function(r){
+          return '<tr style="border-top:1px solid var(--line)">'
+            +'<td style="padding:6px 4px">'+esc(r["name"]||"")+'</td>'
+            +'<td>'+esc(r["role"]||"")+'</td>'
+            +'<td style="font-family:ui-monospace,monospace;font-size:11px;color:#888">'+esc(String(r["uid"]||"").slice(0,18))+'…</td>'
+            +'<td style="text-align:right"><button class="mini del" data-mdel="'+esc(r._id)+'">移除</button></td></tr>';
+        }).join("")
+      +'</table>';
+  }
+  function addMember(mask){
+    var uidEl=mask.querySelector("#memUid"), nmEl=mask.querySelector("#memName"), rlEl=mask.querySelector("#memRole");
+    var uid=(uidEl&&uidEl.value||"").trim(), nm=(nmEl&&nmEl.value||"").trim();
+    var role=(rlEl&&rlEl.value)||ROLE_PARENT;
+    if(!uid){ toast("请填写成员账号 ID"); return; }
+    if((DATA.members||[]).some(function(r){ return r["uid"]===uid; })){ toast("该成员已添加"); return; }
+    apiAdd("members", { uid:uid, name:nm||"未命名", role:role, ownerUid:curUid }).then(function(){
+      return loadMembersSafe();
+    }).then(function(){
+      if(uidEl) uidEl.value=""; if(nmEl) nmEl.value="";
+      renderMembersList(mask); render(); toast("已添加成员 ✓");
+    }).catch(function(e){
+      var m=(e&&e.message)||String(e||"");
+      if(!trySchemaFix(m)) toast("添加失败："+m);
+    });
+  }
   /* 分类错误：true = 表缺失/权限等"结构性"失败（不应再重试，直接交给用户修复）；false = 瞬时网络错误（再重试有意义） */
   function classifyError(e){
     var msg = (e && e.message) || (typeof e==="string" ? e : "") || JSON.stringify(e||{});
@@ -5563,6 +5920,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return failed1;
     }).then(function(failed){
       return loadSchedulesSafe().then(function(){ return failed; });
+    }).then(function(failed){
+      // 成员先加载：留言板要按成员表把 uid 解析成姓名
+      return loadMembersSafe().then(function(){ return failed; });
+    }).then(function(failed){
+      return loadMessagesSafe().then(function(){ return failed; });
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
@@ -5880,8 +6242,48 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var m=/['"]?(?:public\.)?(hr_[a-z0-9_]+)['"]?/i.exec(s);
     return m ? m[1] : "";
   }
+  /* 留言板：作者本人可读写自己的；data.owner 指定的接收人可读。
+     → 成员发帖 owner=班主任uid（班主任可见）；班主任回复 owner=成员uid（仅该成员可见）。 */
+  function sqlMessages(){
+    return "create table if not exists hr_messages (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists hr_messages_user_idx on hr_messages(user_id);\n"
+      +"alter table hr_messages enable row level security;\n"
+      +"drop policy if exists hr_messages_own on hr_messages;\n"
+      +"create policy hr_messages_own on hr_messages\n"
+      +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);\n"
+      +"-- 留言指定的接收人可读（成员→班主任、班主任→成员，一对一私密会话）\n"
+      +"drop policy if exists hr_messages_to_me on hr_messages;\n"
+      +"create policy hr_messages_to_me on hr_messages\n"
+      +"  for select using ( (data->>'owner') = auth.uid()::text );";
+  }
+  /* 成员表：班主任读写自己添加的行；成员本人可读自己那一行（据此知道归属班级与身份） */
+  function sqlMembers(){
+    return "create table if not exists hr_members (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists hr_members_user_idx on hr_members(user_id);\n"
+      +"alter table hr_members enable row level security;\n"
+      +"drop policy if exists hr_members_own on hr_members;\n"
+      +"create policy hr_members_own on hr_members\n"
+      +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);\n"
+      +"-- 成员本人可读自己那一行\n"
+      +"drop policy if exists hr_members_self_read on hr_members;\n"
+      +"create policy hr_members_self_read on hr_members\n"
+      +"  for select using ( (data->>'uid') = auth.uid()::text );";
+  }
   function sqlForTable(t){
     if(!/^hr_[a-z0-9_]+$/i.test(t)) return "";
+    /* 这两张表的可见范围不是「仅本人」，需专用策略，不能用通用模板 */
+    if(t==="hr_messages") return sqlMessages();
+    if(t==="hr_members")  return sqlMembers();
     return "create table if not exists "+t+" (\n"
       +"  id         uuid primary key default gen_random_uuid(),\n"
       +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
@@ -7694,6 +8096,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   });
   document.getElementById("content").addEventListener("click",function(e){
     var g=e.target.closest(".ov-mod"); if(g){ return; }
+    /* 只读身份兜底：任何写操作入口（新增/编辑/删除/导入/清空/规则/课表编辑/座位）一律拦截 */
+    if(blockIfReadOnly(e)) return;
     var goMod=e.target.closest("[data-gomod]"); if(goMod){ switchMod(goMod.getAttribute("data-gomod")); closeDrawer(); return; }
     var sd=e.target.closest("[data-sched]"); if(sd){ onSchedAction(sd); return; }
     var seatBtn=e.target.closest("[data-seat]"); if(seatBtn){ onSeatTool(seatBtn.getAttribute("data-seat")); return; }
@@ -9006,8 +9410,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var pwd=document.getElementById("authPwd").value;
     if(!email||!pwd){ document.getElementById("authErr").textContent="请填写邮箱和密码"; return; }
     if(pwd.length<6){ document.getElementById("authErr").textContent="密码至少 6 位"; return; }
+    /* 注册身份：只允许「家长 / 科任老师」两种只读身份；班主任不可自行注册（须由班主任提升） */
+    var _roleEl=document.getElementById("authRole");
+    var role=(_roleEl&&_roleEl.value)||ROLE_PARENT;
+    if(role!==ROLE_PARENT && role!==ROLE_SUBJECT) role=ROLE_PARENT;
     setStatus("syncing");
-    db.auth.signUp({email:email,password:pwd}).then(function(res){
+    db.auth.signUp({email:email,password:pwd,options:{data:{role:role}}}).then(function(res){
       if(res.error){
         var m=res.error.message||"注册失败";
         if(/rate limit/i.test(m)) m="验证邮件发送被限流，注册卡住。请到 Supabase 后台关闭「Confirm email」，关闭后注册即直接登录、不再发邮件。";
@@ -9025,6 +9433,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function onSignedIn(user){
     try{
       curUid=user.id;
+      /* 身份来自注册时写入的 user_metadata.role；老账号没有该字段 → 按班主任（全权限）处理 */
+      var _r=(user&&user.user_metadata&&user.user_metadata.role)||"";
+      curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT) ? _r : ROLE_HEAD;
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
@@ -9076,7 +9487,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "matiso-2026-09-03";
+  var __APP_VERSION__ = "roles-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
