@@ -592,6 +592,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .imp-pick{display:inline-block;font:inherit;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d));border:none;cursor:pointer;border-radius:14px;padding:11px 18px;box-shadow:0 4px 12px rgba(255,107,157,.25)}
   .imp-pick:active{transform:scale(.97)}
   .imp-preview{margin-top:12px}
+.imp-progress{margin-top:12px}
+.imp-pg-bar{height:8px;background:#EEF3FF;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.imp-pg-fill{height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--mint));border-radius:999px;transition:width .25s ease}
+.imp-pg-text{margin-top:7px;font-size:12.5px;color:var(--ink-soft);text-align:center}
+.imp-pg-text b{color:var(--ink)}
+.pts-top10{border:1.5px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:#fff}
+.pts-t10h{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none;background:linear-gradient(180deg,#F7F5FA,#FCFBFE);border-bottom:1px solid var(--line)}
+.pts-t10body{padding:10px 14px 12px}
+.pts-t10note{margin-top:8px;font-size:11.5px;color:var(--ink-soft);text-align:right}
   .imp-grade-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#FFF7E6;border:1px solid #F2D9A6;border-radius:12px;padding:9px 12px;margin-top:10px;font-size:13px;color:#8B6914}
   .imp-grade-bar label{font-weight:800}
   .imp-grade-bar select{font:inherit;font-size:13px;font-weight:700;color:var(--ink);border:1px solid #E0A53A;border-radius:9px;padding:5px 9px;background:#fff}
@@ -1428,6 +1437,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       </div>
     </div>
     <div id="impPreview" class="imp-preview" data-page-node-id="J47m4yWTtREDaBJxoA0iZf"></div>
+    <div id="impProgress" class="imp-progress" style="display:none">
+      <div class="imp-pg-bar"><div id="impPgFill" class="imp-pg-fill"></div></div>
+      <div id="impPgText" class="imp-pg-text"></div>
+    </div>
     <div class="actions" data-page-node-id="Oj0dkF3tKvqrsjcAzyTjOM">
       <button class="btn-cancel" id="impCancel" data-page-node-id="iHxaZm6jcXPBWlkVZlTHCz">取消</button>
       <button class="btn-save" id="impDo" disabled data-page-node-id="Z2xBVACl0uBntgLiwPk4O3">确认导入</button>
@@ -2290,12 +2303,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 批量插入：一次请求插一批（Supabase insert 支持数组），超出 BATCH 自动分批。
      返回展开后的本地记录数组 [{_id, ...data字段}]，调用方直接 push 进 DATA。 */
-  function apiAddBatch(key, propsArray){
+  /* 批量插入（每批 500 行）。onProgress(percent, done, total) 可选，用于导入时实时显示保存进度。 */
+  function apiAddBatch(key, propsArray, onProgress){
     if(!propsArray || !propsArray.length) return Promise.resolve([]);
     var BATCH=500;
     var rows = propsArray.map(function(p){ return { user_id: curUid, data: p }; });
     var out=[];
     var chain=Promise.resolve();
+    var totalN=rows.length, doneN=0;
+    if(typeof onProgress==="function") onProgress(0, 0, totalN);
     for(var i=0;i<rows.length;i+=BATCH){
       (function(sl){
         chain = chain.then(function(){
@@ -2304,6 +2320,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             (res.data||[]).forEach(function(r){
               var o={_id:r.id}; if(r.data) Object.keys(r.data).forEach(function(k){ o[k]=r.data[k]; }); out.push(o);
             });
+            doneN += sl.length;
+            if(typeof onProgress==="function") onProgress(Math.round(doneN/totalN*100), doneN, totalN);
           });
         });
       })(rows.slice(i, i+BATCH));
@@ -4997,7 +5015,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* ================= 加减分管理 · 分组列表视图 =================
      按「加分 / 减分」分成两个可折叠的文件夹，每笔一行（姓名+分值+原因+日期），
      点行打开该笔记录的完整详情。目标是「一眼扫完全班流水，按需再看细节」。 */
-  var pointsView={open:{}};
+  var pointsView={open:{}, topOpen:true};
   function ptsTypeOf(r){
     var t=String(r["类型"]||"");
     if(t==="兑换") return "兑换";
@@ -5009,6 +5027,55 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var t=ptsTypeOf(r);
     return (t==="加分") ? v : -Math.abs(v);
   }
+  /* 积分榜 · 前十名横向条形图（纯内联 SVG，零外部依赖）
+     口径：净积分 = 加分 − 减分 − 兑换（与列表每笔正负号一致，见 ptsSigned），降序取前 10 名。
+     用横向条形而非纵向柱状：中文姓名在手机上也能完整平铺显示，不必旋转标签。 */
+  function renderPointsTop10(){
+    var rows=(DATA.points||[]);
+    var agg={};
+    rows.forEach(function(r){
+      var nm=String(r["学生姓名"]||"").trim();
+      if(!nm) return;
+      agg[nm]=(agg[nm]||0)+ptsSigned(r);
+    });
+    var list=Object.keys(agg).map(function(nm){ return {name:nm, val:agg[nm]}; });
+    if(!list.length) return "";
+    list.sort(function(a,b){ return b.val-a.val; });
+    var top=list.slice(0,10);
+    var maxAbs=1;
+    top.forEach(function(t){ if(Math.abs(t.val)>maxAbs) maxAbs=Math.abs(t.val); });
+
+    var W=680, rowH=26, barH=14, x0=130, valW=54;
+    var barMax=W-x0-valW;               // 条形可占最大宽度
+    var H=top.length*rowH+8;
+    var open=pointsView.topOpen!==false;
+    var h='<div class="pts-top10">'
+      +'<div class="pts-t10h" data-ptstop="1">'
+      +'<span class="pts-caret">'+(open?'▾':'▸')+'</span>'
+      +'<span class="pts-fname">🏆 积分榜 · 前十名</span>'
+      +'<span class="pts-fmeta">共 '+list.length+' 人有积分记录</span>'
+      +'</div>';
+    if(!open) return h+'</div>';
+
+    var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMinYMin meet" style="display:block" role="img" aria-label="积分前十名柱状图">';
+    top.forEach(function(t,i){
+      var y=i*rowH+4;
+      var bw=Math.max(3, Math.round(Math.abs(t.val)/maxAbs*barMax));
+      var col=(t.val>=0)?"#2E9E6B":"#D9534F";          // 与列表 .pos / .neg 配色一致
+      var rk=i+1;
+      var rc=(rk===1)?"#FFB84D":(rk===2)?"#A9B4C6":(rk===3)?"#D9A566":"#C2CADB";
+      var nmv=(t.name.length>7)?(t.name.slice(0,7)+"…"):t.name;
+      s+='<text x="0" y="'+(y+14)+'" font-size="12.5" font-weight="'+(rk<=3?'800':'600')+'" fill="'+rc+'">'+rk+'</text>';
+      s+='<text x="18" y="'+(y+14)+'" font-size="12.5" font-weight="600" fill="#33405C">'+esc(nmv)+'</text>';
+      s+='<rect x="'+x0+'" y="'+(y+2)+'" width="'+barMax+'" height="'+barH+'" rx="'+(barH/2)+'" fill="#F1F5FD"></rect>';
+      s+='<rect x="'+x0+'" y="'+(y+2)+'" width="'+bw+'" height="'+barH+'" rx="'+(barH/2)+'" fill="'+col+'"></rect>';
+      s+='<text x="'+(x0+barMax+8)+'" y="'+(y+14)+'" font-size="12.5" font-weight="800" fill="'+col+'">'+fmtPts(t.val)+'</text>';
+    });
+    s+='</svg>';
+    h+='<div class="pts-t10body">'+s+'<div class="pts-t10note">口径：净积分 = 加分 − 减分 − 兑换，按降序取前 10 名</div></div>';
+    return h+'</div>';
+  }
+  function togglePointsTop(){ pointsView.topOpen = (pointsView.topOpen===false); renderList("points"); }
   function renderPointsView(){
     var rows=(DATA.points||[]).slice();
     var groups=[
@@ -5020,7 +5087,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
         +'<div>还没有加减分记录。点右上角「+ 添加」记一笔，或在「班级制度」里按班规直接扣分/加分。</div></div>';
     }
-    var html='';
+    var html=renderPointsTop10();
     groups.forEach(function(g){
       var gr=rows.filter(function(r){ return ptsTypeOf(r)===g.key; });
       if(!gr.length) return;
@@ -8673,6 +8740,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var rctog=e.target.closest("[data-rctoggle]"); if(rctog){ toggleRuleCat(rctog.getAttribute("data-rctoggle")); return; }
     /* 加减分管理 · 分组列表 */
     var ptog=e.target.closest("[data-ptstoggle]"); if(ptog){ togglePointsGroup(ptog.getAttribute("data-ptstoggle")); return; }
+    if(e.target.closest("[data-ptstop]")){ togglePointsTop(); return; }
     var pdet=e.target.closest("[data-ptsdetail]"); if(pdet){ openPointsDetail(pdet.getAttribute("data-ptsdetail")); return; }
     /* 积分商城 */
     var mallBtn=e.target.closest("[data-mall]"); if(mallBtn){ switchMod("mall"); return; }
@@ -9237,7 +9305,23 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     document.getElementById("impDo").disabled=true;
     document.getElementById("impMask").classList.add("show");
   }
-  function closeImp(){ document.getElementById("impMask").classList.remove("show"); }
+  function closeImp(){ hideImpProgress(); document.getElementById("impMask").classList.remove("show"); }
+  /* 导入「保存阶段」进度：pct<0 表示进度不确定（只显示文字），否则按百分比推进。
+     大批量导入（尤其多科成绩表）写入期间界面完全静止，用户会以为卡死。 */
+  function setImpProgress(pct, text){
+    var box=document.getElementById("impProgress");
+    if(!box) return;
+    box.style.display="block";
+    var fill=document.getElementById("impPgFill");
+    if(fill && pct>=0) fill.style.width=Math.max(0,Math.min(100,pct))+"%";
+    var tx=document.getElementById("impPgText");
+    if(tx) tx.innerHTML=text||"";
+  }
+  function hideImpProgress(){
+    var box=document.getElementById("impProgress"); if(box) box.style.display="none";
+    var fill=document.getElementById("impPgFill"); if(fill) fill.style.width="0%";
+  }
+  function setImpBusy(b){ var btn=document.getElementById("impDo"); if(btn) btn.disabled=!!b; }
   /* ---------- 站点根路径解析（无论部署在仓库根还是 /xxx/ 子路径，副本都能命中） ---------- */
   // GitHub Pages 的站点根 = URL pathname 第一段（仓库名）。
   // 比如 /banzhuren-workbench/7vsfx3 → 根 = /banzhuren-workbench/
@@ -9803,7 +9887,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(mainV==null || String(mainV).trim()==="") return;
       batchProps.push(base);
     });
-    apiAddBatch(key, batchProps).then(function(created){ (DATA[key]=DATA[key]||[]).push.apply(DATA[key], created); n=created.length; closeImp(); toast("已导入 "+n+" 条 ✓"); return refreshAll(); })
+    if(!batchProps.length){ toast("没有可导入的有效数据（请检查主字段是否为空）"); setStatus("ok"); return; }
+    setImpBusy(true);
+    setImpProgress(-1, "正在保存 <b>"+batchProps.length+"</b> 条记录…");
+    apiAddBatch(key, batchProps, function(pct,done,tot){ setImpProgress(pct, "正在保存… <b>"+done+"</b> / "+tot+" 条"); })
+      .then(function(created){
+        (DATA[key]=DATA[key]||[]).push.apply(DATA[key], created);
+        n=created.length;
+        setImpProgress(100, "已保存 <b>"+n+"</b> 条，正在刷新数据…");
+        return refreshAll();
+      })
       .then(function(){
         // 成绩导入：把原始 Excel 存入云端（任何设备可下载 / 查找）；失败不阻塞
         if(key==="grades" && impFile && impFile.size && importRelated){
@@ -9812,8 +9905,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         return null;
       })
       .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshAll(); }); })
-      .then(function(){ setStatus("ok"); if(state.mod) renderList(state.mod); })
-      .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
+      .then(function(){ setStatus("ok"); closeImp(); toast("已导入 "+n+" 条 ✓"); if(state.mod) renderList(state.mod); })
+      .catch(function(err){ setImpBusy(false); console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
   }
   /* 合并两条学生记录：以现有记录为底，遇空字段用新值补齐；多值字段（关注标签）取并集；单值字段两者都有值时保留已有（DB 权威、不覆盖） */
   function mergeStudentRecords(key, existing, incoming){
@@ -9868,10 +9961,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         addProps.push(props);
       }
     });
-    Promise.all([ apiAddBatch(key, addProps).then(function(c){ n+=c.length; (DATA.students=DATA.students||[]).push.apply(DATA.students, c); }), Promise.all(upJobs) ])
-      .then(function(){ closeImp(); toast("已导入 / 合并 "+n+" 名学生 ✓"); return refreshAll(); })
-      .then(function(){ setStatus("ok"); })
-      .catch(function(err){ console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
+    if(!addProps.length && !upJobs.length){ toast("没有可导入的有效学生数据"); setStatus("ok"); return; }
+    setImpBusy(true);
+    setImpProgress(-1, "正在保存 <b>"+(addProps.length+upJobs.length)+"</b> 名学生…");
+    Promise.all([
+        apiAddBatch(key, addProps, function(pct,done,tot){ setImpProgress(pct, "正在保存… <b>"+done+"</b> / "+tot+" 名"); })
+          .then(function(c){ n+=c.length; (DATA.students=DATA.students||[]).push.apply(DATA.students, c); }),
+        Promise.all(upJobs)
+      ])
+      .then(function(){ setImpProgress(100, "已保存 <b>"+n+"</b> 名，正在刷新数据…"); return refreshAll(); })
+      .then(function(){ setStatus("ok"); closeImp(); toast("已导入 / 合并 "+n+" 名学生 ✓"); })
+      .catch(function(err){ setImpBusy(false); console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
   }
   function csvCell(s){ s=String(s==null?"":s).replace(/"/g,'""'); if(/[",\n\r]/.test(s)) s='"'+s+'"'; return s; }
   function exportModule(key){
@@ -10009,7 +10109,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "fastfail-offline-2026-09-06";
+  var __APP_VERSION__ = "chart-top10-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
