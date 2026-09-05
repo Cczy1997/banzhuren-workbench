@@ -283,6 +283,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .mat-folder-card .mfc-bar.no{background:#FFEDE6;color:#C95B3F;border-color:#F0D4CA}
   .mat-folder-card .mfc-bar.late{background:#FBF6E9;color:#A88542;border-color:#EAD9A8}
   .mat-folder-card .mfc-go{font-size:12px;color:var(--mint-d);font-weight:600}
+  .mat-folder-card .mfc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+  .mat-folder-card .mfc-del{border:none;background:transparent;color:#b3b9c4;font-size:12px;cursor:pointer;padding:3px 7px;border-radius:7px;transition:background .12s,color .12s}
+  .mat-folder-card .mfc-del:hover{color:#8b919c;background:#F1F3F7}
   .mat-folder-card.add{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ink-soft);border-style:dashed;background:#FAFBFD;min-height:140px}
   .mat-folder-card.add:hover{color:var(--mint-d);background:#F4FBF7;border-color:var(--mint)}
   .mat-folder-card.add .mfc-meta{margin:6px 0 0}
@@ -5694,6 +5697,24 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(matUseLocal){ matLocalSave(matLocalAll().filter(function(r){return r._id!==id;})); DATA.materials=(DATA.materials||[]).filter(function(r){return r._id!==id;}); return Promise.resolve(); }
     return apiDelete("materials", id).then(function(o){ DATA.materials=(DATA.materials||[]).filter(function(r){return r._id!==id;}); return o; });
   }
+  /* 删除整个材料文件夹（= 删除所有「事项+类型」匹配的材料记录）。
+     本地模式一次性过滤保存；云端走批量删除 apiDeleteBatch。删除前 confirm 二次确认。 */
+  function deleteMatFolder(item, type){
+    if(!item) return;
+    var matching=(DATA.materials||[]).filter(function(r){ return String(r["事项"]||"").trim()===item && (r["类型"]||"作业提交")===type; });
+    if(!matching.length){ toast("该文件夹已无记录"); return; }
+    if(!confirm("确定删除文件夹「"+item+"」（"+type+"）吗？\n该文件夹下的全部 "+matching.length+" 条材料记录会一并删除，不可撤销。")) return;
+    if(matUseLocal){
+      var ids={}; matching.forEach(function(r){ ids[r._id]=1; });
+      var arr=matLocalAll().filter(function(r){ return !ids[r._id]; });
+      matLocalSave(arr); DATA.materials=arr; renderMatFolders(); toast("已删除文件夹「"+item+"」"); return;
+    }
+    var delIds=matching.map(function(r){ return r._id; }).filter(Boolean);
+    apiDeleteBatch("materials", delIds).then(function(){
+      DATA.materials=(DATA.materials||[]).filter(function(r){ return !(String(r["事项"]||"").trim()===item && (r["类型"]||"作业提交")===type); });
+      renderMatFolders(); toast("已删除文件夹「"+item+"」（"+matching.length+" 条）");
+    }).catch(function(e){ toast("删除失败："+((e&&e.message)||e)); });
+  }
   /* 课表单独容错加载：表不存在/网络异常都不影响主链路与全局提示 */
   function loadSchedulesSafe(){
     DATA.schedule = DATA.schedule || [];
@@ -7627,7 +7648,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +(miss?'<span class="mfc-bar no">✗ '+miss+'</span>':'')
         +(late?'<span class="mfc-bar late">⏰ '+late+'</span>':'')
         +'</div>'
-        +'<div class="mfc-go">打开文件夹 →</div>'
+        +'<div class="mfc-foot"><span class="mfc-go">打开文件夹 →</span>'
+        +'<button type="button" class="mfc-del" data-matFolderDel data-delitem="'+esc(g.item)+'" data-deltype="'+esc(g.type)+'">🗑 删除</button></div>'
         +'</div>';
     }).join("");
     var addCard='<div class="mat-folder-card add" data-matFolderAdd>'
@@ -8723,6 +8745,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // 材料「事项文件夹」交互：进入/返回/新建
     var matBack=e.target.closest("[data-matBackFolders]");
     if(matBack){ gridState.curItem=""; renderMatGrid(gridState.mod); return; }
+    var matDel=e.target.closest("[data-matFolderDel]");
+    if(matDel){ deleteMatFolder(matDel.getAttribute("data-delitem")||"", matDel.getAttribute("data-deltype")||"作业提交"); return; }
     var matGo=e.target.closest("[data-matGoItem]");
     if(matGo){ gridState.curItem=matGo.getAttribute("data-matGoItem")||""; gridState.curType=matGo.getAttribute("data-matGoType")||gridState.curType; renderMatGrid(gridState.mod); return; }
     var matAdd=e.target.closest("[data-matFolderAdd]");
@@ -9745,7 +9769,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parent-confirm-hint-2026-09-05";
+  var __APP_VERSION__ = "mat-folder-del-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
