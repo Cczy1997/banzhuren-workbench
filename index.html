@@ -1221,6 +1221,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .msg-uidcard code{display:inline-block;background:#F2F3F5;padding:3px 8px;border-radius:6px;
     font-family:ui-monospace,Menlo,monospace;font-size:11.5px;word-break:break-all}
   .msg-uidtip{font-size:11.5px;color:#9a9aa2;margin-top:6px;line-height:1.6}
+  .msg-sqlbox{border:1px solid var(--line);border-radius:12px;padding:10px;background:#FCFCFD;margin-top:4px}
+  .msg-sqlbox .btn-mini{margin-bottom:8px}
+  .msg-sql{margin:0;max-height:260px;overflow:auto;white-space:pre;font-family:ui-monospace,Menlo,monospace;
+    font-size:11px;line-height:1.55;color:#3a3a44;background:#F4F5F7;padding:10px;border-radius:8px}
   .auth-err{margin-top:6px;font-size:12.5px;color:var(--danger);min-height:16px;line-height:1.4}
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
@@ -5730,6 +5734,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        · 班主任回复 → owner = 那位成员的 uid（只有那位成员能看到）
      于是每位成员与班主任之间是一对一私密会话，班主任能看到全部会话。 */
   var msgTableMissing=false;
+  /* 内联「建表 + 授权」SQL：用应用自带的 sqlMembers()/sqlMessages() 拼装，
+     与 deploy/role_access.sql 同源、永不漂移；缺表时直接展示可复制，免去来回切窗口找 SQL。 */
+  var ROLE_ACCESS_SQL = (function(){
+    var s = "-- 1. 成员表 hr_members\n" + sqlMembers() + "\n"
+      + "-- 2. 留言板 hr_messages\n" + sqlMessages() + "\n"
+      + "-- 3. 成员只读授权（材料 / 课表 / 值日 / 积分 / 学生）\n"
+      + "drop policy if exists hr_materials_member_read on hr_materials;\n create policy hr_materials_member_read on hr_materials for select using ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_schedule_member_read on hr_schedule;\n create policy hr_schedule_member_read on hr_schedule for select using ( exists (select 1 from hr_members m where m.user_id = hr_schedule.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_duty_member_read on hr_duty;\n create policy hr_duty_member_read on hr_duty for select using ( exists (select 1 from hr_members m where m.user_id = hr_duty.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_points_member_read on hr_points;\n create policy hr_points_member_read on hr_points for select using ( exists (select 1 from hr_members m where m.user_id = hr_points.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_students_member_read on hr_students;\n create policy hr_students_member_read on hr_students for select using ( exists (select 1 from hr_members m where m.user_id = hr_students.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
+    return s.replace(/\n{3,}/g,"\n\n");
+  })();
   function loadMessagesSafe(){
     DATA.messages=DATA.messages||[];
     return apiQuery("messages").then(function(res){ DATA.messages=res.results||[]; })
@@ -5771,7 +5788,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'</div>';
     if(msgTableMissing){
       return head+'<div class="empty">留言板数据表 <code>hr_messages</code> / 成员表 <code>hr_members</code> 尚未创建。'
-        +'请到 Supabase 执行本次提供的建表 SQL，再硬刷新本页。</div>';
+        +'请在 Supabase 后台（SQL Editor → New query）粘贴执行下面这段 SQL，再硬刷新本页：</div>'
+        +'<div class="msg-sqlbox"><button class="btn-mini" id="copyRoleSql">📋 复制建表 SQL</button>'
+        +'<pre class="msg-sql">'+esc(ROLE_ACCESS_SQL)+'</pre></div>';
     }
     if(!isH && !MSG_OWNER){
       return head+'<div class="empty">你还没有加入班级。</div>'+myUidCard();
@@ -5823,6 +5842,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(cu) cu.onclick=function(){ copyText(curUid||"").then(function(ok){ toast(ok?"已复制账号 ID ✓":"复制失败，请手动选中"); }); };
     var bm=document.getElementById("btnMembers");
     if(bm) bm.onclick=openMembers;
+    var crs=document.getElementById("copyRoleSql");
+    if(crs) crs.onclick=function(){ copyText(ROLE_ACCESS_SQL).then(function(ok){ toast(ok?"已复制建表 SQL，去 Supabase 执行 ✓":"复制失败，请手动选中"); }); };
     var send=document.getElementById("msgSend");
     if(send) send.onclick=function(){
       var t=document.getElementById("msgText"); var txt=(t&&t.value||"").trim();
@@ -9538,7 +9559,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "cover-2026-09-05";
+  var __APP_VERSION__ = "msgsql-2026-09-05";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
