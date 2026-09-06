@@ -1255,7 +1255,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .msg-form textarea{width:100%;min-height:88px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;
     font-size:14px;font-family:inherit;color:var(--ink);box-sizing:border-box;resize:vertical}
   .msg-form-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
-  .msg-form-row select{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;background:#fff;color:var(--ink)}
+  .msg-form-row select{flex:1;min-width:140px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;background:#fff;color:var(--ink)}
+  .msg-form-row .btn-add{flex-shrink:0}
+  .msg-stu-hint{display:inline-flex;align-items:center;gap:4px;flex:1;min-width:140px;font-size:12.5px;color:var(--ink-soft);background:#f5f7fb;border:1px dashed var(--line);border-radius:10px;padding:8px 10px;line-height:1.4}
+  .msg-stu-hint b{color:var(--ink);font-weight:700}
+  .msg-stu-hint-empty{color:#a85a3e;background:#fff5ee;border-color:#f3d6c2}
   .msg-thread{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px;background:#fff}
   .msg-thread-h{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px}
   .msg-b{border-radius:12px;padding:8px 10px;margin:6px 0;background:#F7F8FA;max-width:86%}
@@ -6128,12 +6132,25 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return String(a.ts||"").localeCompare(String(b.ts||""));
     });
     var stuOpts=(DATA.students||[]).map(function(s){ return s["姓名"]; }).filter(Boolean);
+    /* 家长身份：从账号绑定的 myMemberRow.student 自动关联，不显示下拉（避免误选/选错）。
+       班主任 / 科任老师：保留原下拉（如有学生列表）便于按学生维度追溯。 */
+    var msgStuCtrl;
+    if(curRole===ROLE_PARENT){
+      var boundStu=(myMemberRow&&myMemberRow["student"])||"";
+      msgStuCtrl = boundStu
+        ? '<span class="msg-stu-hint">📎 自动关联学生：<b>'+esc(boundStu)+'</b></span>'
+        : '<span class="msg-stu-hint msg-stu-hint-empty">⚠ 暂未关联学生，请联系班主任在「成员管理」中绑定</span>';
+    } else if(stuOpts.length){
+      msgStuCtrl='<select id="msgStu"><option value="">关联学生（选填）</option>'
+        + stuOpts.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join("")
+        +'</select>';
+    } else {
+      msgStuCtrl="";
+    }
     var form='<div class="msg-form">'
       +'<textarea id="msgText" placeholder="写下你想说的话…"></textarea>'
       +'<div class="msg-form-row">'
-      + (stuOpts.length?'<select id="msgStu"><option value="">关联学生（选填）</option>'
-          + stuOpts.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join("")
-          +'</select>':'')
+      + msgStuCtrl
       +'<button class="btn-add" id="msgSend">发送</button>'
       +'</div></div>';
     if(!list.length) return head+form+'<div class="empty">还没有留言，来写第一条吧～</div>';
@@ -6177,8 +6194,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(send) send.onclick=function(){
       var t=document.getElementById("msgText"); var txt=(t&&t.value||"").trim();
       if(!txt){ toast("请先写点内容"); return; }
-      var st=document.getElementById("msgStu");
-      postMessage(txt, (st&&st.value)||"", null);
+      /* 家长身份：从账号绑定的学生自动取；其它身份仍走下拉选择。 */
+      var stuVal="";
+      if(curRole===ROLE_PARENT){
+        stuVal=(myMemberRow&&myMemberRow["student"])||"";
+      } else {
+        var st=document.getElementById("msgStu");
+        stuVal=(st&&st.value)||"";
+      }
+      postMessage(txt, stuVal, null);
       if(t) t.value="";
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-msgsend]"), function(b){
@@ -10369,7 +10393,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "schedule-v2-2026-09-06";
+  var __APP_VERSION__ = "msgboard-parent-autolink-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
