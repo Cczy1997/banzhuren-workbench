@@ -505,8 +505,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pts-fname{font-size:15.5px;font-weight:800;color:var(--ink)}
   .pts-fmeta{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-left:auto}
   .pts-fmeta b{font-size:14px}
-  .pts-fmeta b.pos{color:#2E9E6B}
-  .pts-fmeta b.neg{color:#D9534F}
+  .pts-fmeta b.pos{color:#D9534F}
+  .pts-fmeta b.neg{color:#2E9E6B}
   .pts-list{display:flex;flex-direction:column}
   .pts-row{display:flex;align-items:center;gap:9px;padding:10px 14px;border-top:1px solid #F0EDF4;cursor:pointer;transition:.12s}
   .pts-row:first-child{border-top:none}
@@ -517,8 +517,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pts-reason{flex:1;min-width:0;font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pts-date{flex:0 0 auto;font-size:12px;color:var(--ink-soft);font-weight:600}
   .pts-sc{flex:0 0 auto;min-width:44px;text-align:right;font-size:15px;font-weight:800}
-  .pts-sc.pos{color:#2E9E6B}
-  .pts-sc.neg{color:#D9534F}
+  .pts-sc.pos{color:#D9534F}
+  .pts-sc.neg{color:#2E9E6B}
   /* 班级制度 · 按方向分文件夹 */
   .rc-folder{border:1.5px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:#fff}
   .rc-fh{display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;
@@ -529,8 +529,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rc-fname{font-size:15.5px;font-weight:800;color:var(--ink)}
   .rc-fmeta{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-left:auto}
   .rc-fmeta b{font-size:13.5px}
-  .rc-fmeta b.pos{color:#2E9E6B}
-  .rc-fmeta b.neg{color:#D9534F}
+  .rc-fmeta b.pos{color:#D9534F}
+  .rc-fmeta b.neg{color:#2E9E6B}
   .rc-list{padding:10px 12px;display:flex;flex-direction:column;gap:10px;background:#FCFBFE}
   .rc-list .card{margin:0}
   /* 加减分详情弹窗 */
@@ -538,8 +538,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pf-row{display:flex;flex-wrap:wrap;gap:5px 10px;padding:8px 11px;background:#FBF9FC;border:1px solid var(--line);border-radius:10px}
   .pf-k{font-size:12px;color:var(--ink-soft);font-weight:700;min-width:52px}
   .pf-v{font-size:13.5px;color:var(--ink);flex:1;min-width:0;word-break:break-all}
-  .pf-v.pos{color:#2E9E6B;font-weight:800}
-  .pf-v.neg{color:#D9534F;font-weight:800}
+  .pf-v.pos{color:#D9534F;font-weight:800}
+  .pf-v.neg{color:#2E9E6B;font-weight:800}
   /* 教师评语 · AI 写评语 */
   .cai-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
   .cai-row label{font-size:13px;font-weight:700;color:var(--ink);min-width:36px}
@@ -877,7 +877,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pf-rl{display:inline-flex;align-items:baseline;gap:3px;background:#F4F1FB;border:1px solid var(--line);border-radius:9px;padding:2px 8px;font-size:12px}
   .pf-rl i{font-style:normal;color:var(--ink-soft);font-size:11.5px}
   .pf-rl b{color:var(--ink);font-size:13px}
-  .pf-rl.hi b{color:#2E9E6B}
+  .pf-rl.hi b{color:#D9534F}
   .pf-rl.lo b{color:#D97706}
   /* 导入弹窗 · 成绩栏 */
   .igb-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
@@ -5044,9 +5044,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(!list.length) return "";
     list.sort(function(a,b){ return b.val-a.val; });
     var top=list.slice(0,10);
-    var maxAbs=1;
-    top.forEach(function(t){ if(Math.abs(t.val)>maxAbs) maxAbs=Math.abs(t.val); });
-
     var W=680, rowH=26, barH=14, x0=130, valW=54;
     var barMax=W-x0-valW;               // 条形可占最大宽度
     var H=top.length*rowH+8;
@@ -5059,11 +5056,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'</div>';
     if(!open) return h+'</div>';
 
+    /* 条长按「数值相对全距」映射：净积分越高条越长，含负分也保持单调
+       （旧实现按 |val| 取绝对值，会出现 -20 的条比 -3 长、排名靠后反而更长，与排序观感相反）。
+       0 分基准画成虚线：条末端越过虚线=正分，未到=负分。 */
+    var minV=0, maxV=0;
+    top.forEach(function(t){ if(t.val<minV) minV=t.val; if(t.val>maxV) maxV=t.val; });
+    var span=(maxV-minV)||1;
+    var zeroX=x0+Math.round((0-minV)/span*barMax);
     var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMinYMin meet" style="display:block" role="img" aria-label="积分前十名柱状图">';
     top.forEach(function(t,i){
       var y=i*rowH+4;
-      var bw=Math.max(3, Math.round(Math.abs(t.val)/maxAbs*barMax));
-      var col=(t.val>=0)?"#2E9E6B":"#D9534F";          // 与列表 .pos / .neg 配色一致
+      var bw=Math.max(3, Math.round((t.val-minV)/span*barMax));
+      var col=(t.val>=0)?"#D9534F":"#2E9E6B";          // 正分红 / 负分绿，与列表 .pos / .neg 一致
       var rk=i+1;
       var rc=(rk===1)?"#FFB84D":(rk===2)?"#A9B4C6":(rk===3)?"#D9A566":"#C2CADB";
       var nmv=(t.name.length>7)?(t.name.slice(0,7)+"…"):t.name;
@@ -5073,8 +5077,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       s+='<rect x="'+x0+'" y="'+(y+2)+'" width="'+bw+'" height="'+barH+'" rx="'+(barH/2)+'" fill="'+col+'"></rect>';
       s+='<text x="'+(x0+barMax+8)+'" y="'+(y+14)+'" font-size="12.5" font-weight="800" fill="'+col+'">'+fmtPts(t.val)+'</text>';
     });
+    s+='<line x1="'+zeroX+'" x2="'+zeroX+'" y1="0" y2="'+(H-2)+'" stroke="#5B6884" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"></line>';
     s+='</svg>';
-    h+='<div class="pts-t10body">'+s+'<div class="pts-t10note">口径：净积分 = 加分 − 减分 − 兑换，按降序取前 10 名</div></div>';
+    h+='<div class="pts-t10body">'+s+'<div class="pts-t10note">口径：净积分 = 加分 − 减分 − 兑换，按降序取前 10 名；条越长分越高，虚线为 0 分基准（<span style="color:#D9534F;font-weight:700">红=正分</span>，<span style="color:#2E9E6B;font-weight:700">绿=负分</span>）</div></div>';
     return h+'</div>';
   }
   function togglePointsTop(){ pointsView.topOpen = (pointsView.topOpen===false); renderList("points"); }
@@ -7521,6 +7526,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'<div class="col-menu-sep"></div>'
       +'<button class="col-menu-item danger" data-clearall="'+mod+'">🗑 清空全部（含所有历史周）</button>';
     document.body.appendChild(m);
+    m.style.zIndex="3000";
     var r=anchor.getBoundingClientRect();
     m.style.left=Math.max(6, Math.min(window.innerWidth-240, r.left))+"px";
     m.style.top=(r.bottom+4)+"px";
@@ -8862,10 +8868,6 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var attdel=e.target.closest("[data-attdel]"); if(attdel){ deleteAttachment(attdel.getAttribute("data-attdel"), attdel.getAttribute("data-attpath")); return; }
     var mt=e.target.closest("[data-meet]"); if(mt){ onMeetAction(mt.getAttribute("data-meet"), mt.getAttribute("data-id"), mt.getAttribute("data-fid")); return; }
     var wk=e.target.closest("[data-week]"); if(wk){ onWeekAction(wk.getAttribute("data-week"), wk.getAttribute("data-id"), wk.getAttribute("data-fid")); return; }
-    var cmenu=e.target.closest("[data-clearmenu]"); if(cmenu){ showClearMenu(cmenu.getAttribute("data-clearmenu"), cmenu); return; }
-    var clrAll=e.target.closest("[data-clearall]"); if(clrAll){ closeClearMenu(); clearAllModule(clrAll.getAttribute("data-clearall")); return; }
-    var clrHist=e.target.closest("[data-clearhist]"); if(clrHist){ closeClearMenu(); clearHistoryModule(clrHist.getAttribute("data-clearhist")); return; }
-    var clrWk=e.target.closest("[data-clearweek]"); if(clrWk){ closeClearMenu(); clearWeek(clrWk.getAttribute("data-clearweek")); return; }
     var clr=e.target.closest("[data-clear]"); if(clr){ var ck=clr.getAttribute("data-clear"); if(ck==="attendance"||ck==="materials") clearWeek(ck); else clearModule(ck); return; }
     var sgb=e.target.closest("[data-stuGroupBatch]");
     if(sgb){ openStuGroupBatch(); return; }
@@ -9034,6 +9036,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.getElementById("ruleMask").addEventListener("click",function(e){ if(e.target===this) closeRulesConfig(); });
   // 网格交互（模态 & 内联通用，统一走 document 委托，避免重复绑定）
   document.body.addEventListener("click",function(e){
+    /* 清空菜单（本周 / 历史 / 全部）：必须挂在 body 上——按钮可能在 #content 内（模块头部），
+       也可能在网格模态框内（#gridMask 属 body，收不到 #content 的委托），菜单本身也挂在 body 下。 */
+    var cmBtn=e.target.closest("[data-clearmenu]");
+    if(cmBtn){
+      try{ showClearMenu(cmBtn.getAttribute("data-clearmenu"), cmBtn); }
+      catch(err){ console.error(err); toast("菜单打开失败，请刷新页面重试"); }
+      return;
+    }
+    var cmAll=e.target.closest("[data-clearall]"); if(cmAll){ closeClearMenu(); clearAllModule(cmAll.getAttribute("data-clearall")); return; }
+    var cmHist=e.target.closest("[data-clearhist]"); if(cmHist){ closeClearMenu(); clearHistoryModule(cmHist.getAttribute("data-clearhist")); return; }
+    var cmWk=e.target.closest("[data-clearweek]"); if(cmWk){ closeClearMenu(); clearWeek(cmWk.getAttribute("data-clearweek")); return; }
     // 周导航：prev/next/this（考勤/材料网格按周展示，历史周可查询）
     var wn=e.target.closest("[data-weeknav]");
     if(wn){
@@ -10164,7 +10177,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "clear-history-2026-09-06";
+  var __APP_VERSION__ = "clearmenu-fix-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
