@@ -388,6 +388,43 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 课表 / 功课表 */
   .sched-wrap{margin-bottom:16px}
+  /* 班级课表 v2：按用户截图（标题 / 生效 / 通知 + 午别 / 节时 / 时间 / 周一-周五 + 大课间/眼保健操 跨列） */
+  .sched-v2{ background:#fff; border:1px solid var(--line,#e3e6ee); border-radius:10px; padding:14px 16px 18px; margin:6px 0 0; box-shadow:var(--shadow,0 2px 6px rgba(20,24,40,.05)); }
+  .sched-v2 .sched-tools{ display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .sched-v2 .sched-tip{ color:var(--ink-soft,#7a8098); font-size:12px; }
+  .sched-v2 .sched-title{ text-align:center; margin:6px 0 12px; }
+  .sched-v2 .sched-title-line{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .sched-v2 .sched-title-main{ font-size:18px; font-weight:700; color:#0f1115; border:1px dashed transparent; padding:2px 8px; border-radius:4px; min-width:220px; display:inline-block; }
+  .sched-v2 .sched-title-eff{ font-size:13px; color:#5b6172; }
+  .sched-v2 .sched-title-notice{ font-size:12.5px; color:var(--ink-soft,#7a8098); margin-top:6px; border:1px dashed transparent; padding:3px 8px; border-radius:4px; background:#fafbfd; display:inline-block; max-width:96%; }
+  .sched-v2 [contenteditable="true"]{ outline:none; }
+  .sched-v2 .sched-title-main[contenteditable="true"]:hover,
+  .sched-v2 .sched-title-main[contenteditable="true"]:focus,
+  .sched-v2 .sched-title-eff[contenteditable="true"]:hover,
+  .sched-v2 .sched-title-eff[contenteditable="true"]:focus,
+  .sched-v2 .sched-title-notice[contenteditable="true"]:hover,
+  .sched-v2 .sched-title-notice[contenteditable="true"]:focus{ border-color:#c9d2e6; background:#f7f9ff; }
+  .sched-v2-tbl{ width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:13.5px; }
+  .sched-v2-tbl th, .sched-v2-tbl td{ border:1px solid #d6dbe5; padding:6px 4px; text-align:center; vertical-align:middle; background:#fff; word-break:break-word; line-height:1.3; }
+  .sched-v2-tbl thead th{ background:#f0f3fa; color:#2c3144; font-weight:600; }
+  .sched-v2-tbl .th-period, .sched-v2-tbl .td-period{ background:#fcefe0; color:#5b3210; width:54px; font-weight:600; vertical-align:middle; }
+  .sched-v2-tbl .th-section, .sched-v2-tbl .td-section{ background:#eaf3ff; color:#1e3f6c; }
+  .sched-v2-tbl .th-time, .sched-v2-tbl .td-time{ background:#eaf3ff; color:#1e3f6c; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; }
+  .sched-v2-tbl .th-day{ background:#f0f3fa; }
+  .sched-v2-tbl .td-cell[contenteditable="true"]{ cursor:text; }
+  .sched-v2-tbl .td-cell[contenteditable="true"]:hover, .sched-v2-tbl .td-cell[contenteditable="true"]:focus,
+  .sched-v2-tbl .td-section[contenteditable="true"]:hover, .sched-v2-tbl .td-section[contenteditable="true"]:focus,
+  .sched-v2-tbl .td-time[contenteditable="true"]:hover, .sched-v2-tbl .td-time[contenteditable="true"]:focus,
+  .sched-v2-tbl .td-break-label span[contenteditable="true"]:hover, .sched-v2-tbl .td-break-label span[contenteditable="true"]:focus{ background:#f5faff; box-shadow:inset 0 0 0 2px #b6d3f7; }
+  .sched-v2-tbl .td-break-label{ background:#fafbfd; color:#5b6172; font-weight:600; letter-spacing:.5em; padding:6px 0; }
+  .sched-v2-tbl .td-break-area{ background:#fafbfd; }
+  @media (max-width:720px){
+    .sched-v2-tbl .th-period, .sched-v2-tbl .td-period{ width:34px; font-size:12px; }
+    .sched-v2-tbl .th-section, .sched-v2-tbl .td-section{ width:62px; }
+    .sched-v2-tbl .th-time, .sched-v2-tbl .td-time{ width:64px; font-size:11.5px; }
+    .sched-v2-tbl th, .sched-v2-tbl td{ padding:5px 2px; font-size:12.5px; }
+    .sched-v2 .sched-title-main{ font-size:16px; }
+  }
   .sched{background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);overflow-x:auto}
   .sched-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
   .btn-sched{
@@ -1797,7 +1834,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function catKeys(cat){
     if(isHead()) return (ORDER[cat]||[]).slice();
     var list=ROLE_MODS[curRole]||[];
-    return list.filter(function(k){ return ((MODULES[k]&&MODULES[k].cat)||"aff")===cat; });
+    return list.filter(function(k){
+      var kCat=(MODULES[k]&&MODULES[k].cat)||"aff";
+      /* schedule 模块虽然 cat="mine"（班主任专属），但科任/家长也需要在 sidebar 上点开 →
+         沿用 aff 板块渲染。它对三方（班主任/科任/家长）都是同一份 sid="class" 数据。 */
+      if(k==="schedule" && kCat==="mine") kCat="aff";
+      return kCat===cat;
+    });
   }
   /* 只读身份点到的「写操作」入口，统一拦截（隐藏按钮之外的兜底） */
   var RO_MUT_SEL = "[data-add],[data-imp],[data-clear],[data-ocr],[data-ruleapply],[data-rulecfg],"
@@ -2015,8 +2058,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     ai:{
       title:"🤖 AI 小助手", cat:"ai", unit:"", main:"", fields:[]
     },
+    /* 旧 sidebar "个人功课表" 已统一到 schedule 模块（同一个 sid="class"），三方实时同步。
+       这里保留 sched_hwk key 仅是为了兼容旧 state.mod 跳转（见 renderBox 调度）。
+       真正渲染班级课表的是 schedule（下方），班主任 sidebar 显示的就是它。 */
     sched_hwk:{
-      title:"📚 个人功课表", cat:"mine", unit:"", main:"", fields:[]
+      title:"🗓️ 班级课表", cat:"mine", unit:"", main:"", fields:[]
     },
     meeting:{
       title:"📣 班会", cat:"meet", unit:"次", main:"主题", fields:[]
@@ -2027,7 +2073,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     /* 班级课表：班主任侧仍显示在「总览」里（此处不入 ORDER.aff，避免改动班主任原有侧边栏）；
        科任老师 / 家长没有总览入口，故作为独立模块供其只读查看。 */
     schedule:{
-      title:"🗓️ 班级课表", cat:"aff", unit:"", main:"", fields:[]
+      title:"🗓️ 班级课表", cat:"mine", unit:"", main:"", fields:[]
     },
     /* 留言板：三种身份都可发帖。可见范围 = 发帖人本人 + 被指定接收的班主任（data.owner），
        即每位成员与班主任之间是一对一私密会话，班主任能看到全部。 */
@@ -2040,7 +2086,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     stu:["students","committee","parents"],
     aff:["affairs","rules","attendance","materials","seats","duty","grades","points","honor","honorboard","mall"],
     mor:["talk","comm","comment"],
-    mine:["sched_hwk"],
+    mine:["schedule"],
     meet:["meeting","weekly"],
     ai:["ai"],
     board:["messages"]
@@ -2131,6 +2177,37 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var schedMode = {};   // sid -> "base" | "week"
   var schedEdit = {};   // sid -> bool 是否处于编辑态
   var SCHED_DEFAULT = { periods:8, days:["周一","周二","周三","周四","周五"] };
+  /* 默认课表（按截图"泉州六中初一一年（9）班"风格填充常用科目）。三次调用都返回新副本。 */
+  function SCHED_V2_DEFAULT_BLOCKS(){
+    var D=["周一","周二","周三","周四","周五"];
+    function fill(map){ var o={}; D.forEach(function(d){o[d]=map[d]||"";}); return o; }
+    function sec(name, time, courses){ return {type:"section", name:name, time:time||"", courses:courses||fill({})}; }
+    function brk(label){ return {type:"break", label:label}; }
+    return [
+      { label:"上午", rows:[
+        sec("早读","7:30-7:55", fill({"周一":"升旗","周二":"语文","周三":"英语","周四":"语文","周五":"英语"})),
+        sec("第一节","8:00-8:45", fill({"周一":"数学","周二":"语文","周三":"英语","周四":"语文","周五":"英语"})),
+        sec("第二节","8:55-9:40", fill({"周一":"英语","周二":"英语","周三":"数学","周四":"英语","周五":"语文"})),
+        brk("大课间"),
+        sec("第三节","10:10-10:55", fill({"周一":"生物","周二":"道法","周三":"语文","周四":"体育","周五":"数学"})),
+        sec("第四节","11:05-11:50", fill({"周一":"语文","周二":"数学","周三":"语文","周四":"数学","周五":"历史"}))
+      ]},
+      { label:"下午", rows:[
+        sec("第五节","14:20-15:05", fill({"周一":"体育","周二":"体育","周三":"美术","周四":"道法","周五":"地理"})),
+        brk("眼保健操"),
+        sec("第六节","15:15-16:00", fill({"周一":"音乐","周二":"历史","周三":"地理","周四":"生物","周五":"信/书"})),
+        sec("第七节","16:10-16:55", fill({"周一":"数学","周二":"语文","周三":"班会","周四":"数学","周五":"语文"})),
+        sec("第八节","17:05-17:50", fill({"周一":"英语","周二":"数学","周三":"数学","周四":"英语","周五":"英语"}))
+      ]},
+      { label:"晚修", rows:[
+        sec("晚读","18:40-19:10"),
+        sec("第一节","19:10-19:55"),
+        sec("第二节","20:10-20:55")
+      ]}
+    ];
+  }
+  function schedDefaultTitle(){ return (CLS_YEAR||"初一")+(CLS_CLASS||"(1)班")+"课程表"; }
+  var SCHED_V2_DEFAULT_NOTICE = "上午7:20前到班  下午14:10前到班  晚上18:30前到班  值日生上下午提前十分钟到班";
   function schedCfg(sid){ var b=SCHED.base[sid]; return b ? {periods:b.periods||8, days:(b.days&&b.days.length)?b.days:SCHED_DEFAULT.days} : SCHED_DEFAULT; }
   function schedWeekKey(sid){ return isoWeek(new Date()).key; }
   function schedOverGrid(sid){
@@ -2142,6 +2219,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(r.kind==="base"){ SCHED.base[r.sid]=r; }
       else if(r.kind==="override"){ (SCHED.over[r.sid]=SCHED.over[r.sid]||{})[r.week]=r; }
     });
+    /* v2：缺 blocks 字段的旧数据按默认结构兜底（用户多数情况是新账号，不会触发，但兼容性兜住） */
+    Object.keys(SCHED.base).forEach(function(sid){
+      var b=SCHED.base[sid];
+      if(!b.blocks || !b.blocks.length){
+        b.blocks = SCHED_V2_DEFAULT_BLOCKS();
+        b.title = b.title || schedDefaultTitle();
+        b.effective = b.effective || "2026.9起用";
+        b.notice = b.notice || SCHED_V2_DEFAULT_NOTICE;
+      }
+    });
     SCHED.ok=true;
   }
   function schedCell(sid, day, period){
@@ -2152,7 +2239,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function saveScheduleBase(sid){
     var b=SCHED.base[sid]; if(!b) return Promise.resolve();
-    var payload={kind:"base",sid:sid,periods:b.periods,days:b.days,grid:b.grid||{}};
+    var payload={
+      kind:"base", sid:sid,
+      title: b.title||"", effective: b.effective||"", notice: b.notice||"",
+      blocks: b.blocks||[], periods: b.periods, days: b.days, grid: b.grid||{}   /* 旧字段保留，兼容旧版 */
+    };
     if(b._id){ return apiUpdate("schedule",b._id,payload); }
     return apiAdd("schedule",payload).then(function(o){ b._id=o._id; });
   }
@@ -2408,11 +2499,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
     }
     if(state.cat==="overview"){ box.innerHTML=renderOverview(); loadOverviewAffairs(); renderScheduleInto("class","overviewSched"); return; }
-    if(state.mod==="sched_hwk"){ box.innerHTML='<div class="phead"><h3>📚 个人功课表</h3><span class="hint">按星期×节次记录每节课要布置的功课 / 个人教学安排；支持本周调课，下周自动还原</span></div>'+renderScheduleHTML("hwk"); return; }
-    /* 班级课表（独立模块，主要给科任老师 / 家长只读查看；班主任仍在总览里看） */
-    if(state.mod==="schedule"){
+    /* 班级课表：班主任在 sidebar「我的功课」下，科任 / 家长在 sidebar「班级事务」下，三方共享同一份 sid="class"，班主任改后通过 Realtime 实时同步 */
+    if(state.mod==="schedule" || state.mod==="sched_hwk"){
       box.innerHTML='<div class="phead"><h3>🗓️ 班级课表</h3>'
-        +'<span class="hint">'+(canEdit()?'点击单元格即可编辑':'当前身份仅可查看')+'</span></div>'
+        +'<span class="hint">'+(canEdit()?'点击单元格或标题可直接编辑，保存后实时同步给科任老师与家长':'由班主任维护，修改后实时同步到本班科任老师与家长')+'</span></div>'
         +renderScheduleHTML("class", canEdit());
       return;
     }
@@ -5315,48 +5405,72 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var _allow=(allowEdit===undefined)?true:!!allowEdit;
     var edit=_allow && !!schedEdit[sid];
 
-    var tools = _allow ? ('<div class="sched-bar">'
+    /* v2：按用户截图渲染（标题 / 生效 / 通知 + 午别 / 节时 / 时间 / 周一-周五 + 大课间/眼保健操 跨列）。
+       _allow=false（科任老师 / 家长）一律只读，不渲染 contenteditable 与编辑工具栏。 */
+    var b = SCHED.base[sid] = SCHED.base[sid] || {sid:sid,kind:"base",
+      title:schedDefaultTitle(), effective:"2026.9起用", notice:SCHED_V2_DEFAULT_NOTICE,
+      blocks:SCHED_V2_DEFAULT_BLOCKS(), periods:8, days:["周一","周二","周三","周四","周五"], grid:{}};
+    if(!b.blocks || !b.blocks.length){
+      b.blocks = SCHED_V2_DEFAULT_BLOCKS();
+      b.title = b.title || schedDefaultTitle();
+      b.effective = b.effective || "2026.9起用";
+      b.notice = b.notice || SCHED_V2_DEFAULT_NOTICE;
+    }
+    var days = ["周一","周二","周三","周四","周五"];
+    var tools = _allow ? ('<div class="sched-tools">'
       +'<button class="btn-sched" data-sched="edit">'+(edit?"✅ 完成":"✏️ 编辑")+'</button>'
-      + (edit?'<button class="btn-sched" data-sched="mode">'+(mode==="base"?"📌 基础课表":"🔧 本周调课")+'</button>':'')
-      + (overRec?'<button class="btn-sched btn-ghost" data-sched="restore">↩ 恢复本周原课表</button>':'')
-      +'<button class="btn-sched btn-ghost" data-sched="cfg">⚙ 设置</button>'
-      + (edit&&mode==="week"?'<span class="sched-tip">本周期课仅当周生效，下周自动还原</span>':'')
+      +'<span class="sched-tip">'+(edit?'点单元格或标题即可编辑，实时同步给科任老师与家长':'由班主任维护，修改后自动同步到本班科任老师与家长')+'</span>'
       +'</div>') : '';
 
-    var wkInfo='<div class="sched-wk">当前周：<b>'+wk.key+'</b>（'+wk.monday+' ~ '+wk.sunday+'）'
-      + (overRec?' <span class="sched-over-tag">本周有调课</span>':'')
-      + (edit?' <span class="sched-mode-tag '+(mode==="week"?"week":"")+'">'+(mode==="base"?"编辑中·基础课表（长期）":"编辑中·本周调课（临时）")+'</span>':'')
+    var titleBlock = '<div class="sched-title">'
+      +'<div class="sched-title-line">'
+      +'<div class="sched-title-main"'+(edit?' contenteditable="true" data-edit-meta="title" spellcheck="false"':'')+'>'+esc(b.title||schedDefaultTitle())+'</div>'
+      +'<div class="sched-title-eff"'+(edit?' contenteditable="true" data-edit-meta="effective" spellcheck="false"':'')+'>'+esc(b.effective||"2026.9起用")+'</div>'
+      +'</div>'
+      +'<div class="sched-title-notice"'+(edit?' contenteditable="true" data-edit-meta="notice" spellcheck="false"':'')+'>'+esc(b.notice||"")+'</div>'
       +'</div>';
 
-    var allDays=["周一","周二","周三","周四","周五","周六","周日"];
-    var cfgPanel='<div class="sched-cfg" style="display:none">'
-      +'<div class="scfg-row"><label>节次数量</label><input type="number" min="1" max="12" value="'+periods+'" data-cfg="periods"></div>'
-      +'<div class="scfg-row"><label>显示星期</label><div class="scfg-days">'
-      + allDays.map(function(d){ return '<label class="scfg-day"><input type="checkbox" data-cfg-day="'+d+'" '+(days.indexOf(d)>=0?"checked":"")+'>'+d+'</label>'; }).join("")
-      +'</div></div>'
-      +'<div class="scfg-actions"><button class="btn-sched" data-sched="cfgsave">保存设置</button></div>'
-      +'</div>';
+    var head = '<tr>'
+      +'<th class="th-period">午别</th>'
+      +'<th class="th-section">节时</th>'
+      +'<th class="th-time">时间</th>'
+      + days.map(function(d){ return '<th class="th-day">'+esc(d)+'</th>'; }).join("")
+      +'</tr>';
 
-    var table='<div class="sched-grid">'
-      +'<div class="sched-row sched-head"><div class="scell sc-corner">节次＼星期</div>'
-      + days.map(function(d){ return '<div class="scell sc-dayhead">'+esc(d)+'</div>'; }).join("")
-      +'</div>';
-    for(var p=1;p<=periods;p++){
-      var row='<div class="sched-row"><div class="scell sc-period">第'+p+'节</div>';
-      days.forEach(function(d){
-        var key=d+"|"+p;
-        var dispVal = (edit && mode==="base") ? (baseGrid[key]||"") : schedCell(sid,d,p);
-        var showBadge = (key in overGrid) && !(edit && mode==="base");
-        var cls="scell"+( (key in overGrid)?" sc-over":"")+(edit?" sc-edit":"");
-        var tag = showBadge?'<span class="sc-ovtag">调</span>':"";
-        row+='<div class="'+cls+'" data-day="'+esc(d)+'" data-period="'+p+'"'+(edit?' contenteditable="true"':"")+'>'+esc(dispVal)+tag+'</div>';
+    var body = "";
+    (b.blocks||[]).forEach(function(block, bi){
+      var rows = block.rows || [];
+      if(!rows.length) return;
+      rows.forEach(function(r, ri){
+        var tr = "";
+        if(ri===0){
+          tr += '<th class="td-period" rowspan="'+rows.length+'">'+esc(block.label||"")+'</th>';
+        }
+        var cellAttr = function(col){
+          return (edit?' contenteditable="true" spellcheck="false"':'')+' data-row="'+bi+'_'+ri+'" data-col="'+col+'"';
+        };
+        if(r.type==="break"){
+          tr += '<td colspan="2" class="td-break-label">'
+            + (edit ? '<span data-row="'+bi+'_'+ri+'" data-col="brk-name" contenteditable="true" spellcheck="false">'+esc(r.label||"")+'</span>' : '<b>'+esc(r.label||"")+'</b>')
+            + '</td>';
+          tr += '<td colspan="5" class="td-break-area"></td>';
+        } else {
+          tr += '<td class="td-section"'+cellAttr("section")+'>'+esc(r.name||"")+'</td>';
+          tr += '<td class="td-time"'+cellAttr("time")+'>'+esc(r.time||"")+'</td>';
+          days.forEach(function(d, di){
+            tr += '<td class="td-cell"'+cellAttr("d_"+di)+' data-day="'+esc(d)+'">'+esc((r.courses&&r.courses[d])||"")+'</td>';
+          });
+        }
+        body += '<tr>'+tr+'</tr>';
       });
-      row+='</div>';
-      table+=row;
-    }
-    table+='</div>';
+    });
 
-    return '<div class="sched" data-sid="'+sid+'">'+tools+wkInfo+cfgPanel+table+'</div>';
+    var tbl = '<table class="sched-v2-tbl">'
+      +'<thead>'+head+'</thead>'
+      +'<tbody>'+body+'</tbody>'
+      +'</table>';
+
+    return '<div class="sched-v2 sched" data-sid="'+sid+'">'+tools+titleBlock+tbl+'</div>';
   }
   function paintCell(sid, day, period){
     var cell=document.querySelector('.sched[data-sid="'+sid+'"] .scell[data-day="'+day+'"][data-period="'+period+'"]');
@@ -5371,29 +5485,43 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(showBadge){ if(!tag){ tag=document.createElement("span"); tag.className="sc-ovtag"; tag.textContent="调"; cell.appendChild(tag); } }
     else if(tag){ tag.remove(); }
   }
-  function commitCell(sid, day, period, raw){
+  /* v2 commit 入口：contenteditable blur 时调用，写入 hr_schedule 并触发 Realtime 推送 */
+  function commitSchedCell(sid, rowKey, col, raw){
+    if(!rowKey) return Promise.resolve();
+    var idx=String(rowKey).split("_");
+    var bi=+idx[0], ri=+idx[1];
+    if(isNaN(bi)||isNaN(ri)) return Promise.resolve();
     var val=String(raw==null?"":raw).replace(/\s+$/,"").replace(/^\s+/,"");
-    var key=day+"|"+period;
-    var mode=schedMode[sid]||"base";
-    var base=SCHED.base[sid];
-    if(!base){ base={sid:sid,periods:schedCfg(sid).periods,days:schedCfg(sid).days,grid:{}}; SCHED.base[sid]=base; }
-    base.grid=base.grid||{};
-    if(mode==="base"){
-      if(val==="") delete base.grid[key]; else base.grid[key]=val;
-      saveScheduleBase(sid);
-    } else {
-      var wk=schedWeekKey(sid);
-      var over=(SCHED.over[sid]||{})[wk];
-      var overGrid=(over&&over.grid)||{};
-      if(val===(base.grid[key]||"")){ delete overGrid[key]; }
-      else { overGrid[key]=val; }
-      if(Object.keys(overGrid).length===0){
-        deleteScheduleOverride(sid,wk);
-      } else {
-        saveScheduleOverride(sid,wk,overGrid);
-      }
+    var b=SCHED.base[sid];
+    if(!b||!b.blocks||!b.blocks[bi]) return Promise.resolve();
+    var row=b.blocks[bi].rows[ri];
+    if(!row) return Promise.resolve();
+    if(row.type==="break"){
+      if(col==="brk-name") row.label=val;
+      return saveScheduleBase(sid);
     }
-    paintCell(sid,day,period);
+    var days=["周一","周二","周三","周四","周五"];
+    if(col==="section"){ row.name=val; }
+    else if(col==="time"){ row.time=val; }
+    else if(/^d_/.test(col||"")){
+      var di=parseInt(col.slice(2),10);
+      var d=days[di]; if(!d) return Promise.resolve();
+      row.courses=row.courses||{};
+      row.courses[d]=val;
+    }
+    return saveScheduleBase(sid);
+  }
+  function commitSchedMeta(sid, key, raw){
+    var val=String(raw==null?"":raw).replace(/\s+$/,"").replace(/^\s+/,"");
+    var b=SCHED.base[sid]; if(!b) return Promise.resolve();
+    if(key==="title") b.title=val;
+    else if(key==="effective") b.effective=val;
+    else if(key==="notice") b.notice=val;
+    return saveScheduleBase(sid);
+  }
+  /* 兼容保留旧 commitCell（v1 grid 模型）。新版不再主动调用，仅为偶发模块留位。 */
+  function commitCell(sid, day, period, raw){
+    return Promise.resolve();
   }
   function rerenderSchedule(sid){
     var el=document.querySelector('.sched[data-sid="'+sid+'"]');
@@ -8913,14 +9041,35 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   document.addEventListener("submit", function(e){ if(e && e.preventDefault) e.preventDefault(); }, true);
   document.getElementById("mask").addEventListener("click",function(e){ if(e.target===this) closeForm(); });
 
-  /* 课表单元格：失焦提交 + 回车提交 */
-  document.getElementById("content").addEventListener("focusout",function(e){
-    var cell=e.target.closest && e.target.closest(".scell");
-    if(!cell || cell.getAttribute("contenteditable")!=="true") return;
-    var sched=cell.closest(".sched"); if(!sched) return;
-    var sid=sched.getAttribute("data-sid");
-    commitCell(sid, cell.getAttribute("data-day"), cell.getAttribute("data-period"), cell.textContent);
-  });
+  /* 班级课表 v2：失焦提交（支持节时/时间/课程单元 + 标题/生效/通知三块 meta）。
+     用全局事件代理：同时兼容 v2 新结构和极少数还在遗留的 v1 .scell。 */
+  document.addEventListener("focusout", function(e){
+    var t = e.target;
+    if(!t || !t.getAttribute) return;
+    var sched = t.closest ? t.closest(".sched") : null;
+    if(!sched) return;
+    var sid = sched.getAttribute("data-sid");
+    if(!sid) return;
+    var ceOn = t.getAttribute && t.getAttribute("contenteditable");
+    if(ceOn!=="true") return;
+    var v = (t.innerText!=null ? t.innerText : (t.textContent||""));
+    var meta = t.getAttribute("data-edit-meta");
+    if(meta){ commitSchedMeta(sid, meta, v); return; }
+    var row = t.getAttribute("data-row"), col = t.getAttribute("data-col");
+    if(row && col){ commitSchedCell(sid, row, col, v); return; }
+    /* 兼容老 v1 .scell，但新版已不再走此处，留下兜底 */
+    var d = t.getAttribute("data-day"), p = t.getAttribute("data-period");
+    if(d && p){ commitCell(sid, d, +p, v); }
+  }, true);
+  /* 编辑器内回车直接失焦（避免换行导致保存时机错位 + 移动端软键盘挡住） */
+  document.addEventListener("keydown", function(e){
+    if(e.key==="Enter" && e.target && e.target.getAttribute && e.target.getAttribute("contenteditable")==="true"){
+      if(e.target.closest && e.target.closest(".sched-v2")){
+        e.preventDefault();
+        e.target.blur();
+      }
+    }
+  }, true);
   /* 座位布局「网格/小组」切换：即时重渲染控制条 */
   document.getElementById("content").addEventListener("change",function(e){
     var modeSel=e.target.closest && e.target.closest("[data-seatmode]");
@@ -10184,12 +10333,43 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
     }).catch(function(e){
       console.error(e); setStatus("offline");
+    }).then(function(){
+      /* 启动 Realtime 订阅，把"班主任改完 → 其它客户端自动重渲"的同步通道建起来 */
+      if(typeof subscribeScheduleRT==="function") subscribeScheduleRT();
     });
   }
 
+  /* Realtime 同步：监听 hr_schedule 表的 postgres_changes；班主任改完后自动推到科任/家长端并重渲。
+     失败时降级到无订阅，不影响主链路。 */
+  var _schedRt=null;
+  function subscribeScheduleRT(){
+    try{
+      if(!db || typeof db.channel!=="function") return;
+      if(_schedRt) return;
+      _schedRt = db.channel("hr_schedule_rt")
+        .on("postgres_changes", { event:"*", schema:"public", table:"hr_schedule" }, function(){
+          apiQuery("schedule").then(function(res){
+            DATA.schedule = res.results||[];
+            loadSchedules();
+            var onSch = (state.mod==="schedule" || state.mod==="sched_hwk");
+            if(onSch){
+              var box=document.getElementById("box");
+              if(box){
+                box.innerHTML='<div class="phead"><h3>🗓️ 班级课表</h3>'
+                  +'<span class="hint">由班主任实时同步</span></div>'
+                  +renderScheduleHTML("class", canEdit());
+              }
+            } else if(state.cat==="overview"){
+              var ov=document.getElementById("overviewSched");
+              if(ov) ov.innerHTML=renderScheduleHTML("class", canEdit());
+            }
+          }).catch(function(){});
+        }).subscribe();
+    }catch(e){ console.warn("[schedule rt] skip:", e); }
+  }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "switch-identity-2026-09-06";
+  var __APP_VERSION__ = "schedule-v2-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
