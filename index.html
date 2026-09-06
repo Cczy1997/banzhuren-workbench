@@ -1392,6 +1392,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .att-name{font-size:12px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .att-del{position:absolute;top:-6px;right:-6px;border:none;background:var(--danger);color:#fff;font-size:11px;line-height:1;width:17px;height:17px;border-radius:50%;cursor:pointer;opacity:.65;padding:0}
   .att-del:hover{opacity:1}
+
+/* 班级制度空态引导卡（一键导入示例） */
+.regs-empty-card{margin-top:14px;padding:22px 18px;background:linear-gradient(180deg,#fafbfc,#f5f6fa);border:1.5px dashed #c8cad3;border-radius:12px;text-align:center}
+.regs-empty-h{font-size:15px;font-weight:600;color:#3b3d4a;margin-bottom:8px}
+.regs-empty-sub{font-size:12.5px;color:#7d7f88;margin-bottom:14px;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto}
+.regs-empty-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.regs-empty-actions .btn-add{padding:8px 18px;font-size:13.5px;font-weight:600}
+.btn-seed{background:#fff;color:#2f6fed;border:1px solid #c6d6f4;padding:6px 14px;border-radius:7px;font-size:13px;cursor:pointer;transition:all .15s}
+.btn-seed:hover{background:#f0f5ff;border-color:#9bb6ed}
+
   /* ================= 班级制度公示（班主任写、家长读） ================= */
   .regs-doc{display:block;max-width:780px}
   .regs-section{border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:12px;overflow:hidden}
@@ -1892,7 +1902,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var RO_MUT_SEL = "[data-add],[data-imp],[data-clear],[data-ocr],[data-ruleapply],[data-rulecfg],"
     + "[data-edit],[data-del],[data-edit-mall],[data-del-mall],[data-attdel],[data-seat],[data-sched],"
     + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-comMonthly],.seatcell,[contenteditable=true],"
-    + "[data-regadd],[data-regdel],[data-regmove],[data-regsave],[data-reginit]";
+    + "[data-regadd],[data-regdel],[data-regmove],[data-regsave],[data-regseed],[data-reginit]";
   function blockIfReadOnly(e){
     if(canEdit()) return false;
     var mut = e.target.closest ? e.target.closest(RO_MUT_SEL) : null;
@@ -2687,13 +2697,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var m=MODULES[key];
     /* 班级制度公示：纯文档模块，跳过标准列表/卡片/导入/添加/导出按钮 */
     if(m && m.doc){
+      var regsEmpty = (key==="regulations") && (!(REG_CACHE && Array.isArray(REG_CACHE.sections)) || REG_CACHE.sections.length===0);
       return '<div class="phead">'
         +'<h3>'+esc(m.title)+'</h3>'
         + (canEdit()
             ? '<span class="hint" style="font-size:12.5px">点击章节标题 / 正文可直接编辑，改完后务必点右上角「保存」推送给家长</span>'
             : '<span class="hint" style="font-size:12.5px">由班主任维护，修改后即时同步到本班家长端</span>')
         + (canEdit()
-            ? '<span class="spacer"></span><button class="btn-rule" data-regadd="1">＋ 新增章节</button><button class="btn-add" data-regsave="1">保存</button>'
+            ? '<span class="spacer"></span>'
+              + (regsEmpty ? '<button class="btn-seed" data-regseed="1" title="将图片识别好的《705班量化评详细则》三章节一键写入">📥 导入示例</button>' : '')
+              + '<button class="btn-rule" data-regadd="1">＋ 新增章节</button><button class="btn-add" data-regsave="1">保存</button>'
             : '')
         +'</div>'
         +'<div id="list-'+key+'"></div>';
@@ -3028,9 +3041,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       : '';
     var updated = doc.updatedAt ? '<div class="regs-meta">最近更新：'+esc(fmtDate(doc.updatedAt)||doc.updatedAt)+'</div>' : '';
     var empty = (!secs.length)
-      ? '<div class="empty-state" style="margin-top:14px">'
-          +'<svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
-          +'<div>暂无制度文本。'+(readonly?"由班主任维护":'点右上角「＋ 新增章节」开始撰写，发布后家长端即可查看')+'。</div></div>'
+      ? (!readonly
+          ? '<div class="regs-empty-card">'
+              +'<div class="regs-empty-h">📜 暂无制度文本</div>'
+              +'<div class="regs-empty-sub">有两种开始方式：① <b>导入示例</b>（一键写入《705班量化评详细则》三章节，含学习积分 / 德育积分 / 特别说明，可在基础上修改）；② 点「＋ 新增章节」手动逐条撰写。</div>'
+              +'<div class="regs-empty-actions">'
+                +'<button class="btn-add" data-regseed="1">📥 一键导入示例数据</button>'
+                +'<button class="btn-rule" data-regadd="1">＋ 新增章节</button>'
+              +'</div>'
+            +'</div>'
+          : '<div class="empty-state" style="margin-top:14px">'
+              +'<svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
+              +'<div>班主任尚未发布班级制度。</div></div>')
       : '';
     if(readonly && !secs.length){
       empty = '<div class="empty-state" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>班主任尚未发布班级制度。</div></div>';
@@ -3099,6 +3121,30 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     sections = sections.filter(function(s){ return (s.h||"").trim() || (s.b||"").trim(); });
     saveRegDoc(sections, "班级制度").catch(function(){});
   }
+  /* 一键导入预设示例制度（OCR 转录的《705班学生综合素质积分量化评详细则》）。
+     仅班主任可调用；已有数据需二次确认；写入后自动刷新列表。 */
+  var REG_SEED_705 = [
+    { h:"一、学习积分", b:"学习积分以科任老师发群里的成绩或智学网的成绩为准。\n\n（一）单元考、月考：语文、数学、英语、物理、政治、历史、地理、生物八科：1-10名：加5分；11-20名：加3分；21-30名：加1分。\n\n（二）阶段考、月考、期中、期末考：\n1. 总分奖：1-5名：加10分；6-10名：加8分；11-15名：加5分；16-20名：加3分。\n2. 进步奖：班级名次进步10名以上加10分；进步5-9名：加5分。\n3. 单科奖：八科每科第一名：加5分。" },
+    { h:"二、德育积分", b:"德育积分以每天值日班长发群里的班级情况登记表和班主任公布的表彰为准。\n\n（一）加分项目：\n\n1. 学校组织的个人各级各类竞赛：（说明：自行参加校外比赛不加分）\n\n| 级别 | 一等奖 | 二等奖 | 三等奖 |\n| --- | --- | --- | --- |\n| 校级 | 10 | 5 | 3 |\n| 区级 | 15 | 10 | 5 |\n| 市级 | 20 | 15 | 10 |\n| 省级 | 25 | 20 | 15 |\n| 国家级 | 30 | 25 | 20 |\n\n备注：黑板报评比，第一名加5分，第二名加3分，第三名加1分。\n\n2. 班干部：期末统一每人加5分。（如果班干部表现不好，不能起模范作用，此项不加）\n\n3. 卫生工作（包括班级卫生和公共卫生区），当周获段第一名：值日生每人加5分；第二名：加3分；第三名：加1分。\n\n4. 其他好人好事，视情况酌情加分。\n\n（二）扣分项目：\n\n1. 出勤方面：迟到，每人每次扣1分。旷课，每人每次扣5分。\n\n2. 作业方面：作业缺交，或者作业有交但没认真完成，每人每次扣1分。\n\n3. 纪律方面：违反课堂纪律或课堂上被科任老师点名批评，每人每次扣2分。\n\n4. 违规方面：\n（1）仪容仪表（如：没穿校服、头发太长、佩戴首饰等）：每人每次扣3分；\n（2）携带违禁物品（如智能手机、管制刀具、不健康书刊、有色饮料、零食等），扣3分；\n（3）故意损坏学校、班级公共财物，每人每次扣5分；\n（4）抄袭作业：每人每次扣5分；\n（5）小测、考试作弊，每人每次扣10分；\n（6）其他严重违纪行为（如：抽烟、偷窃、顶撞老师），每人每次扣10分。\n\n5. 值日生方面：第7名扣1分，第8名扣2分，第9名扣3分，第10名扣4分，第11名扣5分，第12名扣6分。" },
+    { h:"三、特别说明", b:"1. 每人起始分100分，每周统计、公布量化评分结果，每学期根据学生的量化分数决定学生的综合素质等级。学期总得分在班级前10名者，学期末进行奖励。\n\n2. 根据学生三个学期的综合素质得分的最后总分，决定学生毕业鉴定的等级。\n\n3. 学生的评优评先、入团等，主要参考学生的量化分数，并结合科任老师的意见来确定。" }
+  ];
+  async function seedRegulations705(){
+    if(!isHead()){ toast("仅班主任可导入"); return; }
+    if(REG_CACHE && Array.isArray(REG_CACHE.sections) && REG_CACHE.sections.length>0){
+      if(!confirm("当前已有 " + REG_CACHE.sections.length + " 个章节，导入示例会覆盖现有内容。继续？")) return;
+    }
+    try{
+      await saveRegDoc(REG_SEED_705, "705班学生综合素质积分量化评详细则");
+      await loadRegulationsSafe();
+      renderModule("regulations");
+      renderList("regulations");
+      toast("✅ 已导入《705班量化评详细则》三章节");
+    }catch(e){
+      console.error("[seed] failed:", e);
+      toast("导入失败：" + (e && e.message ? e.message : e));
+    }
+  }
+
 
   /* ---------- 成绩 AI 分析 ---------- */
   function gradeSubjects(){ var s={};(DATA.grades||[]).forEach(function(r){ if(r["科目"]) s[r["科目"]]=1; }); return Object.keys(s); }
@@ -9465,8 +9511,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // 班务待办：展开 / 收起「已完成归档」
     var aarch=e.target.closest("[data-aff-arch]");
     if(aarch){ affArchiveOpen=!affArchiveOpen; renderList("affairs"); return; }
-    /* 班级制度公示：加/删/上移/下移章节 + 保存整个文档。仅班主任生效。 */
+    /* 班级制度公示：加/删/上移/下移章节 + 保存 + 一键导入示例。仅班主任生效。 */
     if(state && state.mod==="regulations"){
+      var rseed=e.target.closest("[data-regseed]");
+      if(rseed){ seedRegulations705(); return; }
       var radd=e.target.closest("[data-regadd]");
       if(radd){ regsAddSection(); return; }
       var rdel=e.target.closest("[data-regdel]");
@@ -10836,7 +10884,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "sw-cache-first-2026-09-07";
+  var __APP_VERSION__ = "regulations-seed-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
