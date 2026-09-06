@@ -435,6 +435,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .btn-sched:active{transform:scale(.97)}
   .btn-sched.btn-ghost{color:var(--ink-soft)}
   .sched-tip{font-size:12px;color:var(--pink-d);margin-left:4px}
+  /* B2 / B3 班会移动端：hint 折叠 + 新建按钮醒目 */
+  .phead .hint{font-size:12.5px;color:var(--ink-soft);font-weight:600}
+  .btn-new-meet{font-size:13px;padding:7px 13px;white-space:nowrap;flex:0 0 auto}
+  /* A3 临时课表 diff 计数：紧跟还原基线按钮，浅色徽章 */
+  .sched-temp-diff{font-size:11px;color:#A8551A;background:#FFF7E6;border:1px solid #F0C36D;border-radius:6px;padding:1px 7px;margin-left:6px;font-weight:700;white-space:nowrap}
   /* 临时课表标识（标题左侧徽章 + 工具栏下方只读提示条） */
   .sched-temp-badge{display:inline-block;background:#FFE9D6;color:#A8551A;border:1px solid #F0C36D;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;margin-right:8px;vertical-align:middle}
   .sched-tools-readonly{justify-content:flex-end}
@@ -1166,6 +1171,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .phead{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:6px}
   .phead::-webkit-scrollbar{display:none}
   .phead>*{flex:0 0 auto}
+  /* B3 班会 phead：hint 在移动端隐藏（避免占位挤掉"新建"按钮），新建按钮保持醒目位置 */
+  .phead .hint{display:none}
   /* ⑤ 宽表格在窄屏可横向滚动（值日周表 min-width 较大，必须能滑） */
   .duty-week-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   /* ⑥ 弹窗 / 选择器适配窄屏：接近全屏、底部安全区留白 */
@@ -2294,6 +2301,29 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var over=schedOverGrid(sid);
     if(key in over) return over[key];
     var b=SCHED.base[sid]; return (b&&b.grid)?(b.grid[key]||""):"";
+  }
+  /* A3 helper：本周 temp 与 base 的差异格数（用于 UI 显示"已临时改 N 处"） */
+  function schedTempDiffCount(sid){
+    var t=schedTempOf(sid); var b=SCHED.base[sid];
+    if(!t||!b||!t.blocks||!b.blocks) return 0;
+    var n=0;
+    var days=["周一","周二","周三","周四","周五"];
+    for(var bi=0; bi<t.blocks.length; bi++){
+      var bt=t.blocks[bi]; var bb=b.blocks[bi];
+      if(!bt||!bb) continue;
+      for(var ri=0; ri<(bt.rows||[]).length; ri++){
+        var rt=bt.rows[ri]; var rb=bb.rows[ri];
+        if(!rt||!rb || rt.type==="break") continue;
+        var ct=rt.courses||{}; var cb=rb.courses||{};
+        for(var di=0; di<days.length; di++){
+          var d=days[di];
+          var vt=(ct[d]||"").replace(/^\s+|\s+$/g,"");
+          var vb=(cb[d]||"").replace(/^\s+|\s+$/g,"");
+          if(vt!==vb) n++;
+        }
+      }
+    }
+    return n;
   }
   function saveScheduleBase(sid){
     var b=SCHED.base[sid]; if(!b) return Promise.resolve();
@@ -4143,9 +4173,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function renderMeeting(){
     return ''
-      +'<div class="phead"><h3>📣 班会</h3><span class="hint">微班会(AI生成主题) · 常规班会(手动建+收集PPT/照片)</span>'
+      +'<div class="phead"><h3>📣 班会</h3>'
+      +'<button class="btn-ai btn-new-meet" data-meet="newreg" title="新建一次常规班会，手动填写主题并上传 PPT / 照片">＋ 新建常规班会</button>'
+      +'<span class="hint">微班会(AI生成主题) · 常规班会(手动建+收集PPT/照片)</span>'
       +'<span class="spacer"></span>'
-      +'<button class="btn-mini" data-meet="newreg">＋ 新建常规班会</button>'
       +'<button class="btn-mini" data-meet="exp">导出备份</button>'
       +'<button class="btn-mini" data-meet="imp">导入备份</button></div>'
       +'<div id="meetGen">'
@@ -5530,12 +5561,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var tools = '';
     if(_allow){
       var editBtn = '<button class="btn-sched" data-sched="edit">'+(edit?"✅ 完成":"✏️ 编辑")+'</button>';
-      var tip = '<span class="sched-tip">'+(edit?'点单元格或标题即可编辑，实时同步给科任老师与家长':(isTempMode?'本周临时课表，修改后实时同步给科任老师与家长':'由班主任维护，修改后实时同步给本班科任老师与家长'))+'</span>';
+      var tip = '<span class="sched-tip">'+(edit?'点单元格或标题即可编辑；与基线不一致时会自动创建本周临时改动，实时同步给科任老师与家长，下周自动恢复':(isTempMode?'本周临时课表，修改后实时同步给科任老师与家长':'由班主任维护，修改后实时同步给本班科任老师与家长'))+'</span>';
       var tempCtrls = '';
       if(!tempRec){
-        tempCtrls = '<button class="btn-sched btn-sched-warn" data-sched="tempEnable" title="把本周基线课表克隆为「临时课表」，可单独编辑；家长与科任本周看到临时版本">📝 启用临时课表</button>';
+        /* A2 文案优化：明确说明"只改你想改的格即可"——无需先启用再编辑（auto-temp 已处理） */
+        tempCtrls = '<button class="btn-sched btn-sched-warn" data-sched="tempEnable" title="把本周基线课表克隆为临时版本。启用后只需修改你想动的格（如周三数学换语文），其他自动沿用基线；下周自动恢复">📝 启用本周临时</button>';
       } else {
-        tempCtrls = '<button class="btn-sched btn-sched-warn" data-sched="tempRestore" title="删除本周临时课表，恢复基线">↩️ 还原基线</button>';
+        var diffN = schedTempDiffCount(sid);
+        var diffTag = diffN>0 ? '<span class="sched-temp-diff" title="本周临时课表与基线相比，修改了 '+diffN+' 处">（已临时改 '+diffN+' 处）</span>' : '（无改动）';
+        tempCtrls = '<button class="btn-sched btn-sched-warn" data-sched="tempRestore" title="删除本周临时课表，恢复基线；下周自动恢复也会删除此改动">↩️ 还原基线 '+diffTag+'</button>';
       }
       tools = '<div class="sched-tools">'+editBtn+tempCtrls+tip+'</div>';
     } else if(tempRec){
@@ -5613,6 +5647,25 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var bi=+idx[0], ri=+idx[1];
     if(isNaN(bi)||isNaN(ri)) return Promise.resolve();
     var val=String(raw==null?"":raw).replace(/\s+$/,"").replace(/^\s+/,"");
+    /* A1：自动启用临时课表 — 用户在 base 模式编辑某格，若 val 与基线不一致且本周尚无 temp，
+       自动克隆基线为本周临时版本并把该格作为首个差异写入；家长与科任立即看到本周临时版。
+       目的：让"交换几节课"无需先点启用按钮。 */
+    var baseB0 = SCHED.base[sid];
+    if(baseB0 && baseB0.blocks && baseB0.blocks[bi] && /^d_/.test(col||"")){
+      var idxDays=["周一","周二","周三","周四","周五"];
+      var di0=parseInt(col.slice(2),10);
+      var d0=idxDays[di0];
+      if(d0){
+        var r0=baseB0.blocks[bi].rows[ri];
+        var baseVal0 = (r0&&r0.courses&&r0.courses[d0])||"";
+        if(val!==baseVal0 && schedCurrentMode(sid)!=="temp" && !schedTempOf(sid)){
+          return enableScheduleTemp(sid).then(function(){
+            schedMode[sid]="temp";
+            return commitSchedCell(sid, rowKey, col, raw);
+          }).catch(function(e){ toast("启用临时课表失败："+(e&&e.message||e)); });
+        }
+      }
+    }
     /* temp 模式下写入本周临时课表；否则写入基线课表 */
     var isTempMode = (schedCurrentMode(sid)==="temp");
     var t = isTempMode ? schedTempOf(sid) : null;
@@ -10528,7 +10581,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "duty-cleanup-and-temp-schedule-2026-09-06";
+  var __APP_VERSION__ = "temp-cell-and-meet-newreg-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
