@@ -1392,6 +1392,24 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .att-name{font-size:12px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .att-del{position:absolute;top:-6px;right:-6px;border:none;background:var(--danger);color:#fff;font-size:11px;line-height:1;width:17px;height:17px;border-radius:50%;cursor:pointer;opacity:.65;padding:0}
   .att-del:hover{opacity:1}
+  /* ================= 班级制度公示（班主任写、家长读） ================= */
+  .regs-doc{display:block;max-width:780px}
+  .regs-section{border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:12px;overflow:hidden}
+  .regs-section-h{font-weight:700;font-size:15px;color:var(--ink);padding:10px 14px;border-bottom:1px solid var(--line);background:#FAFBFD;display:flex;align-items:center;gap:10px}
+  .regs-section-h.regs-edit{padding-right:6px}
+  .regs-section-b{padding:12px 14px;font-size:14px;line-height:1.8;color:var(--ink-soft);white-space:pre-wrap;word-break:break-word}
+  .regs-editable{display:block;outline:none;border-radius:6px;padding:2px 4px;transition:background .12s}
+  .regs-editable-h{font-size:15px;font-weight:700;color:var(--ink)}
+  .regs-editable-b{font-size:14px;line-height:1.8;color:var(--ink-soft);min-height:48px}
+  .regs-editable:focus{background:#FFF7E6;box-shadow:inset 0 0 0 1.5px #f0b400}
+  .regs-sec-tools{margin-left:auto;display:inline-flex;gap:4px}
+  .regs-mini{appearance:none;background:transparent;border:1px solid transparent;border-radius:6px;padding:2px 7px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-family:inherit}
+  .regs-mini:hover{background:#F4F6FA;color:var(--ink)}
+  .regs-mini-del{color:#888}
+  .regs-mini-del:hover{background:#FFF3F3;color:#D9534F}
+  .regs-readonly-b{white-space:pre-wrap}
+  .regs-meta{font-size:11.5px;color:#9a9aa2;margin-top:8px}
+  /* ================= /班级制度公示 ================= */
 </style>
 </head>
 <body data-page-node-id="F1WyvywKVEtHg8HFCxws5M">
@@ -1840,7 +1858,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var ROLE_MODS = {};
   ROLE_MODS[ROLE_HEAD]    = null;
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
-  ROLE_MODS[ROLE_PARENT]  = ["duty","honorboard","materials","schedule","messages"];
+  ROLE_MODS[ROLE_PARENT]  = ["duty","honorboard","materials","schedule","messages","regulations"];
   function canSee(key){
     if(isHead()) return true;
     var list=ROLE_MODS[curRole]||[];
@@ -1871,7 +1889,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* 只读身份点到的「写操作」入口，统一拦截（隐藏按钮之外的兜底） */
   var RO_MUT_SEL = "[data-add],[data-imp],[data-clear],[data-ocr],[data-ruleapply],[data-rulecfg],"
     + "[data-edit],[data-del],[data-edit-mall],[data-del-mall],[data-attdel],[data-seat],[data-sched],"
-    + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-comMonthly],.seatcell,[contenteditable=true]";
+    + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-comMonthly],.seatcell,[contenteditable=true],"
+    + "[data-regadd],[data-regdel],[data-regmove],[data-regsave],[data-reginit]";
   function blockIfReadOnly(e){
     if(canEdit()) return false;
     var mut = e.target.closest ? e.target.closest(RO_MUT_SEL) : null;
@@ -2105,12 +2124,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        即每位成员与班主任之间是一对一私密会话，班主任能看到全部。 */
     messages:{
       title:"📝 留言板", cat:"board", unit:"", main:"", fields:[]
+    },
+    /* 班级制度公示：单一文档（章节列表），班主任可写，家长/科任老师只读
+       ——与"班级制度"加分/扣分条目表(模块rules)是不同模块 */
+    regulations:{
+      title:"📜 班级制度（公示）", cat:"aff", unit:"份", main:"标题", doc:true, fields:[]
     }
   };
 
   var ORDER = {
     stu:["students","committee","parents"],
-    aff:["affairs","rules","attendance","materials","seats","duty","grades","points","honor","honorboard","mall"],
+    aff:["affairs","rules","regulations","attendance","materials","seats","duty","grades","points","honor","honorboard","mall"],
     mor:["talk","comm","comment"],
     mine:["schedule"],
     meet:["meeting","weekly"],
@@ -2127,7 +2151,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     ai:{icon:"🤖",label:"AI 小助手"},
     board:{icon:"📝",label:"留言板"}
   };
-  var ALLKEYS = ["students","committee","parents","affairs","rules","attendance","materials","seats","duty","grades","points","honor","talk","comm","comment","mall"];
+  var ALLKEYS = ["students","committee","parents","affairs","rules","regulations","attendance","materials","seats","duty","grades","points","honor","talk","comm","comment","mall"];
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
@@ -2659,6 +2683,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   function renderModule(key){
     var m=MODULES[key];
+    /* 班级制度公示：纯文档模块，跳过标准列表/卡片/导入/添加/导出按钮 */
+    if(m && m.doc){
+      return '<div class="phead">'
+        +'<h3>'+esc(m.title)+'</h3>'
+        + (canEdit()
+            ? '<span class="hint" style="font-size:12.5px">点击章节标题 / 正文可直接编辑，改完后务必点右上角「保存」推送给家长</span>'
+            : '<span class="hint" style="font-size:12.5px">由班主任维护，修改后即时同步到本班家长端</span>')
+        + (canEdit()
+            ? '<span class="spacer"></span><button class="btn-rule" data-regadd="1">＋ 新增章节</button><button class="btn-add" data-regsave="1">保存</button>'
+            : '')
+        +'</div>'
+        +'<div id="list-'+key+'"></div>';
+    }
     var gridBtn = m.grid ? '<button class="btn-grid" data-grid="'+key+'">'+(state.grid[key]?'列表视图':(key==="seats"?'座位网格':'卡片视图'))+'</button>' : '';
     var ocrBtn = (key==="attendance"||key==="materials") ? '<button class="btn-ocr" data-ocr="'+key+'">📷 识别'+(key==="attendance"?"考勤表":"材料上交表")+'</button>' : '';
     var tableBtn = (key==="attendance"||key==="materials") ? '<button class="btn-grid-table" data-gridtoggle="'+key+'">'+(attMatGrid(key)?'📋 列表':'📊 表格')+'</button>' : '';
@@ -2952,7 +2989,113 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       box.innerHTML = attStrip + extra + renderRulesView(rows);
       return;
     }
+    // 班级制度公示：纯文档渲染（不走卡片列表）
+    if(key==="regulations"){
+      if(cnt) cnt.textContent="";
+      box.innerHTML = renderRegulationsView();
+      return;
+    }
     box.innerHTML = attStrip + extra + archiveHTML + rows.map(function(r){ return cardHTML(key,r); }).join("");
+  }
+
+  /* ---------- 班级制度公示：渲染文档视图（班主任可编辑，家长只读） ---------- */
+  function renderRegulationsView(){
+    var doc = getRegDoc();
+    var secs = doc.sections || [];
+    var readonly = !canEdit();
+    var sectionHTML = secs.length
+      ? secs.map(function(s,i){
+          return '<div class="regs-section" data-idx="'+i+'">'
+            +'<div class="regs-section-h'+(readonly?"":" regs-edit")+'">'
+            + (readonly
+                ? esc(s.h || "(未命名章节)")
+                : '<span contenteditable="true" data-regh="'+i+'" class="regs-editable regs-editable-h">'+esc(s.h||"")+'</span>')
+            + (readonly ? "" : '<span class="regs-sec-tools">'
+                  +'<button class="regs-mini" data-regmove="up" data-idx="'+i+'" title="上移">↑</button>'
+                  +'<button class="regs-mini" data-regmove="down" data-idx="'+i+'" title="下移">↓</button>'
+                  +'<button class="regs-mini regs-mini-del" data-regdel="'+i+'" title="删除章节">×</button>'
+                +'</span>')
+            +'</div>'
+            +'<div class="regs-section-b'+(readonly?"":" regs-edit")+'">'
+            + (readonly
+                ? ('<div class="regs-readonly-b">'+(s.b||"").replace(/\n/g,"<br>")+'</div>')
+                : '<div contenteditable="true" data-regb="'+i+'" class="regs-editable regs-editable-b">'+esc(s.b||"")+'</div>')
+            +'</div>'
+            +'</div>';
+        }).join("")
+      : '';
+    var updated = doc.updatedAt ? '<div class="regs-meta">最近更新：'+esc(fmtDate(doc.updatedAt)||doc.updatedAt)+'</div>' : '';
+    var empty = (!secs.length)
+      ? '<div class="empty-state" style="margin-top:14px">'
+          +'<svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
+          +'<div>暂无制度文本。'+(readonly?"由班主任维护":'点右上角「＋ 新增章节」开始撰写，发布后家长端即可查看')+'。</div></div>'
+      : '';
+    if(readonly && !secs.length){
+      empty = '<div class="empty-state" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>班主任尚未发布班级制度。</div></div>';
+    }
+    var schemaWarn = (REG_CACHE && REG_CACHE._schemaMissing)
+      ? '<div class="mat-local-note" style="margin-top:10px">⚠ 数据表 <code>hr_regulations</code> 尚未建立。建表 SQL 已在上方弹窗给出，运行后刷新本页面即可。</div>'
+      : '';
+    return '<div class="regs-doc">'
+      + (readonly ? '' : '<div class="regs-edit-hint" style="font-size:12px;color:#9a9aa2;margin:4px 0 10px">提示：点击 <b>章节标题</b> 或 <b>正文</b> 即可直接修改；所有改动需点右上角「保存」后才会推送给家长。</div>')
+      + sectionHTML
+      + empty
+      + schemaWarn
+      + updated
+      +'</div>';
+  }
+  /* regs 操作助手（仅班主任可调用） */
+  function regsCollectFromDom(){
+    var headers=document.querySelectorAll('[data-regh]');
+    var bodies=document.querySelectorAll('[data-regb]');
+    var n=Math.max(headers.length, bodies.length);
+    var out=[];
+    for(var i=0;i<n;i++){
+      var hEl=headers[i], bEl=bodies[i];
+      out.push({
+        h: hEl ? String(hEl.innerText||hEl.textContent||"").replace(/\u200B/g,"").trim() : "",
+        b: bEl ? String(bEl.innerText||bEl.textContent||"").replace(/\u200B/g,"").trim() : ""
+      });
+    }
+    return out;
+  }
+  function regsAddSection(){
+    if(!isHead()){ toast("仅班主任可编辑"); return; }
+    var cur=(REG_CACHE && Array.isArray(REG_CACHE.sections)) ? REG_CACHE.sections.slice() : [];
+    cur.push({ h:"新章节", b:"" });
+    REG_CACHE.sections = cur;
+    renderList("regulations");
+    setTimeout(function(){
+      var h=document.querySelectorAll('[data-regh]');
+      var last=h.length-1; if(last<0) return;
+      var el=h[last];
+      try{ el.focus(); var r=(document.createRange?document.createRange():""); if(r){ r.selectNodeContents(el); r.collapse(false); var s=(window.getSelection?window.getSelection():""); if(s){ s.removeAllRanges(); s.addRange(r); } } }catch(_){ }
+    }, 60);
+  }
+  function regsDelSection(idx){
+    if(!isHead()){ toast("仅班主任可编辑"); return; }
+    if(!confirm("确定删除该章节？此改动要等点「保存」才会推送给家长。")) return;
+    var cur=(REG_CACHE && Array.isArray(REG_CACHE.sections)) ? REG_CACHE.sections.slice() : [];
+    if(idx<0||idx>=cur.length) return;
+    cur.splice(idx,1);
+    REG_CACHE.sections=cur;
+    renderList("regulations");
+  }
+  function regsMoveSection(idx, dir){
+    if(!isHead()){ toast("仅班主任可编辑"); return; }
+    var cur=(REG_CACHE && Array.isArray(REG_CACHE.sections)) ? REG_CACHE.sections.slice() : [];
+    var j = dir==="up" ? idx-1 : idx+1;
+    if(j<0||j>=cur.length) return;
+    var tmp=cur[idx]; cur[idx]=cur[j]; cur[j]=tmp;
+    REG_CACHE.sections=cur;
+    renderList("regulations");
+  }
+  function regsSaveFromDom(){
+    if(!isHead()){ toast("仅班主任可编辑"); return; }
+    var sections = regsCollectFromDom();
+    if(!sections.length){ toast("还没有章节可保存"); return; }
+    sections = sections.filter(function(s){ return (s.h||"").trim() || (s.b||"").trim(); });
+    saveRegDoc(sections, "班级制度").catch(function(){});
   }
 
   /* ---------- 成绩 AI 分析 ---------- */
@@ -6106,6 +6249,55 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       throw e;
     });
   }
+  /* ---------- 班级制度公示：单行存储，所有登录用户读，仅班主任写 ---------- */
+  var REG_CACHE = null;
+  function loadRegulationsSafe(){
+    return apiQuery("regulations").then(function(res){
+      var rows = (res && res.results) || [];
+      var main = rows.filter(function(r){ return r.data && r.data.kind==="main"; })[0]
+          || rows.filter(function(r){ return r.data && (r.data.sections||r.data.title); })[0]
+          || null;
+      REG_CACHE = main && main.data ? main.data : { sections:[], updatedAt:"" };
+      REG_CACHE._id = main ? main._id : null;
+      return rows;
+    }).catch(function(e){
+      if(classifyError(e).kind==="schema"){
+        trySchemaFix(String(e && e.message || e));
+        REG_CACHE = { sections:[], updatedAt:"", _schemaMissing:true };
+        return [];
+      }
+      console.warn("[regulations] load failed:", e);
+      return [];
+    });
+  }
+  function getRegDoc(){
+    if(!REG_CACHE || !Array.isArray(REG_CACHE.sections)) return { sections:[], title:"", updatedAt:"", _id:null };
+    return REG_CACHE;
+  }
+  function saveRegDoc(sections, title){
+    if(!isHead()){ toast("仅班主任可编辑"); return Promise.reject(new Error("readonly")); }
+    if(REG_CACHE && REG_CACHE._schemaMissing){
+      trySchemaFix("Could not find the table 'public.hr_regulations' in the schema cache");
+      return Promise.reject(new Error("schema_missing"));
+    }
+    var payload = { kind:"main", title: title||"班级制度",
+      sections: (sections||[]).map(function(s){ return { h:(s.h||""), b:(s.b||"") }; }),
+      updatedAt: todayStr()
+    };
+    if(REG_CACHE && REG_CACHE._id){
+      var merged = Object.assign({}, REG_CACHE, payload);
+      return apiUpdate("regulations", REG_CACHE._id, merged).then(function(saved){
+        REG_CACHE = Object.assign({}, merged);
+        REG_CACHE._id = (saved && saved._id) || REG_CACHE._id;
+        toast("已保存 ✓ 家长端将看到最新版本");
+      });
+    }
+    return apiAdd("regulations", payload).then(function(saved){
+      REG_CACHE = Object.assign({}, payload);
+      REG_CACHE._id = (saved && saved._id) || null;
+      toast("已发布 ✓ 家长端可查看");
+    });
+  }
   function apiAddMat(props){
     if(matUseLocal){
       var rec=Object.assign({_id:genLocalId()}, props);
@@ -6817,6 +7009,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }).then(function(failed){
       return loadSchedulesSafe().then(function(){ return failed; });
     }).then(function(failed){
+      // 班级制度公示（班主任写、家长读）独立拉一份
+      return loadRegulationsSafe().then(function(){ return failed; });
+    }).then(function(failed){
       // 成员先加载：留言板要按成员表把 uid 解析成姓名
       return loadMembersSafe().then(function(){ return failed; });
     }).then(function(failed){
@@ -7186,11 +7381,33 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +"create policy hr_members_self_read on hr_members\n"
       +"  for select using ( (data->>'uid') = auth.uid()::text );";
   }
+  /* 班级制度公示：班主任写，所有登录用户读（家长端只读）。
+     RLS：所有登录用户都能 SELECT；仅创建者本人能 INSERT/UPDATE/DELETE */
+  function sqlRegulations(){
+    return "create table if not exists hr_regulations (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists hr_regulations_user_idx on hr_regulations(user_id);\n"
+      +"alter table hr_regulations enable row level security;\n"
+      +"-- 所有登录用户都能读（家长只读公示稿）\n"
+      +"drop policy if exists hr_regulations_read on hr_regulations;\n"
+      +"create policy hr_regulations_read on hr_regulations\n"
+      +"  for select using (auth.uid() is not null);\n"
+      +"-- 仅创建者本人能写（班主任）\n"
+      +"drop policy if exists hr_regulations_own on hr_regulations;\n"
+      +"create policy hr_regulations_own on hr_regulations\n"
+      +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);";
+  }
   function sqlForTable(t){
     if(!/^hr_[a-z0-9_]+$/i.test(t)) return "";
-    /* 这两张表的可见范围不是「仅本人」，需专用策略，不能用通用模板 */
-    if(t==="hr_messages") return sqlMessages();
-    if(t==="hr_members")  return sqlMembers();
+    /* 这几张表的可见范围不是「仅本人」，需专用策略，不能用通用模板 */
+    if(t==="hr_messages")  return sqlMessages();
+    if(t==="hr_members")   return sqlMembers();
+    /* 班级制度公示：班主任写，所有登录用户读（家长端只读） */
+    if(t==="hr_regulations") return sqlRegulations();
     return "create table if not exists "+t+" (\n"
       +"  id         uuid primary key default gen_random_uuid(),\n"
       +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
@@ -9246,6 +9463,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // 班务待办：展开 / 收起「已完成归档」
     var aarch=e.target.closest("[data-aff-arch]");
     if(aarch){ affArchiveOpen=!affArchiveOpen; renderList("affairs"); return; }
+    /* 班级制度公示：加/删/上移/下移章节 + 保存整个文档。仅班主任生效。 */
+    if(state && state.mod==="regulations"){
+      var radd=e.target.closest("[data-regadd]");
+      if(radd){ regsAddSection(); return; }
+      var rdel=e.target.closest("[data-regdel]");
+      if(rdel){ regsDelSection(parseInt(rdel.getAttribute("data-regdel"),10)); return; }
+      var rmove=e.target.closest("[data-regmove]");
+      if(rmove){ regsMoveSection(parseInt(rmove.getAttribute("data-idx"),10), rmove.getAttribute("data-regmove")); return; }
+      var rsave=e.target.closest("[data-regsave]");
+      if(rsave){ regsSaveFromDom(); return; }
+    }
   });
 
   /* 值日表：班级备注 失焦保存（contenteditable） */
@@ -10606,7 +10834,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "folder-gate-2026-09-06";
+  var __APP_VERSION__ = "regulations-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
