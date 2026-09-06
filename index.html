@@ -1193,8 +1193,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .auth-card{position:relative;width:100%;max-width:420px;margin:0 auto 36px;background:#fff;border-radius:22px;padding:24px 22px;
     box-shadow:0 18px 50px rgba(20,12,55,.28);text-align:center}
   .auth-card-title{margin:0 0 4px;font-size:18px;font-weight:800;color:var(--ink);text-align:left}
-  .auth-back{position:absolute;top:12px;right:14px;border:none;background:transparent;color:var(--ink-soft);
-    font-size:13px;cursor:pointer;padding:4px 8px;border-radius:8px;line-height:1}
+  .auth-back{position:absolute;top:12px;right:14px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:13px;font-weight:700;cursor:pointer;padding:7px 12px;border-radius:999px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .auth-back:hover{background:#F4F6FA}
+  .auth-back2{display:block;width:100%;margin-top:10px;border:none;background:transparent;color:var(--ink-soft);font-size:13px;font-weight:700;cursor:pointer;padding:8px;border-radius:10px;text-decoration:underline}
+  .auth-back2:hover{background:#F4F6FA;color:var(--ink)}
+  .topbar .tb-switch{margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-size:12.5px;font-weight:700;border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
   .auth-back:hover{background:#F4F4F6;color:var(--ink)}
   .auth-card-hint{margin:0 0 14px;font-size:13px;color:var(--ink-soft);line-height:1.5}
   .auth-card input{width:100%;box-sizing:border-box;margin-bottom:10px;padding:11px 13px;border:1.5px solid var(--line);
@@ -1355,7 +1358,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>
     <nav class="nav" id="nav" data-page-node-id="1qxRxX8Jik0VraExXkWdG9"></nav>
     <span class="s-status" id="status" data-page-node-id="uZtaM2ssqRBLDzRwzS46uq"><span class="dot" data-page-node-id="jxHwKd2tulNGwFQjvEc2xv"></span><span id="statusText" data-page-node-id="KrrceaHspcCrQbHNUDd6Yk">同步中</span></span>
-    <button class="logout-btn" id="logoutBtn" style="display:none" data-page-node-id="LDBOXLC4blVKdUjUrrp9op">退出登录</button>
+    <button class="logout-btn" id="logoutBtn" style="display:none" title="退出当前账号，回到身份选择界面" data-page-node-id="LDBOXLC4blVKdUjUrrp9op">⇄ 切换身份 / 退出</button>
   </aside>
 
   <div class="scrim" id="scrim" data-page-node-id="4k6x0hfAy41CrWpnk2aG17"></div>
@@ -1365,6 +1368,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <div class="topbar" data-page-node-id="bGfVmGjN1zuu63Tc2jWGY0">
       <button class="ham" id="ham" data-page-node-id="Y3KmecbL7Q9moSmJMG7yWv">☰</button>
       <h2 class="ttl" id="mobTitle" data-page-node-id="rPltl8ACdWkN6m6AS8VYd0">总览<small id="mobSub" data-page-node-id="J05PZ7lhFbFz8RUbKKQ04J">班级工作台</small></h2>
+      <button type="button" class="tb-switch" id="switchRoleBtn" style="display:none" title="退出当前账号，回到身份选择界面（可重新选择 班主任 / 科任老师 / 家长）" data-page-node-id="swRoleBtn01">⇄ 切换身份</button>
     </div>
     <div class="wrap" data-page-node-id="YQv2bCLJxgHgs7u6Bm4X3K">
       <div class="fatal-err hide" id="fatalErr" data-page-node-id="MvgTbX8TTXJ93PLeHZghUJ"></div>
@@ -1653,7 +1657,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>
 
     <div class="auth-card" id="authCard" style="display:none" data-page-node-id="1U7H1bJ4ejhNjkoZgCwOu6">
-      <button type="button" class="auth-back" id="authBack" data-page-node-id="rwRgIaxQURKluYJ22rsnZl">← 返回</button>
+      <button type="button" class="auth-back" id="authBack" data-page-node-id="rwRgIaxQURKluYJ22rsnZl">← 返回身份选择</button>
       <div class="auth-card-title" id="authCardTitle" data-page-node-id="WR6vauADzIn1dVOx4suUa8">登录</div>
       <p class="auth-card-hint" id="authSub" data-page-node-id="eUBuriFsC1CUsDvLsZWRhd">登录后即可在云端同步你的班级数据</p>
       <input type="email" id="authEmail" placeholder="邮箱" autocomplete="username" data-page-node-id="SaITvfwm6t6SsrU0Nnd7zr">
@@ -1668,6 +1672,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       <p class="auth-roletip" id="authRoleTip" data-page-node-id="6xNhELKOCje4BZXBPRPvMc"></p>
       <button class="auth-btn" id="authLogin" data-page-node-id="D9san4KJ2zeRd3UZET8Wli">登录</button>
       <button class="auth-btn ghost" id="authSignup" data-page-node-id="3Ic8LeHRmsIjRBdlG7fdrK">注册新账号</button>
+      <button type="button" class="auth-back2" id="authBack2" data-page-node-id="bk2AuthBack2">← 返回身份选择</button>
       <div class="auth-err" id="authErr" data-page-node-id="9SP8i1Qf8DtGAAWRp5ymQQ"></div>
     </div>
   </div>
@@ -10111,11 +10116,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       else { setStatus("offline"); document.getElementById("authErr").textContent="注册成功！请前往邮箱完成验证再回来登录；或在 Supabase 后台关闭「Confirm email」可注册即登录。"; }
     }).catch(function(e){ setStatus("offline"); document.getElementById("authErr").textContent=(e&&e.message)?e.message:"注册失败"; });
   };
-  document.getElementById("logoutBtn").onclick=function(){
+  /* 切换身份 / 退出登录：身份绑定账号，换身份必须先退出当前账号 → 回到身份选择界面。
+     入口：侧边栏 #logoutBtn（桌面）+ 顶栏 #switchRoleBtn（手机，顶栏只在窄屏显示）。 */
+  function switchIdentity(){
+    if(!confirm("要退出当前账号、回到身份选择界面吗？\n可重新选择「班主任 / 科任老师 / 家长」登录。")) return;
     // 登出时清空本地 AI Key 缓存，避免换账号时上一人的 key 残留（云端下次登录会被覆盖，无需手动清）
     try{ localStorage.removeItem("wb_cls_dashscope_key"); }catch(e){}
-    db.auth.signOut().then(function(){ location.reload(); });
-  };
+    try{ db.auth.signOut().then(function(){ location.reload(); }); }
+    catch(e){ location.reload(); }
+  }
+  document.getElementById("logoutBtn").onclick=switchIdentity;
+  var _srb=document.getElementById("switchRoleBtn"); if(_srb) _srb.onclick=switchIdentity;
   function onSignedIn(user){
     try{
       curUid=user.id;
@@ -10124,6 +10135,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT) ? _r : ROLE_HEAD;
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
+      var _srb2=document.getElementById("switchRoleBtn"); if(_srb2) _srb2.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
       restoreView();       // 下拉刷新/重开后回到上次所在的栏目与模块
@@ -10177,7 +10189,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "clearmenu-fix-2026-09-06";
+  var __APP_VERSION__ = "switch-identity-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -10307,6 +10319,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         c.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); showAuthCard(c.getAttribute("data-role")); } });
       });
       var ab=document.getElementById("authBack"); if(ab) ab.onclick=showAuthCover;
+      var ab2=document.getElementById("authBack2"); if(ab2) ab2.onclick=showAuthCover;
     }catch(_){}
     showAuth();                 // 立即可见的界面，避免任何「一直加载工作台数据」
     window.__appBooted = true;  // 通知外部看门狗：首屏已渲染
