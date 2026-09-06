@@ -1685,7 +1685,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <div id="profileBody" data-page-node-id="Cti85LNM9gH0EXNBMmfQCl"></div>
   </div>
   <!-- 学生档案 · 上传原始 Excel / 资料（存入云端，跨设备可下载查找） -->
-  <input type="file" id="pfFileInput" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx" style="display:none" data-page-node-id="Era3A7NvDWkpx86mYTbm3P">
+  <input type="file" id="pfFileInput" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx" multiple style="display:none" data-page-node-id="Era3A7NvDWkpx86mYTbm3P">
 </div>
 
 <div class="toast" id="toast" data-page-node-id="FH1W62llRobFrdKB7Cmjcb"></div>
@@ -5883,7 +5883,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }).join("") : '<div class="pf-empty">暂无资料文件</div>';
     return '<div class="pf-sec"><div class="pf-sec-h">📎 资料 / Excel 附件 <span class="pf-cnt">'+list.length+'</span></div>'
       + '<div id="pfFileList">'+items+'</div>'
-      + '<button class="btn-add" id="pfUploadExcel">＋ 上传 Excel / 资料</button>'
+      + '<button class="btn-add" id="pfUploadExcel" title="可一次选择多个）">＋ 上传 Excel / 资料（可多选）</button>'
       + '<span class="field-hint" style="margin-top:6px;display:block">上传后存入云端，任何设备登录都能下载查找。</span>'
       + '</div>';
   }
@@ -6895,15 +6895,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         var isYearless = !!f.noYear;   // 聊天截图等无需按年份归档
         var pyn=document.createElement("input"); pyn.type="number"; pyn.className="photo-year"; pyn.placeholder="年份"; pyn.value=new Date().getFullYear();
         if(isYearless) pyn.style.display="none";
-        var pfile=document.createElement("input"); pfile.type="file"; pfile.multiple=true; pfile.accept="image/*"; pfile.className="photo-file"; pfile.setAttribute("data-photofile",f.name);
-        var padd=document.createElement("button"); padd.type="button"; padd.className="btn-photo-add"; padd.textContent=f.addText||"＋ 添加照片";
+        var pfile=document.createElement("input"); pfile.type="file"; pfile.multiple=true; pfile.accept="image/*"; pfile.className="photo-file hide-file"; pfile.setAttribute("data-photofile",f.name);
+        var padd=document.createElement("button"); padd.type="button"; padd.className="btn-photo-add"; padd.textContent=f.addText||"📷 选择照片（可多选）"; padd.title="一次可选多张，选完自动压缩上传";
         if(!isYearless) pbar.appendChild(document.createTextNode("年份"));
         pbar.appendChild(pyn); pbar.appendChild(pfile); pbar.appendChild(padd);
         pwrap.appendChild(plist); pwrap.appendChild(pbar);
         wrap.appendChild(pwrap);
         renderPhotosList(f.name);
-        padd.addEventListener("click", function(){
-          if(!pfile.files.length){ toast("请先选择照片文件"); return; }
+        /* 抽出压缩上传逻辑供 padd.click / pfile.change 共用 —— 用户点 padd 触发文件选择，
+           选完文件后 change 事件自动压缩上传（多次选可累积）。无需先选再点 padd。 */
+        function _doUploadPhotos(){
+          if(!pfile.files.length){ return; }
           var yr=pyn.value||String(new Date().getFullYear());
           setStatus("syncing");
           var ch=Promise.resolve();
@@ -6912,7 +6914,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           var photoFieldName=f.name;
           // 压缩完先尝试入 Supabase Storage（避免 base64 内联到 data 列触发行/请求体上限爆掉）；
           // 无 storage 或上传失败则保留 base64 作本机 fallback，至少还能在当前设备显示并稍后重传。
-          Array.prototype.forEach.call(pfile.files, function(file){
+          var files=Array.prototype.slice.call(pfile.files);
+          Array.prototype.forEach.call(files, function(file){
             ch=ch.then(function(){
               return compressPhoto(file, maxDim, quality).then(function(dataUrl){
                 return _photoToStorage(dataUrl, photoFieldName).then(function(out){
@@ -6923,16 +6926,21 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             });
           });
           ch.then(function(){ pfile.value=""; renderPhotosList(f.name); setStatus("ok");
-            if(formPhotos.some(function(p){return !p.uploaded;})){ toast("已保存（部分图片未上传云端，仅本机可见）"); }
+            if(formPhotos.some(function(p){return !p.uploaded;})){ toast("已保存 "+files.length+" 张（部分图片未上传云端，仅本机可见）"); }
+            else toast("已添加 "+files.length+" 张照片 ✓");
           }).catch(function(e){ console.error(e); setStatus("offline"); toast("照片处理失败："+(e&&e.message?e.message:e)); });
-        });
+        }
+        /* padd 点击 → 触发隐藏 input 的文件选择（一次可选多张，选完自动上传）；
+           多次点 padd 也能累积，无需重启表单 */
+        padd.addEventListener("click", function(){ pfile.click(); });
+        pfile.addEventListener("change", _doUploadPhotos);
       } else if(f.multiline){
         var ta=document.createElement("textarea"); ta.setAttribute("data-f",f.name); ta.placeholder=f.ph||""; if(val) ta.value=val;
         wrap.appendChild(ta);
       } else if(f.type==="file"){
-        var finp=document.createElement("input"); finp.type="file"; finp.multiple=true; finp.setAttribute("data-f",f.name); finp.setAttribute("data-file","1");
+        var finp=document.createElement("input"); finp.type="file"; finp.multiple=true; finp.className="hide-file"; finp.setAttribute("data-f",f.name); finp.setAttribute("data-file","1");
         if(f.accept) finp.accept=f.accept;
-        var flbl=document.createElement("button"); flbl.type="button"; flbl.className="btn-file"; flbl.textContent="📎 "+(f.label||"选择文件（可多选）");
+        var flbl=document.createElement("button"); flbl.type="button"; flbl.className="btn-file"; flbl.textContent="📎 "+(f.label||"选择文件（可多选）"); flbl.title="一次可选多个文件，全部加入待上传列表后再保存";
         flbl.addEventListener("click", function(){ finp.click(); });
         wrap.appendChild(flbl); wrap.appendChild(finp);
         var flist=document.createElement("div"); flist.className="filelist"; flist.id="filelist-"+f.name;
@@ -9356,22 +9364,37 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* 学生档案 · 上传 Excel / 资料到云端 */
   var pfInp=document.getElementById("pfFileInput");
   if(pfInp) pfInp.addEventListener("change", function(){
-    var file=pfInp.files && pfInp.files[0]; if(!file) return;
+    var files=pfInp.files ? Array.prototype.slice.call(pfInp.files) : [];
+    if(!files.length) return;
     if(!profileName){ toast("请先打开某个学生的档案"); pfInp.value=""; return; }
     if(!db||!db.storage){ toast("存储未初始化，请稍候重试"); pfInp.value=""; return; }
     setStatus("syncing");
-    var ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
-    var kind = /xlsx?|csv/.test(ext)?"excel":(/pdf/.test(ext)?"pdf":(/docx?/.test(ext)?"doc":(/png|jpe?g|gif|webp/.test(ext)?"image":"file")));
-    var path="students/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
-    db.storage.from(BUCKET).upload(path, file, {upsert:true, cacheControl:"3600"}).then(function(r){
-      if(r.error) throw r.error;
-      var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-      return apiAdd("files", {name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:"students", related:profileName, kind:kind, url:url}).then(function(o){
-        DATA.files=DATA.files||[];
-        DATA.files.push({_id:o._id, name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:"students", related:profileName, kind:kind, url:url, created_at:o.created_at});
+    /* 循环上传（可多选）：逐个写云端 + 写 files 表，串行避免 storage 并发配额；过程中显示进度。 */
+    var okCount=0, failCount=0, fails=[];
+    var ch=Promise.resolve();
+    files.forEach(function(file){
+      ch=ch.then(function(){
+        var ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+        var kind = /xlsx?|csv/.test(ext)?"excel":(/pdf/.test(ext)?"pdf":(/docx?/.test(ext)?"doc":(/png|jpe?g|gif|webp/.test(ext)?"image":"file")));
+        var path="students/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+        return db.storage.from(BUCKET).upload(path, file, {upsert:true, cacheControl:"3600"}).then(function(r){
+          if(r.error) throw r.error;
+          var url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+          return apiAdd("files", {name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:"students", related:profileName, kind:kind, url:url}).then(function(o){
+            DATA.files=DATA.files||[];
+            DATA.files.push({_id:o._id, name:file.name, path:path, mime:(file.type||"application/octet-stream"), size:file.size||0, mod:"students", related:profileName, kind:kind, url:url, created_at:o.created_at});
+            okCount++;
+          });
+        }).catch(function(err){ failCount++; fails.push(file.name+"："+(err&&err.message?err.message:err)); });
       });
-    }).then(function(){ setStatus("ok"); pfInp.value=""; openStudentProfile(profileName); toast("已保存附件 ✓（任何设备可见）"); })
-      .catch(function(err){ setStatus("offline"); pfInp.value=""; console.error(err); toast("上传失败："+(err&&err.message?err.message:err)); });
+    });
+    ch.then(function(){
+      setStatus(failCount?"offline":"ok");
+      pfInp.value=""; openStudentProfile(profileName);
+      var tip="已保存 "+okCount+" 个附件";
+      if(failCount) tip+="，失败 "+failCount+"（"+fails.join("；")+"）";
+      toast(tip+(failCount?"":" ✓（任何设备可见）"));
+    });
   });
   document.getElementById("impDo").addEventListener("click",confirmImport);
   document.getElementById("impPreview").addEventListener("click",function(e){ var b=e.target.closest("[data-impimg]"); if(b){ if(b.getAttribute("data-impimg")==="save") saveScreenshot(impImgFile); } });
@@ -10581,7 +10604,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "temp-cell-and-meet-newreg-2026-09-06";
+  var __APP_VERSION__ = "upload-multi-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
