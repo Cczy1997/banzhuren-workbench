@@ -8329,7 +8329,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var tb=document.getElementById(gridTargets.tb);
     var wrap=document.getElementById(gridTargets.wrap);
     var foot=document.getElementById(gridTargets.foot);
-    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 选择文件夹进入，或新建一个</span>'
+    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 ' + (isHead() ? '选择文件夹进入，或新建一个' : '选择文件夹进入') + '</span>'
       +'<span class="gt-sep"></span>'
       + (isHead() ? '<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>' : '');
     var groups=matFoldersGroup();
@@ -8337,9 +8337,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var empty='<div class="empty-state" style="padding:32px 14px">'
         +'<svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
         +'<div>还没有事项文件夹。先新建一个（如：数学作业），以后同类材料就直接从这个文件夹里进去操作。</div></div>';
-      var cards='<div class="mat-folders-grid"><div class="mat-folder-card add" data-matFolderAdd>'
+      var _add=isHead()?'<div class="mat-folder-card add" data-matFolderAdd>'
         +'<div style="font-size:30px;line-height:1">＋</div><div style="margin-top:8px;font-weight:600">新建文件夹</div>'
-        +'<div class="mfc-meta">如：数学作业 / 社会实践表</div></div></div>';
+        +'<div class="mfc-meta">如：数学作业 / 社会实践表</div>'
+        +'</div>':'';
+      var cards='<div class="mat-folders-grid">'+_add+'</div>';
       if(wrap) wrap.innerHTML=empty+cards;
       if(foot) foot.innerHTML="";
       return;
@@ -8356,14 +8358,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +(late?'<span class="mfc-bar late">⏰ '+late+'</span>':'')
         +'</div>'
         +'<div class="mfc-foot"><span class="mfc-go">打开文件夹 →</span>'
-        +'<button type="button" class="mfc-del" data-matFolderDel data-delitem="'+esc(g.item)+'" data-deltype="'+esc(g.type)+'">🗑 删除</button></div>'
+        +(isHead()?'<button type="button" class="mfc-del" data-matFolderDel data-delitem="'+esc(g.item)+'" data-deltype="'+esc(g.type)+'">🗑 删除</button>':'')
+        +'</div>'
         +'</div>';
     }).join("");
-    var addCard='<div class="mat-folder-card add" data-matFolderAdd>'
+    var addCard=isHead()?'<div class="mat-folder-card add" data-matFolderAdd>'
       +'<div style="font-size:30px;line-height:1">＋</div>'
       +'<div style="margin-top:8px;font-weight:600">新建文件夹</div>'
       +'<div class="mfc-meta">如：数学作业 / 社会实践表</div>'
-      +'</div>';
+      +'</div>':'';
     if(wrap) wrap.innerHTML='<div class="mat-folders-grid">'+cards+addCard+'</div>';
     if(foot) foot.innerHTML='<span class="hint">同文件夹下的材料共享同一事项，不再每次都输。点文件夹卡片即可进入网格视图继续操作。</span>';
   }
@@ -9503,12 +9506,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var matBack=e.target.closest("[data-matBackFolders]");
     if(matBack){ gridState.curItem=""; renderMatGrid(gridState.mod); return; }
     var matDel=e.target.closest("[data-matFolderDel]");
-    if(matDel){ deleteMatFolder(matDel.getAttribute("data-delitem")||"", matDel.getAttribute("data-deltype")||"作业提交"); return; }
+    if(matDel){ if(!isHead()){ toast("仅班主任可管理文件夹"); return; } deleteMatFolder(matDel.getAttribute("data-delitem")||"", matDel.getAttribute("data-deltype")||"作业提交"); return; }
     var matGo=e.target.closest("[data-matGoItem]");
     if(matGo){ gridState.curItem=matGo.getAttribute("data-matGoItem")||""; gridState.curType=matGo.getAttribute("data-matGoType")||gridState.curType; renderMatGrid(gridState.mod); return; }
     var matAdd=e.target.closest("[data-matFolderAdd]");
-    if(matAdd){
-      var nm=window.prompt("新建事项文件夹（同一类材料可一直放这个文件夹里）\n例如：数学作业 / 社会实践表 / 黑笔","");
+    if(matAdd){ if(!isHead()){ toast("仅班主任可创建文件夹"); return; } var nm=window.prompt("新建事项文件夹（同一类材料可一直放这个文件夹里）\n例如：数学作业 / 社会实践表 / 黑笔","");
       nm=String(nm||"").trim();
       if(nm){
         gridState.curItem=nm;
@@ -10604,7 +10606,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "upload-multi-2026-09-06";
+  var __APP_VERSION__ = "folder-gate-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
