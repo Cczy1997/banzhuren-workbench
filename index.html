@@ -1051,8 +1051,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rf-wk b{color:var(--ink);font-size:15px}
   .rf-done{color:#2E7D32;font-weight:800}
   .rf-btn{font-weight:700}
-  @media print{
-    .duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn,.dw-grp-del,.duty-rf-bar,#sidebar,.phead,#nav,#topbar{display:none !important}
+  /* 值日表顶部信息条：日期 + 值日班长（两种身份都显示，纯只读；低调浅色虚线灰底） */
+  .duty-meta-bar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:8px 12px;background:#fafbfd;border:1px dashed #d6dbe5;border-radius:10px;font-size:13px;color:#2c3144;margin:6px 0 10px}
+  .duty-meta-bar .duty-meta{display:inline-flex;align-items:baseline;gap:6px}
+  .duty-meta-bar .dm-key{color:#5b6172;font-size:12.5px}
+  .duty-meta-bar .dm-val{color:#0f1115;font-weight:700}
+  .duty-meta-bar .dm-val-no{color:#7a8098;font-weight:500;font-size:12px}
+  .duty-meta-bar .dm-empty{color:#a85a3e;font-weight:600;font-style:italic}
+  @media (max-width:720px){.duty-meta-bar{gap:8px;padding:6px 10px;font-size:12.5px}}
+  @media print{.duty-meta-bar{border:none;padding:0;background:transparent}.duty-tools,.dw-add-btn,.dw-add-lnk,.dw-pdel,.dw-mini-btn,.dw-grp-del,.duty-rf-bar,#sidebar,.phead,#nav,#topbar{display:none !important}
     .duty-page{border:none;padding:0}
     .duty-week-table thead th{background:#EEF2FF !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .dw-row-th{background:#FFF7E6 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -3579,7 +3586,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'<span class="rf-wk">已值日 <b>'+dutyRot.servedWeeks+'</b> 周</span>';
     var act = done
       ? '<span class="rf-done">✅ 本周流动红旗已记录</span>'
-      : '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>';
+      : (isHead() ? '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>' : '');
     return '<div class="duty-rf-bar">'+info+act+'</div>';
   }
   function dutyWeekReset(){
@@ -3633,13 +3640,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     html+='<div class="duty-page">';
     html+='  <div class="duty-head">';
     html+='    <div><h2 class="duty-title">📋 值日表</h2><div class="duty-sub">一周一变 · 全班统一；每个格子可关联多名学生，点 + 即可批量选人。</div></div>';
-    html+='    <div class="duty-tools">';
-    html+='      <button type="button" class="btn-mini" data-dutyact="addGroup">＋ 添加新组</button>';
-    html+='      <button type="button" class="btn-mini" data-dutyact="reset">🧹 清空本周</button>';
-    html+='      <button type="button" class="btn-mini" data-dutyact="print">🖨 打印</button>';
-    html+='    </div>';
+    if(isHead()){
+      html+='    <div class="duty-tools">';
+      html+='      <button type="button" class="btn-mini" data-dutyact="addGroup">＋ 添加新组</button>';
+      html+='      <button type="button" class="btn-mini" data-dutyact="reset">🧹 清空本周</button>';
+      html+='      <button type="button" class="btn-mini" data-dutyact="print">🖨 打印</button>';
+      html+='    </div>';
+    }
     html+='  </div>';
     html+=renderDutyRedFlagBar();
+    // 顶部信息条：本周日期段 + 值日班长（两种身份都显示，纯只读；低调灰底）
+    var wk=isoWeek();
+    var leader=dutyWeekLeaderOf(groups[0]||"");
+    html+='  <div class="duty-meta-bar">';
+    html+='    <span class="duty-meta"><span class="dm-key">📅 本周日期</span><span class="dm-val">'+esc(wk.monday)+' ~ '+esc(wk.sunday)+'</span></span>';
+    html+='    <span class="duty-meta"><span class="dm-key">👨‍🎓 值日班长</span>'
+      +(leader
+        ? '<span class="dm-val">'+esc(leader.name)+(leader.no?' <span class="dm-val-no">'+esc(leader.no)+'</span>':'')+'</span>'
+        : '<span class="dm-val dm-empty">未指定</span>')
+      +'</span>';
+    html+='  </div>';
     html+='  <div class="duty-note" contenteditable="true" data-dutynote="1" title="点击编辑班级备注">'+esc(note)+'</div>';
     html+='  <div class="duty-week-wrap"><table class="duty-week-table">';
     html+='    <thead>'+thead+'</thead>';
@@ -5077,7 +5097,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       .filter(function(x){return x.t!==0;}).sort(function(a,b){return b.t-a.t;});
     var medal=["🥇","🥈","🥉"];
     var html='<div class="honor">'
-      +'<div class="honor-h-row"><h2 class="honor-h">🏆 荣誉榜</h2><button class="btn-mall" data-mall="1">🛒 积分商城</button></div>'
+      +'<div class="honor-h-row"><h2 class="honor-h">🏆 荣誉榜</h2>'+(isHead()?'<button class="btn-mall" data-mall="1">🛒 积分商城</button>':'')+'</div>'
       +'<div class="honor-sub">个人积分 TOP3（累计积分，括号内为可用积分）</div><div class="honor-list">';
     if(!ind.length){
       html+='<div class="empty">暂无积分记录，去「加减分管理」记一笔吧～</div>';
@@ -8135,7 +8155,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var foot=document.getElementById(gridTargets.foot);
     if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 选择文件夹进入，或新建一个</span>'
       +'<span class="gt-sep"></span>'
-      +'<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>';
+      + (isHead() ? '<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>' : '');
     var groups=matFoldersGroup();
     if(!groups.length){
       var empty='<div class="empty-state" style="padding:32px 14px">'
@@ -8388,7 +8408,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>'
        +'<span class="gt-sep"></span>'
-       +'<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>';
+       + (isHead() ? '<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>' : '');
     } else {
       // 考勤：常规 / 晚自习 模式切换
       var isNight = gridState.curItem==="晚自习";
@@ -10393,7 +10413,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "msgboard-parent-autolink-2026-09-06";
+  var __APP_VERSION__ = "role-gated-buttons-2026-09-06";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
