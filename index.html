@@ -682,7 +682,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .card-main{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .card .row{display:flex;gap:8px;margin-top:7px;font-size:13.5px;align-items:baseline}
   .card .row .lbl{flex:0 0 64px;color:var(--ink-soft);font-weight:600}
-  .card .row .val{flex:1;color:var(--ink);word-break:break-word}
+  .card .row .val{flex:1;color:var(--ink);word-break:break-word;white-space:pre-wrap}
   .card .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{font-style:normal;font-size:12px;background:#EEF9F5;color:var(--mint-d);border-radius:999px;padding:2px 9px;font-weight:600}
   .chip.lav{background:#F1ECFD;color:var(--lav)}
@@ -2053,7 +2053,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         {name:"类别",type:"select",options:["荣誉","处分"]},
         {name:"名称",type:"text",ph:"如：三好学生 / 违纪警告"},
         {name:"分值",type:"number",ph:"荣誉填正数（如 3），处分填负数（如 -2），0=不计入积分"},
-        {name:"说明",type:"text",ph:"选填"}
+        {name:"说明",type:"text",ph:"选填"},
+        {name:"事件经过",type:"text",multiline:true,ph:"（处分建议填写）发生了什么：时间 / 地点 / 涉及人员 / 事情经过"},
+        {name:"处理结果",type:"text",multiline:true,ph:"（处分建议填写）如何处理：约谈 / 联系家长 / 处分决定 / 后续整改"},
+        {name:"图片",type:"photos",noYear:true,maxDim:1280,quality:0.8,addText:"＋ 上传事件图片（可多选）"}
       ]
     },
     honorboard:{
@@ -10884,7 +10887,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "regulations-seed-2026-09-07";
+  var __APP_VERSION__ = "honor-event-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
