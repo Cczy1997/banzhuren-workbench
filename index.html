@@ -1430,6 +1430,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .duty-week-wrap.duty-swap-on .dw-cell.dw-empty{box-shadow:inset 0 0 0 1.5px #E3E9F5}
   .duty-week-wrap.duty-swap-on .dw-cell.dw-swap-sel{box-shadow:inset 0 0 0 2.5px #4A7DFF;background:#EEF4FF}
   .duty-swap-btn-on{background:#EEF4FF !important;border-color:#9FBCFF !important;color:#3A5BBF !important}
+  /* 值日表 · 点人员直接替换 */
+  .dw-person[data-dwrep]{cursor:pointer}
+  .dw-person[data-dwrep]:hover{border-color:#9FBCFF;background:#F5F8FF}
+  .dw-person[data-dwrep]:hover .dw-pname{color:#3A5BBF}
 </style></head>
 <body data-page-node-id="F1WyvywKVEtHg8HFCxws5M">
 <div class="layout" data-page-node-id="GqflCBY9j6U3lJZgqDOWLZ">
@@ -3803,33 +3807,68 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }).catch(function(e){ toast("删除失败："+(e&&e.message||e)); });
   }
   function dutyWeekOpenPicker(g,div){
-    // 多选模式：append=true 累积同一格多人
-    openStudentPicker(function(stu){
-      // 选完一人即追加一格（依次保存），异步列队
-      setStatus("syncing");
-      var jobs=[];
-      var p=Promise.resolve(stu);
-      // stu 可能是单个对象；为了支持批量，把 stu 当数组用，单选包装成单元素
-      var list=Array.isArray(stu)?stu:[stu];
-      list.reduce(function(prev,curr){
-        return prev.then(function(){
-          var rec=dutyWeekCellRecord(g,div);
-          var name=curr["姓名"]||"", no=curr["学号"]||"";
-          if(!name) return null;
-          if(rec){
-            var persons=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
-            var nos=(rec["学号"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
-            if(persons.indexOf(name)>=0) return null;
-            persons.push(name); nos.push(no);
-            var props={负责人:persons.join(","),学号:nos.join(",")};
-            return apiUpdate("duty",rec._id,recordProps("duty",rec._id,props)).then(function(){ rec["负责人"]=props.负责人; rec["学号"]=props.学号; });
-          }
-          var props={值日小组:g,分工:div,负责人:name,学号:no};
-          return apiAdd("duty",props).then(function(o){ Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o); });
-        });
-      },Promise.resolve()).then(function(){ setStatus("ok"); toast("已添加 "+(Array.isArray(stu)?stu: [stu]).filter(function(s){return s&&s["姓名"];}).length+" 人 ✓"); renderList("duty"); })
-      .catch(function(e){ setStatus("offline"); toast("关联失败："+(e&&e.message||e)); renderList("duty"); });
-    }, {multi:true});
+    // 多选面板：一次勾选多名学生，确认后逐个写入该格（重复选中的自动跳过）
+    openStudentPickerMulti({
+      title:"👥 选择值日生（可多选）",
+      confirmText:"添加到格子",
+      onPick:function(list){
+        list=(list||[]).filter(function(s){ return s && s["姓名"]; });
+        if(!list.length) return;
+        setStatus("syncing");
+        var added=0;
+        var chain=list.reduce(function(prev,curr){
+          return prev.then(function(){
+            var rec=dutyWeekCellRecord(g,div);
+            var name=curr["姓名"]||"", no=curr["学号"]||"";
+            if(!name) return null;
+            if(rec){
+              var persons=dutySplitPersons(rec["负责人"],rec["学号"]);
+              if(persons.some(function(p){ return p.name===name; })) return null;   // 已在该格，跳过
+              persons.push({name:name,no:no});
+              var props={负责人:persons.map(function(p){return p.name;}).join(","),学号:persons.map(function(p){return p.no||"";}).join(",")};
+              added++;
+              return apiUpdate("duty",rec._id,recordProps("duty",rec._id,props)).then(function(){ rec["负责人"]=props.负责人; rec["学号"]=props.学号; });
+            }
+            added++;
+            var props={值日小组:g,分工:div,负责人:name,学号:no};
+            return apiAdd("duty",props).then(function(o){ Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o); });
+          });
+        },Promise.resolve());
+        chain.then(function(){
+          setStatus("ok");
+          toast(added>0 ? ("已添加 "+added+" 人 ✓") : "所选学生已在该格");
+          renderList("duty");
+        })
+        .catch(function(e){ setStatus("offline"); toast("关联失败："+(e&&e.message||e)); renderList("duty"); });
+      }
+    });
+  }
+  /* 点击人员直接替换：弹多选面板，选中的学生整段替换该位置的值日生（可一人换一人，也可一人换多人） */
+  function dutyWeekReplacePerson(g,div,idx){
+    var persons=dutyWeekCellPersons(g,div);
+    if(idx<0||idx>=persons.length) return;
+    var old=persons[idx];
+    openStudentPickerMulti({
+      title:"🔁 替换「"+old.name+"」（可多选）",
+      confirmText:"确认替换",
+      onPick:function(list){
+        list=(list||[]).filter(function(s){ return s && s["姓名"]; });
+        if(!list.length) return;
+        var rec=dutyWeekCellRecord(g,div); if(!rec) return;
+        var cur=dutySplitPersons(rec["负责人"],rec["学号"]);
+        var next=cur.slice(0,idx)
+          .concat(list.map(function(s){ return {name:s["姓名"],no:s["学号"]||""}; }))
+          .concat(cur.slice(idx+1));
+        var props={负责人:next.map(function(p){return p.name;}).join(","),学号:next.map(function(p){return p.no||"";}).join(",")};
+        setStatus("syncing");
+        apiUpdate("duty",rec._id,recordProps("duty",rec._id,props)).then(function(){
+          rec["负责人"]=props.负责人; rec["学号"]=props.学号;
+          setStatus("ok");
+          toast("已将「"+old.name+"」替换为 "+list.map(function(s){return s["姓名"];}).join("、")+" ✓");
+          renderList("duty");
+        }).catch(function(e){ setStatus("offline"); toast("替换失败："+(e&&e.message||e)); });
+      }
+    });
   }
   /* 组长（负责人）：优先取「__组长__」标记记录（可在本组任意成员中指定），未指定时回退首格首位 */
   var DUTY_LEADER_DIV="__组长__";
@@ -4040,7 +4079,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           }
         } else {
           inner=persons.map(function(p,i){
-            return '<span class="dw-person">'
+            var repAttr = isHead() ? (' data-dwrep="'+esc(g)+'|'+esc(div)+'|'+i+'" title="点击更换这名值日生" style="cursor:pointer"') : '';
+            return '<span class="dw-person"'+repAttr+'>'
               +'<span class="dw-pname">'+esc(p.name)+'</span>'
               +(p.no?'<span class="dw-pno">'+esc(p.no)+'</span>':'')
               +(isHead()?'<button type="button" class="dw-pdel" data-dwdel="'+esc(g)+'|'+esc(div)+'|'+i+'" title="从该格移除">✕</button>':'')
@@ -9674,6 +9714,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       dutyWeekRemovePerson(pd[0],pd[1],parseInt(pd[2],10)||0);
       return;
     }
+    // 值日表 · 点人员直接替换（✕ 仍在内层，优先级更高）
+    var dwrep=e.target.closest("[data-dwrep]");
+    if(dwrep && !e.target.closest("[data-dwdel]")){
+      var rp=dwrep.getAttribute("data-dwrep").split("|");
+      dutyWeekReplacePerson(rp[0],rp[1],parseInt(rp[2],10)||0);
+      return;
+    }
     var dwlset=e.target.closest("[data-dwlset]");
     if(dwlset){ dutyWeekSetLeader(dwlset.getAttribute("data-dwlset")); return; }
     var dact=e.target.closest("[data-dutyact]");
@@ -11089,7 +11136,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "duty-leader-2026-09-07";
+  var __APP_VERSION__ = "duty-edit-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
