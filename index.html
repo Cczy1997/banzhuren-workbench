@@ -6575,11 +6575,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function loadRegulationsSafe(){
     return apiQuery("regulations").then(function(res){
       var rows = (res && res.results) || [];
-      var main = rows.filter(function(r){ return r.data && r.data.kind==="main"; })[0]
-          || rows.filter(function(r){ return r.data && (r.data.sections||r.data.title); })[0]
+      /* apiQuery 返回的行已把 data jsonb 展开到顶层（{_id, kind, title, sections,...}），直接按顶层字段筛选 */
+      var main = rows.filter(function(r){ return r.kind==="main"; })[0]
+          || rows.filter(function(r){ return r.sections||r.title; })[0]
           || null;
-      REG_CACHE = main && main.data ? main.data : { sections:[], updatedAt:"" };
-      REG_CACHE._id = main ? main._id : null;
+      if(main){
+        var copy={}; Object.keys(main).forEach(function(k){ if(k!=="_id") copy[k]=main[k]; });
+        if(!Array.isArray(copy.sections)) copy.sections=[];
+        REG_CACHE=copy; REG_CACHE._id=main._id||null;
+      } else {
+        REG_CACHE = { sections:[], updatedAt:"", _id:null };
+      }
       return rows;
     }).catch(function(e){
       if(classifyError(e).kind==="schema"){
@@ -11225,7 +11231,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "duty-dayleader-2026-09-07";
+  var __APP_VERSION__ = "reg-loadfix-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
