@@ -1499,6 +1499,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .share-tip{font-size:12.5px;color:#7A86A8;line-height:1.7;padding:10px 6px 0;text-align:center}
   .share-dl{margin-top:10px;width:100%;padding:10px 0;border:none;border-radius:10px;background:#5B6FDB;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
   .share-dl:active{opacity:.85}
+  @media (max-width:480px){
+    .share-mask{padding:10px}
+    .share-card{padding:10px 10px 12px;border-radius:14px}
+    .share-tip br{display:none}
+  }
 </style></head>
 <body data-page-node-id="F1WyvywKVEtHg8HFCxws5M">
 <div class="layout" data-page-node-id="GqflCBY9j6U3lJZgqDOWLZ">
@@ -4183,7 +4188,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return cv;
   }
   function drawSharePoster(clsName, qrCanvas){
-    var W=750, H=1240;
+    var W=750, H=1500;
     var cv=document.createElement("canvas"); cv.width=W; cv.height=H;
     var x=cv.getContext("2d");
     /* 背景 */
@@ -4228,12 +4233,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       x.fillText(f[2], cardX+104, ry+64);
     });
     /* 二维码白色圆角托盘 */
-    var qrBox=370, qrX=(W-qrBox)/2, qrY=cardY+feats.length*rowH+72;
+    var qrBox=370, qrX=(W-qrBox)/2, qrY=cardY+feats.length*rowH+100;   /* 卡片底+36 间距+托盘上边距 24 → 文字与底注都落在画布内 */
     x.fillStyle="#FFFFFF";
     shareRoundRect(x, qrX-24, qrY-24, qrBox+48, qrBox+48, 24); x.fill();
-    var qi=qrCanvas, scale=Math.floor(qrBox/qi.width)||1, qw=qi.width*scale;
+    var qi=qrCanvas;
+    /* qi 按 qrBox 目标生成（模块取整后可能略小于 qrBox），整像素绘制并水平居中 */
     x.imageSmoothingEnabled=false;
-    x.drawImage(qi, (W-qw)/2, qrY, qw, qw);
+    x.drawImage(qi, (W-qi.width)/2, qrY, qi.width, qi.width);
     x.textAlign="center";
     x.font="bold 30px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
     x.fillStyle="#2B3252";
@@ -4246,7 +4252,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   function openSharePoster(){
     ensureQRLib().then(function(){
-      var qcv=makeQRCanvas(shareSiteURL(), 600);
+      var qcv=makeQRCanvas(shareSiteURL(), 370);   /* 与海报托盘同尺寸：cell 取整后整像素、不溢出 */
       var cv=drawSharePoster(shareClsName(), qcv);
       var data=cv.toDataURL("image/png");
       var old=document.getElementById("sharePosterMask"); if(old) old.remove();
@@ -11609,7 +11615,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     catch(e){ location.reload(); }
   }
   document.getElementById("logoutBtn").onclick=switchIdentity;
-  var _shw=document.getElementById("shareBtn"); if(_shw) _shw.onclick=function(){ openSharePoster(); };
+  var _shw=document.getElementById("shareBtn"); if(_shw) _shw.onclick=function(){ try{ closeDrawer(); }catch(_e){} openSharePoster(); };
   var _srb=document.getElementById("switchRoleBtn"); if(_srb) _srb.onclick=switchIdentity;
   function onSignedIn(user){
     try{
@@ -11705,7 +11711,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "share-parent-2026-09-07";
+  var __APP_VERSION__ = "poster-fix-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
