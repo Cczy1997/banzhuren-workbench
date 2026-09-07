@@ -3831,12 +3831,57 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       .catch(function(e){ setStatus("offline"); toast("关联失败："+(e&&e.message||e)); renderList("duty"); });
     }, {multi:true});
   }
+  /* 组长（负责人）：优先取「__组长__」标记记录（可在本组任意成员中指定），未指定时回退首格首位 */
+  var DUTY_LEADER_DIV="__组长__";
+  function dutyLeaderRecord(g){
+    return (DATA.duty||[]).filter(function(r){ return (r["值日小组"]||"")===g && (r["分工"]||"")===DUTY_LEADER_DIV; })[0] || null;
+  }
+  function dutyLeaderOf(g){
+    var rec=dutyLeaderRecord(g);
+    if(rec){
+      var p=dutySplitPersons(rec["负责人"],rec["学号"])[0];
+      if(p) return p;
+    }
+    return dutyWeekLeaderOf(g);
+  }
+  /* 组长选择器：只列本组成员（跨分工去重，含已指定的组长本人），单选 */
+  function openGroupMemberPicker(g, onPick){
+    var members=dutyWeekGroupMembers(g);
+    var ov=document.createElement("div"); ov.className="stu-picker-mask"; ov.id="dutyLeaderMask";
+    var listHtml = members.length ? members.map(function(p){
+      return '<button type="button" class="sp-item" data-dlpick="'+esc(p.name)+'">'
+        +'<span class="sp-av">'+esc((p.name||"?").slice(0,1))+'</span>'
+        +'<span class="sp-name">'+esc(p.name)+'</span>'
+        +(p.no?'<span class="sp-no">'+esc(p.no)+'</span>':'')
+        +'</button>';
+    }).join("") : '<div class="photos-empty">该组还没有值日生，先在格子里「＋」添加。</div>';
+    ov.innerHTML='<div class="stu-picker"><div class="sp-head">👑 选择「'+esc(g)+'」组长（本组成员）<input class="sp-q" placeholder="搜索姓名 / 学号"><button type="button" class="sp-close">×</button></div><div class="sp-list">'+listHtml+'</div></div>';
+    document.body.appendChild(ov);
+    var q=ov.querySelector(".sp-q");
+    q.addEventListener("input", function(){
+      var t=q.value.trim().toLowerCase();
+      Array.prototype.forEach.call(ov.querySelectorAll(".sp-item"), function(b){
+        var nm=(b.getAttribute("data-dlpick")||"").toLowerCase(), no=(b.querySelector(".sp-no")?b.querySelector(".sp-no").textContent.toLowerCase():"");
+        b.style.display=(!t||nm.indexOf(t)>=0||no.indexOf(t)>=0)?"":"none";
+      });
+    });
+    ov.addEventListener("click", function(e){ if(e.target===ov || e.target.classList.contains("sp-close")) ov.remove(); });
+    ov.querySelector(".sp-list").addEventListener("click", function(e){
+      var b=e.target.closest("[data-dlpick]"); if(!b) return;
+      var nm=b.getAttribute("data-dlpick");
+      var st=members.filter(function(p){ return p.name===nm; })[0];
+      ov.remove(); if(st) onPick(st);
+    });
+  }
   function dutyWeekSetLeader(g){
-    // 组长 = 该组的第一个关联学生；也允许指定（取该组黑板格的负责人数组首位）
-    // 这里点 + 直接打开学生选择器（单选），写入黑板分工的"负责人"字段（单值），并设该字段为组长
-    openStudentPicker(function(stu){
-      var name=stu["姓名"]||"", no=stu["学号"]||"";
-      var rec=dutyWeekCellRecord(g, DUTY_WEEK_DIVISIONS[0]);
+    // 组长不再强制=首格首位：从本组成员（所有分工格的去重并集）中任选一人指定
+    // 指定结果写入隐藏标记记录（分工="__组长__"），不占用/破坏任何分工格数据
+    var members=dutyWeekGroupMembers(g);
+    if(!members.length){ toast("该组还没有值日生，先在格子里「＋」添加，再指定组长"); return; }
+    openGroupMemberPicker(g, function(stu){
+      var name=stu.name||"", no=stu.no||"";
+      if(!name) return;
+      var rec=dutyLeaderRecord(g);
       setStatus("syncing");
       var after=function(){
         setStatus("ok"); toast(name+" 已设为 "+g+" 组长 ✓"); renderList("duty");
@@ -3846,11 +3891,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         apiUpdate("duty",rec._id,recordProps("duty",rec._id,props)).then(function(){ rec["负责人"]=name; rec["学号"]=no; after(); })
           .catch(function(e){ setStatus("offline"); toast("设置失败："+(e&&e.message||e)); });
       } else {
-        var props={值日小组:g,分工:DUTY_WEEK_DIVISIONS[0],负责人:name,学号:no};
+        var props={值日小组:g,分工:DUTY_LEADER_DIV,负责人:name,学号:no};
         apiAdd("duty",props).then(function(o){ Object.assign(o,props); (DATA.duty=DATA.duty||[]).push(o); after(); })
           .catch(function(e){ setStatus("offline"); toast("设置失败："+(e&&e.message||e)); });
       }
-    }, {multi:false});
+    });
   }
   function dutyWeekAddGroup(){
     // 在持久化组列表中追加新组（不再写空值日记录）
@@ -3969,7 +4014,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'<th class="dw-th-leader">负责人<br><span style="font-size:11px;font-weight:500;opacity:.65">（每组组长）</span></th>'
       +'</tr>';
     var rows=groups.map(function(g){
-      var leader=dutyWeekLeaderOf(g);
+      var leader=dutyLeaderOf(g);
       var leaderCell;
       if(leader){
         leaderCell='<div class="dw-leader-card">'
@@ -4025,7 +4070,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     html+=renderDutyRedFlagBar();
     // 顶部信息条：本周日期段 + 值日班长（两种身份都显示，纯只读；低调灰底）
     var wk=isoWeek();
-    var leader=dutyWeekLeaderOf(groups[0]||"");
+    var leader=dutyLeaderOf(groups[0]||"");
     html+='  <div class="duty-meta-bar">';
     html+='    <span class="duty-meta"><span class="dm-key">📅 本周日期</span><span class="dm-val">'+esc(wk.monday)+' ~ '+esc(wk.sunday)+'</span></span>';
     html+='    <span class="duty-meta"><span class="dm-key">👨‍🎓 值日班长</span>'
@@ -10872,6 +10917,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function csvCell(s){ s=String(s==null?"":s).replace(/"/g,'""'); if(/[",\n\r]/.test(s)) s='"'+s+'"'; return s; }
   function exportModule(key){
     var fields=MODULES[key].fields, rows=DATA[key];
+    if(key==="duty") rows=rows.filter(function(r){ return (r["分工"]||"")!=="__组长__"; });   // 隐藏组长标记行
     if(!rows.length){ toast("当前模块没有数据可导出"); return; }
     var head=fields.map(function(f){return csvCell(f.name);}).join(",");
     var body=rows.map(function(r){
@@ -11043,7 +11089,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "duty-swap-2026-09-07";
+  var __APP_VERSION__ = "duty-leader-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
