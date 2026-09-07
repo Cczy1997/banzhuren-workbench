@@ -1925,7 +1925,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var RO_MUT_SEL = "[data-add],[data-imp],[data-clear],[data-ocr],[data-ruleapply],[data-rulecfg],"
     + "[data-edit],[data-del],[data-edit-mall],[data-del-mall],[data-attdel],[data-seat],[data-sched],"
     + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-comMonthly],.seatcell,[contenteditable=true],"
-    + "[data-regadd],[data-regdel],[data-regmove],[data-regsave],[data-regseed],[data-reginit]";
+    + "[data-regadd],[data-regdel],[data-regmove],[data-regsave],[data-regseed],[data-reg2rules],[data-reginit]";
   function blockIfReadOnly(e){
     if(canEdit()) return false;
     var mut = e.target.closest ? e.target.closest(RO_MUT_SEL) : null;
@@ -2732,6 +2732,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         + (canEdit()
             ? '<span class="spacer"></span>'
               + (regsEmpty ? '<button class="btn-seed" data-regseed="1" title="将图片识别好的《705班量化评详细则》三章节一键写入">📥 导入示例</button>' : '')
+              + (regsEmpty ? '' : '<button class="btn-rule" data-reg2rules="1" title="把公示制度里带分值的条款（加N分/扣N分）一键导入「班规执行」，作为加分扣分依据">⚖️ 转为班规</button>')
               + '<button class="btn-rule" data-regadd="1">＋ 新增章节</button><button class="btn-add" data-regsave="1">保存</button>'
             : '')
         +'</div>'
@@ -3114,6 +3115,71 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       });
     }
     return out;
+  }
+  /* ===== 公示制度 → 班规执行条目：把「加N分/扣N分」条款一键导入班规，作为加分扣分依据 ===== */
+  function regStripCatPrefix(h){
+    return String(h||"").replace(/^[（(]?[一二三四五六七八九十0-9]+[）)、.．:：]\s*/, "").trim() || "其他";
+  }
+  function regExtractRules(sections){
+    var out=[], seen={};
+    (sections||[]).forEach(function(sec){
+      var cat=regStripCatPrefix(sec.h);
+      String(sec.b||"").split(/\n/).forEach(function(line){
+        var t=line.trim();
+        if(!t) return;
+        if(t.charAt(0)==="|" || /^[-—-]{3,}$/.test(t)) return;   // 跳过 markdown 表格行与分隔行
+        t.split(/[；;]/).forEach(function(seg){
+          var u=seg.trim();
+          if(u.length<4) return;
+          var m=/([加扣])\s*(\d+(?:\.\d+)?)\s*分/.exec(u);
+          if(!m) return;
+          var dir=(m[1]==="扣")?"扣分":"得分";
+          var val=parseFloat(m[2]);
+          var key=dir+"|"+val+"|"+u;
+          if(seen[key]) return;
+          seen[key]=1;
+          out.push({类别:cat, 方向:dir, 分值:val, 内容:u, 说明:"📜 来自公示制度「"+(sec.h||"")+"」"});
+        });
+      });
+    });
+    return out;
+  }
+  function regToRules(){
+    if(!isHead()){ toast("仅班主任可操作"); return; }
+    var secs=(REG_CACHE && Array.isArray(REG_CACHE.sections))?REG_CACHE.sections:[];
+    if(!secs.length){ toast("请先在公示制度里填写内容，再转换班规"); return; }
+    var items=regExtractRules(secs);
+    if(!items.length){ toast("没有识别到带分值的条款（需要「加N分 / 扣N分」的写法）"); return; }
+    var existed={};
+    (DATA.rules||[]).forEach(function(r){
+      existed[(r["方向"]||"")+"|"+(r["分值"]||"")+"|"+String(r["内容"]||"").trim()]=1;
+    });
+    var fresh=items.filter(function(it){ return !existed[it["方向"]+"|"+it["分值"]+"|"+it["内容"]]; });
+    if(!fresh.length){ toast("制度条款已全部在班规中，无需重复导入"); return; }
+    var pos=fresh.filter(function(i){ return i["方向"]==="得分"; }).length;
+    if(!confirm("从公示制度识别出 "+items.length+" 条带分值条款，其中 "+fresh.length+" 条尚未导入班规（得分 "+pos+" 条 / 扣分 "+(fresh.length-pos)+" 条）。\n\n将按章节自动创建「方向」类别，并写入「班规执行」。继续？")) return;
+    var cats=[];
+    fresh.forEach(function(it){ if(cats.indexOf(it["类别"])<0) cats.push(it["类别"]); });
+    cats.forEach(function(c){ if(RULE_CATS.indexOf(c)<0) RULE_CATS.push(c); });
+    if(cats.length) saveRuleCats();
+    setStatus("syncing");
+    var chain=fresh.reduce(function(prev,it){
+      return prev.then(function(){
+        return apiAdd("rules", it).then(function(o){
+          Object.assign(o, it);
+          (DATA.rules=DATA.rules||[]).push(o);
+        });
+      });
+    }, Promise.resolve());
+    return chain.then(function(){
+      setStatus("ok");
+      toast("已导入 "+fresh.length+" 条班规（得分 "+pos+" / 扣分 "+(fresh.length-pos)+"）✓ 在「班级制度（执行）」中查看");
+      renderList("rules");
+    }).catch(function(e){
+      setStatus("offline");
+      toast("导入失败："+(e&&e.message||e));
+      renderList("rules");
+    });
   }
   function regsAddSection(){
     if(!isHead()){ toast("仅班主任可编辑"); return; }
@@ -9860,6 +9926,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(state && state.mod==="regulations"){
       var rseed=e.target.closest("[data-regseed]");
       if(rseed){ seedRegulations705(); return; }
+      var r2r=e.target.closest("[data-reg2rules]");
+      if(r2r){ regToRules(); return; }
       var radd=e.target.closest("[data-regadd]");
       if(radd){ regsAddSection(); return; }
       var rdel=e.target.closest("[data-regdel]");
@@ -11231,7 +11299,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "reg-loadfix-2026-09-07";
+  var __APP_VERSION__ = "reg2rules-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
