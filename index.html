@@ -596,6 +596,19 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rr-acts{flex:0 0 auto;display:flex;gap:5px;opacity:.55;transition:opacity .15s}
   .rrow:hover .rr-acts{opacity:1}
   .rr-acts .mini{padding:3px 9px;font-size:11.5px}
+  /* 材料文件夹 · 新建对话框 */
+  .matnew-card{background:#fff;border-radius:18px;padding:18px;width:min(400px,92vw);box-shadow:0 18px 48px rgba(40,46,78,.25);font-size:14px}
+  .matnew-title{font-size:16px;font-weight:800;margin-bottom:12px;color:var(--ink)}
+  .matnew-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;outline:none;margin-bottom:12px}
+  .matnew-input:focus{border-color:var(--pink)}
+  .matnew-types{display:flex;gap:8px;margin-bottom:14px}
+  .matnew-type{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;user-select:none}
+  .matnew-type b{display:block;font-size:13.5px;color:var(--ink)}
+  .matnew-type span{font-size:11.5px;color:var(--ink-soft)}
+  .matnew-type.on{border-color:var(--pink);background:#F3F7FF}
+  .matnew-btns{display:flex;gap:8px;justify-content:flex-end}
+  .matnew-btn{border:none;cursor:pointer;font-size:13px;font-weight:700;border-radius:999px;padding:8px 16px;background:#F6F0F4;color:var(--ink-soft)}
+  .matnew-btn.primary{background:var(--pink);color:#fff}
   /* 加减分详情弹窗 */
   .pf-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
   .pf-row{display:flex;flex-wrap:wrap;gap:5px 10px;padding:8px 11px;background:#FBF9FC;border:1px solid var(--line);border-radius:10px}
@@ -6752,7 +6765,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function deleteMatFolder(item, type){
     if(!item) return;
     var matching=(DATA.materials||[]).filter(function(r){ return String(r["事项"]||"").trim()===item && (r["类型"]||"作业提交")===type; });
-    if(!matching.length){ toast("该文件夹已无记录"); return; }
+    if(!matching.length){
+      var had=matFolderRemove(item, type);
+      if(had){ renderMatFolders(); toast("已删除空文件夹「"+item+"」"); } else { toast("该文件夹已无记录"); }
+      return;
+    }
     // 受影响的学生的姓名：删除后需同步清除其由该文件夹产生的加分/扣分
     var names={}; matching.forEach(function(r){ var n=String(r["学生姓名"]||"").trim(); if(n) names[n]=1; });
     var nameList=Object.keys(names);
@@ -6771,12 +6788,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(matUseLocal){
       var ids={}; matching.forEach(function(r){ ids[r._id]=1; });
       var arr=matLocalAll().filter(function(r){ return !ids[r._id]; });
-      matLocalSave(arr); DATA.materials=arr; renderMatFolders(); toast("已删除文件夹「"+item+"」");
+      matLocalSave(arr); DATA.materials=arr; matFolderRemove(item,type); renderMatFolders(); toast("已删除文件夹「"+item+"」");
       syncPoints(); return;
     }
     var delIds=matching.map(function(r){ return r._id; }).filter(Boolean);
     apiDeleteBatch("materials", delIds).then(function(){
       DATA.materials=(DATA.materials||[]).filter(function(r){ return !(String(r["事项"]||"").trim()===item && (r["类型"]||"作业提交")===type); });
+      matFolderRemove(item,type);
       renderMatFolders(); toast("已删除文件夹「"+item+"」（"+matching.length+" 条）");
       return syncPoints();
     }).catch(function(e){ toast("删除失败："+((e&&e.message)||e)); });
@@ -6883,6 +6901,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(typeof s.clsClass==="string"&&s.clsClass){ CLS_CLASS=s.clsClass; }
     if(Array.isArray(s.ruleCats)&&s.ruleCats.length){ RULE_CATS=s.ruleCats.map(function(t){return String(t||"").trim();}).filter(Boolean); }
     if(s.ruleCfg&&typeof s.ruleCfg==="object"){ RULE_CFG=s.ruleCfg; }
+    if(Array.isArray(s.matFolders)){ MAT_FOLDERS=s.matFolders.filter(function(f){ return f && String(f.item||"").trim(); })
+      .map(function(f){ return { item:String(f.item).trim(), type:f.type==="材料上交"?"材料上交":"作业提交", created:String(f.created||"") }; }); }
   }
   function persistSettings(){
     if(settingsTableMissing || !isHead()) return;   // 仅班主任写；成员只读，绝不回写
@@ -6890,7 +6910,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       meeting: MEETINGS||[], weekly: WEEKLY||[],
       dutyTasks: DUTY_TASKS||[], dutyRot: dutyRot||{}, dutyNote: getDutyNote()||"",
       clsYear: CLS_YEAR||"初一", clsClass: CLS_CLASS||"(1)班",
-      ruleCats: RULE_CATS||[], ruleCfg: RULE_CFG||{}
+      ruleCats: RULE_CATS||[], ruleCfg: RULE_CFG||{}, matFolders: MAT_FOLDERS||[]
     };
     try{
       if(settingsRowId) apiUpdate("settings", settingsRowId, blob).catch(function(){});
@@ -8951,6 +8971,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       cycle:["未交","迟交",""] }
   };
   var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"", week:null }; // week = 当前查看的周(周一日期)；null 表示本周
+  var MAT_FOLDERS=[]; // 材料文件夹登记表（含空文件夹；持久化于 settings.matFolders）
   /* 周导航条：prev/next/this；归档周(非本周)显示「回到本周」 */
   function gridWeekBar(){
     var cur = isoWeek(todayStr()).monday;
@@ -9010,6 +9031,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       arr.forEach(function(o){ if(g.status[o.st]!=null) g.status[o.st]++; });
       g.stuCount=arr.length;
     });
+    // 登记表中的文件夹（可能还没有任何记录）也占一张卡片，避免「新建后一离开就消失」
+    (MAT_FOLDERS||[]).forEach(function(f){
+      var fi=String(f.item||"").trim(); if(!fi) return;
+      var key=fi+"\u0001"+f.type;
+      if(!groups[key]){
+        groups[key]={item:fi, type:f.type, total:0, lastDate:"", stuLatest:{}, stuCount:0, status:{"已交":0,"迟交":0,"未交":0}};
+        order.push(key);
+      }
+    });
     order.sort(function(a,b){
       var ga=groups[a], gb=groups[b];
       if(ga.lastDate!==gb.lastDate) return gb.lastDate.localeCompare(ga.lastDate);
@@ -9040,7 +9070,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
     var cards=groups.map(function(g){
       var ok=g.status["已交"]||0, miss=g.status["未交"]||0, late=g.status["迟交"]||0;
-      var last=g.lastDate?"最近 "+esc(g.lastDate):"尚无日期";
+      var last=g.lastDate?"最近 "+esc(g.lastDate):(g.total?"尚无日期":"空文件夹 · 尚无记录");
       return '<div class="mat-folder-card" data-matGoItem="'+esc(g.item)+'" data-matGoType="'+esc(g.type)+'">'
         +'<div class="mfc-head"><span class="mfc-icon">📁</span><span class="mfc-title">'+esc(g.item)+'</span><span class="mfc-type">'+esc(g.type)+'</span></div>'
         +'<div class="mfc-meta">'+last+' · 共 '+g.stuCount+' 人次</div>'
@@ -9061,6 +9091,62 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'</div>':'';
     if(wrap) wrap.innerHTML='<div class="mat-folders-grid">'+cards+addCard+'</div>';
     if(foot) foot.innerHTML='<span class="hint">同文件夹下的材料共享同一事项，不再每次都输。点文件夹卡片即可进入网格视图继续操作。</span>';
+  }
+  /* 材料文件夹：新建对话框（名称 + 类型二选一）*/
+  function matNewFolderDialog(){
+    var old=document.getElementById("matNewMask"); if(old) old.remove();
+    var ov=document.createElement("div"); ov.className="stu-picker-mask"; ov.id="matNewMask"; ov.style.zIndex=3000;
+    ov.innerHTML='<div class="matnew-card">'
+      +'<div class="matnew-title">📁 新建文件夹</div>'
+      +'<input id="matNewName" class="matnew-input" maxlength="30" placeholder="名称：数学作业 / 社会实践表 / 黑笔">'
+      +'<div class="matnew-types">'
+      +'<div class="matnew-type on" data-mntype="作业提交"><b>📝 作业类</b><span>按日期收 · 每天一格</span></div>'
+      +'<div class="matnew-type" data-mntype="材料上交"><b>📦 收材料</b><span>单次收齐 · 只有一格</span></div>'
+      +'</div>'
+      +'<div class="matnew-btns"><button class="matnew-btn" id="matNewCancel">取消</button><button class="matnew-btn primary" id="matNewOk">创建</button></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    var type="作业提交";
+    var inp=ov.querySelector("#matNewName");
+    setTimeout(function(){ try{ inp.focus(); }catch(_){} }, 60);
+    ov.addEventListener("click", function(e){
+      var t=e.target.closest("[data-mntype]");
+      if(t){ type=t.getAttribute("data-mntype"); Array.prototype.forEach.call(ov.querySelectorAll(".matnew-type"), function(el){ el.classList.toggle("on", el===t); }); return; }
+      if(e.target===ov || e.target.id==="matNewCancel"){ ov.remove(); return; }
+      if(e.target.id==="matNewOk"){
+        var nm=String(inp.value||"").trim();
+        if(!nm){ toast("请先填写文件夹名称"); try{ inp.focus(); }catch(_){} return; }
+        var dup=(MAT_FOLDERS||[]).some(function(f){ return f.item===nm && f.type===type; })
+          || (DATA.materials||[]).some(function(r){ return String(r["事项"]||"").trim()===nm && (r["类型"]||"作业提交")===type; });
+        if(dup){ toast("文件夹「"+nm+"」（该类型）已存在"); return; }
+        MAT_FOLDERS.push({ item:nm, type:type, created:todayStr() });
+        persistSettings();
+        ov.remove();
+        gridState.curItem=nm; gridState.curType=type;
+        renderMatGrid(gridState.mod);
+        toast("已新建文件夹：「"+nm+"」");
+      }
+    });
+    ov.addEventListener("keydown", function(e){ if(e.key==="Enter" && e.target===inp){ e.preventDefault(); var okb=ov.querySelector("#matNewOk"); if(okb) okb.click(); } });
+  }
+  /* 收材料文件夹的固定日期：优先登记表创建日；老数据取该文件夹最早记录日期；兜底今天 */
+  function matFixedDate(){
+    var f=(MAT_FOLDERS||[]).filter(function(x){ return x.item===gridState.curItem && x.type===gridState.curType; })[0];
+    if(f && f.created) return f.created;
+    var min=null;
+    (DATA.materials||[]).forEach(function(r){
+      if(String(r["事项"]||"").trim()!==gridState.curItem) return;
+      if((r["类型"]||"作业提交")!==gridState.curType) return;
+      var d=String(r["日期"]||""); if(d && (!min || d<min)) min=d;
+    });
+    return min || todayStr();
+  }
+  /* 从登记表移除文件夹；返回是否真的移除了 */
+  function matFolderRemove(item, type){
+    var ri=-1;
+    (MAT_FOLDERS||[]).some(function(f,i2){ if(f.item===item && f.type===type){ ri=i2; return true; } return false; });
+    if(ri>=0){ MAT_FOLDERS.splice(ri,1); persistSettings(); return true; }
+    return false;
   }
   /* 加减分规则配置（可在「⚙️ 规则」中调整；默认遵循用户给定规则） */
   var RULE_CFG_LS="wb_cls_rulecfg";
@@ -9255,7 +9341,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var mod=gridState.mod;
     if(!mod) return;
     var studs = gridStudents();
-    var dates = gridState.dates = collectDates(mod); // 每次渲染都按当前查看周重算列（支持周导航切换）
+    var matSingle = (mod==="materials" && gridState.curType==="材料上交");
+    var dates = gridState.dates = matSingle ? [matFixedDate()] : collectDates(mod); // 收材料=单列固定日期；作业类=按查看周 7 天
     var st = GRID_ST[mod]; // 提前声明：toolbar 渲染需要 st.yes / st.no 等
     var tb=document.getElementById(gridTargets.tb);
     var folderBackBtn = (mod==="materials" && gridState.curItem)
@@ -9264,7 +9351,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(mod==="materials"){
       tb.innerHTML =
         folderBackBtn
-       +gridWeekBar()
+       +(matSingle?'<span class="gt-btn" style="cursor:default">📦 单次收取</span>':gridWeekBar())
        +'<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
        +'<button class="gt-tab '+(gridState.curType==="材料上交"?"on":"")+'" data-gttype="材料上交">📦 材料上交</button>'
        +'<span class="gt-sep"></span>'
@@ -9319,12 +9406,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
     var html='<table class="grid-table"><thead><tr>';
     html+='<th class="sticky-l" style="min-width:118px">学号 / 姓名</th>';
-    dates.forEach(function(d){
-      var wk=["日","一","二","三","四","五","六"][new Date(d+"T00:00:00").getDay()||0];
-      var md=d.length>=10?d.slice(5):d;
-      html+='<th class="col-head" data-colDate="'+esc(d)+'"><span class="col-date">'+esc(md)+'</span><span class="col-week">周'+wk+'</span></th>';
-    });
-    html+='<th class="add-col" data-addCol>+</th>';
+    if(matSingle){
+      html+='<th class="col-head"><span class="col-date">收取情况</span><span class="col-week">单次收齐</span></th>';
+    } else {
+      dates.forEach(function(d){
+        var wk=["日","一","二","三","四","五","六"][new Date(d+"T00:00:00").getDay()||0];
+        var md=d.length>=10?d.slice(5):d;
+        html+='<th class="col-head" data-colDate="'+esc(d)+'"><span class="col-date">'+esc(md)+'</span><span class="col-week">周'+wk+'</span></th>';
+      });
+      html+='<th class="add-col" data-addCol>+</th>';
+    }
     html+='</tr></thead><tbody>';
     var st=GRID_ST[mod];
     studs.forEach(function(s){
@@ -9585,7 +9676,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function gridFillToday(mod, onlyPeriod){
     var st=GRID_ST[mod];
     var def=st.yes; // 出勤 / 已交
-    var today=todayStr();
+    var today=(mod==="materials" && gridState.curType==="材料上交") ? matFixedDate() : todayStr(); // 收材料=固定日期列
     var studs=gridStudents();
     // 仅补当天缺失的时段/记录（考勤按上午+下午分别判断；材料按当前类型/事项判断）
     var periodsOf=function(){ if(mod!=="attendance") return [null]; if(onlyPeriod) return [onlyPeriod]; return (gridState.curItem==="晚自习") ? ["晚自习"] : ["上午","下午"]; };
@@ -10237,16 +10328,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var matGo=e.target.closest("[data-matGoItem]");
     if(matGo){ gridState.curItem=matGo.getAttribute("data-matGoItem")||""; gridState.curType=matGo.getAttribute("data-matGoType")||gridState.curType; renderMatGrid(gridState.mod); return; }
     var matAdd=e.target.closest("[data-matFolderAdd]");
-    if(matAdd){ if(!isHead()){ toast("仅班主任可创建文件夹"); return; } var nm=window.prompt("新建事项文件夹（同一类材料可一直放这个文件夹里）\n例如：数学作业 / 社会实践表 / 黑笔","");
-      nm=String(nm||"").trim();
-      if(nm){
-        gridState.curItem=nm;
-        gridState.curType="作业提交";
-        renderMatGrid(gridState.mod);
-        toast("已新建文件夹：「"+nm+"」");
-      }
-      return;
-    }
+    if(matAdd){ if(!isHead()){ toast("仅班主任可创建文件夹"); return; } matNewFolderDialog(); return; }
     var h=e.target.closest("[data-colDate]");
     if(h){ showColMenu(h.getAttribute("data-colDate"), h); return; }
     var c=e.target.closest("[data-cell]");
@@ -11335,7 +11417,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "rules-compact-2026-09-07";
+  var __APP_VERSION__ = "mat-folder-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
