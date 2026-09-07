@@ -4121,11 +4121,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   /* 通用成员单选面板：组长/值日班长共用；onReset 可选（面板内「↺ 恢复默认」） */
   /* ---------- 分享工作台 · 微信海报（canvas 绘制 + 二维码，按需加载 qrcode 库） ---------- */
   function shareSiteURL(){
+    var u;
     try{
-      var u=location.origin + SITE_ROOT + "/";
-      if(/^https?:\/\//.test(u)) return u;   /* origin 为 null（file:// 等）时拼出 "null/..." → 回退 href */
-    }catch(e){}
-    return location.href;
+      u=location.origin + SITE_ROOT + "/";
+      if(!/^https?:\/\//.test(u)) u=location.href;   /* origin 为 null（file:// 等）时拼出 "null/..." → 回退 href */
+    }catch(e){ u=location.href; }
+    /* 二维码直达家长登录界面：?role=parent（未登录自动打开家长登录卡） */
+    return u + (u.indexOf("?")>=0 ? "&role=parent" : "?role=parent");
   }
   function shareClsName(){
     var t=document.getElementById("clsTitle");
@@ -4235,11 +4237,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     x.textAlign="center";
     x.font="bold 30px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
     x.fillStyle="#2B3252";
-    x.fillText("长按识别二维码 · 进入班级工作台", W/2, qrY+qrBox+76);
+    x.fillText("长按识别二维码 · 家长登录入口", W/2, qrY+qrBox+76);
     /* 底部 */
     x.font="22px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
     x.fillStyle="#A6AFC6";
-    x.fillText("微信中转发本图片即可邀请家长与科任老师使用", W/2, H-56);
+    x.fillText("微信里长按二维码，家长无需选择身份直接登录", W/2, H-56);
     return cv;
   }
   function openSharePoster(){
@@ -11703,7 +11705,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "share-poster-2026-09-07";
+  var __APP_VERSION__ = "share-parent-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -11838,18 +11840,32 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     showAuth();                 // 立即可见的界面，避免任何「一直加载工作台数据」
     window.__appBooted = true;  // 通知外部看门狗：首屏已渲染
     if(!db) return;            // 无后端：停留在登录提示
+    /* URL 带 ?role=parent（分享海报二维码）→ 未登录时直接打开家长登录卡，跳过身份选择封面 */
+    function authLandingRole(){
+      try{
+        var rp=new URLSearchParams(location.search).get("role");
+        if(rp==="parent") return "家长";
+      }catch(_e){}
+      return null;
+    }
     var done=false;
     var t=setTimeout(function(){
       if(done) return; done=true;
       showAuth("连接认证服务较慢或失败，请点击登录；如反复出现请强制刷新（Ctrl/Cmd+Shift+R）。");
+      var _lr=authLandingRole(); if(_lr) showAuthCard(_lr);
     }, 8000);
     db.auth.getSession().then(function(res){
       if(done) return; done=true; clearTimeout(t);
       var sess = res.data && res.data.session;
-      if(sess) onSignedIn(sess.user);   // 有会话直接进应用；无会话保持登录界面
+      if(sess){ onSignedIn(sess.user); }   // 有会话直接进应用
+      else {
+        showAuth();
+        var _lr=authLandingRole(); if(_lr) showAuthCard(_lr);   // 无会话：?role=parent 直达家长登录
+      }
     }).catch(function(){
       if(done) return; done=true; clearTimeout(t);
       showAuth("认证失败，请重新登录。");
+      var _lr2=authLandingRole(); if(_lr2) showAuthCard(_lr2);
     });
   }
   /* Service Worker：把应用外壳（index.html）缓存到本地，刷新时秒开、弱网/离线也能用。
