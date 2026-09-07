@@ -2049,14 +2049,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       title:"🌟 荣誉与处分", cat:"aff", unit:"条", main:"学生姓名",
       fields:[
         {name:"日期",type:"date"},
-        {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
-        {name:"学号",type:"text",ph:"01"},
-        {name:"类别",type:"select",options:["荣誉","处分"]},
-        {name:"名称",type:"text",ph:"如：三好学生 / 违纪警告"},
-        {name:"分值",type:"number",ph:"荣誉填正数（如 3），处分填负数（如 -2），0=不计入积分"},
+        {name:"学生姓名",type:"text",required:true,ph:"学生姓名（可关联多人）",link:"students",multi:true},
+        {name:"学号",type:"text",ph:"01（自动带出）"},
+        {name:"类别",type:"select",options:["荣誉","表彰","犯错","处分"]},
+        {name:"名称",type:"text",ph:"如：三好学生 / 优秀班干部 / 违纪警告"},
+        {name:"分值",type:"number",ph:"荣誉/表彰填正数（如 3），犯错/处分填负数（如 -2），0=不计入积分"},
         {name:"说明",type:"text",ph:"选填"},
-        {name:"事件经过",type:"text",multiline:true,ph:"（处分建议填写）发生了什么：时间 / 地点 / 涉及人员 / 事情经过"},
-        {name:"处理结果",type:"text",multiline:true,ph:"（处分建议填写）如何处理：约谈 / 联系家长 / 处分决定 / 后续整改"},
+        {name:"事件经过",type:"text",multiline:true,ph:"（犯错/处分建议填写）发生了什么：时间 / 地点 / 涉及人员 / 事情经过"},
+        {name:"处理结果",type:"text",multiline:true,ph:"（犯错/处分建议填写）如何处理：约谈 / 联系家长 / 处分决定 / 后续整改"},
         {name:"图片",type:"photos",noYear:true,maxDim:1280,quality:0.8,addText:"＋ 上传事件图片（可多选）"}
       ]
     },
@@ -3213,7 +3213,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var st=(DATA.students||[]).filter(function(s){return s["姓名"]===name;})[0];
     if(st){ ["性别","学号","学习小组","关注标签","综合表现","备注"].forEach(function(k){ if(st[k]!=null&&st[k]!=="") d.基本信息[k]=st[k]; }); }
     PF_SECTIONS.forEach(function(sec){
-      var rows=(DATA[sec.key]||[]).filter(function(r){ return (r[sec.nameField]||"")===name; });
+      var rows=(DATA[sec.key]||[]).filter(function(r){ return profileNameMatch(r, sec.nameField, name); });
       if(rows.length) d[sec.title]=rows.slice(-20).map(function(r){ var o={}; sec.fields.forEach(function(f){ if(r[f]!=null&&r[f]!=="") o[f]=r[f]; }); return o; });
     });
     return d;
@@ -4632,6 +4632,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   window.__week={ addFile:weekAddFileById, rename:onWeekFileName, weekly:function(){return WEEKLY;} };
 
+  /* 按常见分隔符拆多人姓名（荣誉/表彰/犯错/处分可一次关联多名学生，姓名用「、」串接） */
+  function splitNames(v){
+    return String(v||"").split(/[、，,;；]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+  }
+  /* 一生一档匹配：字段值等于姓名，或拆分后的多人名单中包含该姓名 */
+  function profileNameMatch(rec, nf, name){
+    var v=rec?rec[nf]:null; if(v==null||v==="") return false;
+    if(v===name) return true;
+    return splitNames(v).indexOf(name)>=0;
+  }
   function extraPill(key, field, val){
     if(key==="affairs"){
       if(field==="状态"){ if(val==="已完成")return '<span class="pill s-done">已完成</span>'; if(val==="进行中")return '<span class="pill s-doing">进行中</span>'; if(val==="待办")return '<span class="pill s-todo">待办</span>'; }
@@ -4645,7 +4655,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return val==="加分" ? '<span class="pill s-done">加分</span>' : '<span class="pill s-urgent">减分</span>';
     }
     if(key==="honor" && field==="类别"){
-      return val==="荣誉" ? '<span class="pill s-imp">荣誉</span>' : '<span class="pill s-urgent">处分</span>';
+      if(val==="荣誉"||val==="表彰") return '<span class="pill s-imp">'+esc(val)+'</span>';
+      if(val==="犯错"||val==="处分") return '<span class="pill s-urgent">'+esc(val)+'</span>';
+      return '<span class="pill">'+esc(val)+'</span>';
     }
     if(key==="rules" && field==="方向"){
       return val==="得分" ? '<span class="pill s-done">得分</span>' : '<span class="pill s-urgent">扣分</span>';
@@ -6009,7 +6021,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     html+='<div id="pfImportPreview" class="pf-imp-pre" style="display:none"></div>';
     html+='<div id="profileAI" class="pf-ai" style="display:none"></div>';
     PF_SECTIONS.forEach(function(sec){
-      var rows=(DATA[sec.key]||[]).filter(function(r){ return (r[sec.nameField]||"")===name; });
+      var rows=(DATA[sec.key]||[]).filter(function(r){ return profileNameMatch(r, sec.nameField, name); });
       rows.sort(function(a,b){
         var va=String(a[sec.sort]||""), vb=String(b[sec.sort]||"");
         if(va<vb) return sec.desc?1:-1; if(va>vb) return sec.desc?-1:1;
@@ -6026,7 +6038,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
             var v=r[f]; if(v==null||v==="") return "";
             var cls="";
             if(f==="类型") cls=(v==="加分")?"pos":((v==="减分"||v==="兑换")?"neg":"");
-            else if(f==="类别") cls=(v==="荣誉")?"pos":((v==="处分")?"neg":"");
+            else if(f==="类别") cls=(v==="荣誉"||v==="表彰")?"pos":((v==="犯错"||v==="处分")?"neg":"");
             return '<span class="pf-cell"><span class="pf-k">'+esc(f)+'</span><span class="pf-v '+cls+'">'+esc(v)+'</span></span>';
           }).filter(Boolean);
           html+='<div class="pf-row">'+cells.join("")+'</div>';
@@ -6196,7 +6208,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var st=(DATA.students||[]).filter(function(s){return s["姓名"]===name;})[0];
     if(st){ ["性别","学号","学习小组","关注标签","综合表现","备注"].forEach(function(k){ if(st[k]!=null&&st[k]!=="") d.基本信息[k]=st[k]; }); }
     PF_SECTIONS.forEach(function(sec){
-      var rows=(DATA[sec.key]||[]).filter(function(r){ return (r[sec.nameField]||"")===name; });
+      var rows=(DATA[sec.key]||[]).filter(function(r){ return profileNameMatch(r, sec.nameField, name); });
       if(rows.length) d[sec.title]=rows.slice(-25).map(function(r){ var o={}; sec.fields.forEach(function(f){ if(r[f]!=null&&r[f]!=="") o[f]=r[f]; }); return o; });
     });
     var prompt='你是一名资深班主任与学情分析师。请基于以下「'+name+'」同学的综合档案进行分析。\n要求：\n'
@@ -7217,16 +7229,39 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         var inp=document.createElement("input"); inp.type=(f.type==="date")?"date":((f.type==="number")?"number":"text"); inp.setAttribute("data-f",f.name); inp.placeholder=f.ph||""; if(val) inp.value=val;
         wrap.appendChild(inp);
         if(f.link){
-          var lk=document.createElement("button"); lk.type="button"; lk.className="btn-link"; lk.textContent="🔗 关联学生档案";
-          lk.addEventListener("click", function(){
-            openStudentPicker(function(st){
-              var i1=document.querySelector('#form [data-f="'+f.name+'"]');
-              if(i1){ i1.value = f.append ? (i1.value ? i1.value.replace(/[,，]?\s*$/,"")+"，"+(st["姓名"]||"") : (st["姓名"]||"")) : (st["姓名"]||""); }
-              var i2=document.querySelector('#form [data-f="学号"]');
-              if(i2){ i2.value = f.append ? (i2.value ? i2.value.replace(/[,，]?\s*$/,"")+"，"+(st["学号"]||"") : (st["学号"]||"")) : (st["学号"]||""); }
-              cacheForm(key);
+          var lk=document.createElement("button"); lk.type="button"; lk.className="btn-link";
+          lk.textContent=f.multi?"🔗 关联学生档案（可多选）":"🔗 关联学生档案";
+          if(f.multi){
+            /* 多人版（荣誉/表彰/犯错/处分）：一次勾选多名学生，姓名/学号用「、」串接后回填 */
+            lk.addEventListener("click", function(){
+              openStudentPickerMulti({
+                title:"👥 关联学生（可多选）",
+                confirmText:"确认关联",
+                onPick:function(list){
+                  var names=[], nos=[];
+                  list.forEach(function(st){
+                    if(st["姓名"]) names.push(st["姓名"]);
+                    if(st["学号"]) nos.push(String(st["学号"]));
+                  });
+                  var i1=document.querySelector('#form [data-f="'+f.name+'"]');
+                  if(i1) i1.value=names.join("、");
+                  var i2=document.querySelector('#form [data-f="学号"]');
+                  if(i2) i2.value=nos.join("、");
+                  cacheForm(key);
+                }
+              });
             });
-          });
+          } else {
+            lk.addEventListener("click", function(){
+              openStudentPicker(function(st){
+                var i1=document.querySelector('#form [data-f="'+f.name+'"]');
+                if(i1){ i1.value = f.append ? (i1.value ? i1.value.replace(/[,，]?\s*$/,"")+"，"+(st["姓名"]||"") : (st["姓名"]||"")) : (st["姓名"]||""); }
+                var i2=document.querySelector('#form [data-f="学号"]');
+                if(i2){ i2.value = f.append ? (i2.value ? i2.value.replace(/[,，]?\s*$/,"")+"，"+(st["学号"]||"") : (st["学号"]||"")) : (st["学号"]||""); }
+                cacheForm(key);
+              });
+            });
+          }
           wrap.appendChild(lk);
         }
       }
@@ -7587,20 +7622,29 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           nm=(nm||"").trim();
           if(keepId && nm) after = dedupeSeatDuplicate(keepId, nm);
         }
-        // 荣誉与处分：分值≠0 时同步写一条 points 记录（正=加分，负=扣分），来源标"荣誉/处分"
+        // 荣誉/表彰/犯错/处分：分值≠0 时按「学生姓名」逐人写 points 记录（正=加分，负=扣分），支持一次关联多名学生
         if(key==="honor" && !current.id){
           var sv=Number(propsFull["分值"]!==undefined?propsFull["分值"]:props["分值"]);
           if(!isNaN(sv) && sv!==0){
             var cat=String(propsFull["类别"]!==undefined?propsFull["类别"]:props["类别"]||"");
             var nm2=String(propsFull["学生姓名"]!==undefined?propsFull["学生姓名"]:props["学生姓名"]||"");
-            var reason="["+cat+"] "+(propsFull["名称"]||props["名称"]||"")+(nm2?(" · "+nm2):"");
+            var no2=String(propsFull["学号"]!==undefined?propsFull["学号"]:props["学号"]||"");
+            var nmArr=splitNames(nm2), noArr=splitNames(no2);
+            var reason0="["+cat+"] "+(propsFull["名称"]||props["名称"]||"");
             after=after.then(function(){
-              return apiAdd("points",{
-                日期: propsFull["日期"]||props["日期"]||todayStr(),
-                学生姓名: nm2, 学号: String(propsFull["学号"]||props["学号"]||""),
-                类别: cat, 方向: cat, 分值: sv, 原因: reason, 时间: nowHMS(),
-                来源: "荣誉/处分"
-              }).then(function(pRec){ (DATA.points=DATA.points||[]).push(pRec); }).catch(function(e){ console.warn("honor→points 写入失败",e); });
+              var ch=Promise.resolve();
+              nmArr.forEach(function(nmOne, ix){
+                var reason=reason0+(nmOne?(" · "+nmOne):"");
+                ch=ch.then(function(){
+                  return apiAdd("points",{
+                    日期: propsFull["日期"]||props["日期"]||todayStr(),
+                    学生姓名: nmOne, 学号: String(noArr[ix]||""),
+                    类别: cat, 方向: cat, 分值: sv, 原因: reason, 时间: nowHMS(),
+                    来源: "荣誉/处分"
+                  }).then(function(pRec){ (DATA.points=DATA.points||[]).push(pRec); }).catch(function(e){ console.warn("honor→points 写入失败",e); });
+                });
+              });
+              return ch;
             });
           }
         }
@@ -10918,7 +10962,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "honor-parent-vis-2026-09-07";
+  var __APP_VERSION__ = "honor-multistu-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
