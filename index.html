@@ -1488,6 +1488,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .dw-person[data-dwrep]{cursor:pointer}
   .dw-person[data-dwrep]:hover{border-color:#9FBCFF;background:#F5F8FF}
   .dw-person[data-dwrep]:hover .dw-pname{color:#3A5BBF}
+  /* 分享工作台 · 微信海报 */
+  .logout-btn.share-btn{margin-top:8px;background:transparent;border:1px dashed #C9D2E8;color:#7A86A8}
+  .logout-btn.share-btn:hover{border-color:#5B6FDB;color:#5B6FDB;background:#F5F7FF}
+  .share-mask{position:fixed;inset:0;background:rgba(23,28,45,.55);z-index:3400;display:flex;align-items:center;justify-content:center;padding:18px}
+  .share-card{background:#fff;border-radius:18px;max-width:430px;width:100%;max-height:92vh;overflow:auto;padding:14px 14px 16px;box-shadow:0 18px 60px rgba(20,30,80,.28)}
+  .share-head{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px;color:#2B3252;padding:2px 4px 10px}
+  .share-x{border:none;background:transparent;font-size:22px;color:#9AA3BC;cursor:pointer;line-height:1;padding:0 4px}
+  .share-img{display:block;width:100%;border-radius:10px;border:1px solid #ECEFF7}
+  .share-tip{font-size:12.5px;color:#7A86A8;line-height:1.7;padding:10px 6px 0;text-align:center}
+  .share-dl{margin-top:10px;width:100%;padding:10px 0;border:none;border-radius:10px;background:#5B6FDB;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+  .share-dl:active{opacity:.85}
 </style></head>
 <body data-page-node-id="F1WyvywKVEtHg8HFCxws5M">
 <div class="layout" data-page-node-id="GqflCBY9j6U3lJZgqDOWLZ">
@@ -1516,6 +1527,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     </div>
     <nav class="nav" id="nav" data-page-node-id="1qxRxX8Jik0VraExXkWdG9"></nav>
     <span class="s-status" id="status" data-page-node-id="uZtaM2ssqRBLDzRwzS46uq"><span class="dot" data-page-node-id="jxHwKd2tulNGwFQjvEc2xv"></span><span id="statusText" data-page-node-id="KrrceaHspcCrQbHNUDd6Yk">同步中</span></span>
+    <button class="logout-btn share-btn" id="shareBtn" style="display:none" title="生成带二维码的分享海报，保存后可直接发到微信">📤 分享工作台</button>
     <button class="logout-btn" id="logoutBtn" style="display:none" title="退出当前账号，回到身份选择界面" data-page-node-id="LDBOXLC4blVKdUjUrrp9op">⇄ 切换身份 / 退出</button>
   </aside>
 
@@ -4107,6 +4119,154 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return openMembersPicker("👑 选择「"+g+"」组长（本组成员）", dutyWeekGroupMembers(g), onPick, null);
   }
   /* 通用成员单选面板：组长/值日班长共用；onReset 可选（面板内「↺ 恢复默认」） */
+  /* ---------- 分享工作台 · 微信海报（canvas 绘制 + 二维码，按需加载 qrcode 库） ---------- */
+  function shareSiteURL(){
+    try{
+      var u=location.origin + SITE_ROOT + "/";
+      if(/^https?:\/\//.test(u)) return u;   /* origin 为 null（file:// 等）时拼出 "null/..." → 回退 href */
+    }catch(e){}
+    return location.href;
+  }
+  function shareClsName(){
+    var t=document.getElementById("clsTitle");
+    var n=(t&&t.textContent||"").replace(/\s+/g,"").trim();
+    if(n) return n;
+    return (typeof CLS_YEAR!=="undefined"?CLS_YEAR:"") + (typeof CLS_CLASS!=="undefined"?CLS_CLASS:"") || "班级";
+  }
+  function ensureQRLib(){
+    return new Promise(function(res,rej){
+      if(window.qrcode && typeof window.qrcode==="function") return res();
+      var urls=[SITE_ROOT+"/qrcode.min.js",
+        "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.js"];
+      var i=0;
+      (function next(){
+        if(i>=urls.length) return rej(new Error("二维码库加载失败，请检查网络"));
+        var u=urls[i++];
+        fetch(u,{cache:"reload"}).then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+          .then(function(txt){
+            if(!txt || txt.length<20000 || txt.indexOf("qrcode")<0) throw new Error("内容不像 qrcode 库");
+            var blob=new Blob([txt],{type:"text/javascript"}); var url=URL.createObjectURL(blob);
+            var s=document.createElement("script"); s.src=url;
+            s.onload=function(){
+              try{ URL.revokeObjectURL(url); }catch(_e){}
+              if(window.qrcode && typeof window.qrcode==="function") res(); else next();
+            };
+            s.onerror=function(){ try{ URL.revokeObjectURL(url); }catch(_e){} next(); };
+            document.head.appendChild(s);
+          }).catch(function(){ next(); });
+      })();
+    });
+  }
+  function shareRoundRect(x, px,py,pw,ph, r){
+    x.beginPath();
+    x.moveTo(px+r,py);
+    x.arcTo(px+pw,py,px+pw,py+ph,r);
+    x.arcTo(px+pw,py+ph,px,py+ph,r);
+    x.arcTo(px,py+ph,px,py,r);
+    x.arcTo(px,py,px+pw,py,r);
+    x.closePath();
+  }
+  function makeQRCanvas(text, size){
+    var qr=window.qrcode(0,"M"); qr.addData(text); qr.make();
+    var n=qr.getModuleCount();
+    var quiet=2, total=n+quiet*2;
+    var cell=Math.floor(size/total);
+    var real=cell*total;
+    var cv=document.createElement("canvas"); cv.width=real; cv.height=real;
+    var x=cv.getContext("2d");
+    x.fillStyle="#FFFFFF"; x.fillRect(0,0,real,real);
+    x.fillStyle="#1B1F33";
+    for(var r=0;r<n;r++){ for(var c=0;c<n;c++){ if(qr.isDark(r,c)) x.fillRect((c+quiet)*cell,(r+quiet)*cell,cell,cell); } }
+    return cv;
+  }
+  function drawSharePoster(clsName, qrCanvas){
+    var W=750, H=1240;
+    var cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+    var x=cv.getContext("2d");
+    /* 背景 */
+    x.fillStyle="#F5F7FD"; x.fillRect(0,0,W,H);
+    /* 顶部渐变横幅 */
+    var g=x.createLinearGradient(0,0,W,360); g.addColorStop(0,"#4A5EC9"); g.addColorStop(1,"#8FA1F2");
+    x.fillStyle=g; shareRoundRect(x,0,0,W,340,0); x.fill();
+    x.textAlign="center";
+    x.fillStyle="#FFFFFF";
+    x.font="bold 68px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+    x.fillText("🐱 班主任小台", W/2, 140);
+    x.font="34px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+    x.fillStyle="rgba(255,255,255,.94)";
+    x.fillText(clsName+" · 班级工作台", W/2, 208);
+    x.font="24px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+    x.fillStyle="rgba(255,255,255,.78)";
+    x.fillText("班级事务一站式管理 · 家校同步", W/2, 262);
+    /* 功能亮点卡片 */
+    var feats=[
+      ["📊","积分量化","加减分有据可查"],
+      ["📅","值日安排","分工与值日班长一目了然"],
+      ["✅","考勤记录","出勤情况实时同步"],
+      ["📦","材料收集","作业收交清晰方便"],
+      ["🏅","荣誉与处分","成长轨迹完整留痕"],
+      ["📋","班级制度","奖惩规则公开透明"]
+    ];
+    var cardX=60, cardY=400, cardW=W-120, rowH=76;
+    x.fillStyle="#FFFFFF";
+    shareRoundRect(x, cardX, cardY, cardW, feats.length*rowH+40, 24); x.fill();
+    x.shadowColor="rgba(60,80,160,.10)"; x.shadowBlur=0;
+    feats.forEach(function(f,i2){
+      var ry=cardY+30+i2*rowH;
+      x.textAlign="left";
+      x.font="34px -apple-system,'PingFang SC',sans-serif";
+      x.fillStyle="#4A5EC9";
+      x.fillText(f[0], cardX+42, ry+34);
+      x.font="bold 30px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+      x.fillStyle="#2B3252";
+      x.fillText(f[1], cardX+104, ry+32);
+      x.font="24px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+      x.fillStyle="#8A93AC";
+      x.fillText(f[2], cardX+104, ry+64);
+    });
+    /* 二维码白色圆角托盘 */
+    var qrBox=370, qrX=(W-qrBox)/2, qrY=cardY+feats.length*rowH+72;
+    x.fillStyle="#FFFFFF";
+    shareRoundRect(x, qrX-24, qrY-24, qrBox+48, qrBox+48, 24); x.fill();
+    var qi=qrCanvas, scale=Math.floor(qrBox/qi.width)||1, qw=qi.width*scale;
+    x.imageSmoothingEnabled=false;
+    x.drawImage(qi, (W-qw)/2, qrY, qw, qw);
+    x.textAlign="center";
+    x.font="bold 30px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+    x.fillStyle="#2B3252";
+    x.fillText("长按识别二维码 · 进入班级工作台", W/2, qrY+qrBox+76);
+    /* 底部 */
+    x.font="22px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+    x.fillStyle="#A6AFC6";
+    x.fillText("微信中转发本图片即可邀请家长与科任老师使用", W/2, H-56);
+    return cv;
+  }
+  function openSharePoster(){
+    ensureQRLib().then(function(){
+      var qcv=makeQRCanvas(shareSiteURL(), 600);
+      var cv=drawSharePoster(shareClsName(), qcv);
+      var data=cv.toDataURL("image/png");
+      var old=document.getElementById("sharePosterMask"); if(old) old.remove();
+      var ov=document.createElement("div"); ov.className="share-mask"; ov.id="sharePosterMask";
+      ov.innerHTML='<div class="share-card">'
+        +'<div class="share-head"><span>📤 分享工作台</span><button class="share-x" data-shareclose title="关闭">×</button></div>'
+        +'<img class="share-img" alt="班级工作台分享海报" src="'+data+'">'
+        +'<div class="share-tip">手机上<b>长按图片</b>可保存或直接转发到微信聊天<br>微信里<b>长按二维码</b>即可打开工作台</div>'
+        +'<div class="share-actions"><button class="share-dl" data-sharedl>💾 保存图片</button></div>'
+        +'</div>';
+      ov.addEventListener("click", function(e){
+        if(e.target===ov || e.target.closest("[data-shareclose]")){ ov.remove(); return; }
+        if(e.target.closest("[data-sharedl]")){
+          var a=document.createElement("a");
+          a.href=data; a.download="班主任小台-分享海报.png";
+          document.body.appendChild(a); a.click(); a.remove();
+          toast("已开始下载海报图片，可直接发送到微信");
+        }
+      });
+      document.body.appendChild(ov);
+    }).catch(function(e){ toast("海报生成失败："+(e&&e.message||e)); });
+  }
   function openMembersPicker(title, members, onPick, onReset){
     var __oldMask=document.getElementById("dutyLeaderMask"); if(__oldMask) __oldMask.remove();
     var ov=document.createElement("div"); ov.className="stu-picker-mask"; ov.id="dutyLeaderMask";
@@ -11447,6 +11607,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     catch(e){ location.reload(); }
   }
   document.getElementById("logoutBtn").onclick=switchIdentity;
+  var _shw=document.getElementById("shareBtn"); if(_shw) _shw.onclick=function(){ openSharePoster(); };
   var _srb=document.getElementById("switchRoleBtn"); if(_srb) _srb.onclick=switchIdentity;
   function onSignedIn(user){
     try{
@@ -11456,6 +11617,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT) ? _r : ROLE_HEAD;
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
+      var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
       var _srb2=document.getElementById("switchRoleBtn"); if(_srb2) _srb2.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
@@ -11541,7 +11703,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parent-brief-2026-09-07";
+  var __APP_VERSION__ = "share-poster-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
