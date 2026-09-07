@@ -609,6 +609,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .matnew-btns{display:flex;gap:8px;justify-content:flex-end}
   .matnew-btn{border:none;cursor:pointer;font-size:13px;font-weight:700;border-radius:999px;padding:8px 16px;background:#F6F0F4;color:var(--ink-soft)}
   .matnew-btn.primary{background:var(--pink);color:#fff}
+  /* 家长端 · 考勤/材料每日摘要 */
+  .pb-wrap{display:flex;flex-direction:column;gap:10px}
+  .pb-nav{display:flex;align-items:center;gap:8px}
+  .pb-wk{font-size:13px;font-weight:700;color:var(--ink)}
+  .pb-hint{font-size:12px;color:var(--ink-soft);margin:2px 0 2px;line-height:1.5}
+  .pb-day{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+  .pb-day.today{border-color:#BFD4FF;background:#FBFDFF}
+  .pb-date{font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:6px}
+  .pb-none{font-size:12.5px;color:var(--ink-soft)}
+  .pb-row{display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:13px}
+  .pb-k{flex:0 0 auto;font-weight:700;border-radius:8px;padding:1px 8px;font-size:11.5px}
+  .pb-k.late{background:#FBEDEC;color:#D9534F}
+  .pb-k.no{background:#EAF6F0;color:#2E9E6B}
+  .pb-k.late2{background:#FFF6E8;color:#B8860B}
+  .pb-v{color:var(--ink);word-break:break-word;line-height:1.5}
   /* 加减分详情弹窗 */
   .pf-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
   .pf-row{display:flex;flex-wrap:wrap;gap:5px 10px;padding:8px 11px;background:#FBF9FC;border:1px solid var(--line);border-radius:10px}
@@ -1920,7 +1935,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var ROLE_MODS = {};
   ROLE_MODS[ROLE_HEAD]    = null;
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
-  ROLE_MODS[ROLE_PARENT]  = ["duty","honor","honorboard","materials","schedule","messages","regulations"];
+  ROLE_MODS[ROLE_PARENT]  = ["duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
   function canSee(key){
     if(isHead()) return true;
     var list=ROLE_MODS[curRole]||[];
@@ -2772,7 +2787,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var stuGroupBtn = (key==="students") ? '<button class="btn-rule" data-stuGroupBatch title="批量分小组（每组人数均衡）">👥 批量分小组</button>' : '';
     var comMonthlyBtn = (key==="committee") ? '<button class="btn-rule" data-comMonthly title="按职务加分值批量给所有在任班委写入当月积分（已标「不尽责」或当月已加的跳过）">🎖 班委月度加分</button>' : '';
     /* 只读身份（科任老师 / 家长）：隐藏一切写操作入口，只留视图切换与导出 */
-    if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; comMonthlyBtn=""; }
+    if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; comMonthlyBtn="";
+      if(key==="attendance"||key==="materials"){ gridBtn=""; tableBtn=""; } }
     var roAdd = canEdit()
       ? '<button class="btn-imp" data-imp="'+key+'">导入</button>'
         +((key==="attendance"||key==="materials")
@@ -2791,11 +2807,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + ocrBtn
       + stuGroupBtn
       + comMonthlyBtn
-      +(key==="honor" && !canEdit() ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
+      +((!canEdit() && (key==="honor"||key==="attendance"||key==="materials")) ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
       + roAdd
       +'</div>'
       + (key==="students" ? '<div class="stu-search-wrap"><input class="stu-search" id="stuSearch" placeholder="🔍 搜索姓名 / 学号 / 标签 / 小组…" value="'+esc(state.stuQ||"")+'"></div>' : '')
-      + (key==="honor" && canEdit() ? '<div class="honor-vis-hint">👁 家长端仅看到标记为「家长可见」的记录，默认全部隐藏。点卡片上的「👁 展示给家长」逐条公开。</div>' : '')
+      + (key==="honor" && canEdit() ? '<div class="honor-vis-hint">👁 家长端仅看到标记为「家长可见」的记录，默认全部隐藏。点卡片上的「👁 展示给家长」逐条公开；其中<b>处分 / 犯错每次展示满 7 天会自动对家长隐藏</b>（到期后重新展示即可再显示 7 天），荣誉 / 表彰长期可见。</div>' : '')
       + (key==="parents" ? '<div class="stu-search-wrap"><input class="stu-search" id="parSearch" placeholder="🔍 搜索学生姓名 / 学号 / 家长…" value="'+esc(state.parQ||"")+'"></div>' : '')
       +'<div id="list-'+key+'"></div>';
   }
@@ -2980,6 +2996,98 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     w.document.close();
     setTimeout(function(){ w.focus(); w.print(); }, 300);
   }
+    /* 荣誉与处分 · 处分/犯错 7 天可见期 */
+  function honorVisExpired(r){
+    var cat=String(r["类别"]||"");
+    if(cat!=="处分" && cat!=="犯错") return false;   // 荣誉/表彰长期可见
+    var t=String(r["家长可见时间"]||"");
+    if(!t) return true;                              // 老数据没记录展示时间 → 视为已过期
+    var d=new Date(t+"T00:00:00");
+    if(isNaN(d.getTime())) return true;
+    d.setDate(d.getDate()+7);
+    return fmtISO(d) <= todayStr();                  // 展示当天起第 7 天结束即隐藏
+  }
+  function honorVisDaysLeft(r){
+    var t=String(r["家长可见时间"]||"");
+    if(!t) return 0;
+    var d=new Date(t+"T00:00:00");
+    if(isNaN(d.getTime())) return 0;
+    d.setDate(d.getDate()+7);
+    var diff=Math.round((new Date(fmtISO(d)+"T00:00:00") - new Date(todayStr()+"T00:00:00"))/86400000);
+    return diff>0?diff:0;
+  }
+  /* 家长端 · 考勤/材料每日摘要：只展示 迟到 / 未交 / 迟交 名单，不含完整记录 */
+  var parentBriefWeek = null; // null=本周；否则为查看周的周一 ISO
+  var parentBriefMod = "attendance";
+  function renderParentDailyBrief(key){
+    parentBriefMod = key;
+    var cur=isoWeek(todayStr()).monday;
+    var wk=parentBriefWeek||cur;
+    var w=isoWeek(wk+"T00:00:00");
+    var stuOrder={}; (DATA.students||[]).forEach(function(s2,i2){ stuOrder[String(s2["姓名"]||"")]=i2; });
+    var nameSort=function(a,b){ return (stuOrder[a]==null?9999:stuOrder[a])-(stuOrder[b]==null?9999:stuOrder[b]); };
+    var html='<div class="pb-wrap">'
+      +'<div class="pb-nav">'
+      +'<button class="gt-btn" data-pweek="prev" title="上一周">‹ 上一周</button>'
+      +'<span class="pb-wk">'+(wk===cur?'本周':'历史周')+' '+esc(w.monday.slice(5))+' ~ '+esc(w.sunday.slice(5))+'</span>'
+      +(wk===cur?'':'<button class="gt-btn" data-pweek="this">回到本周</button>')
+      +'</div>'
+      +'<div class="pb-hint">每天只展示 迟到 / 未交 / 迟交 的学生名单概况，完整考勤与收交记录仅班主任可见。</div>';
+    var shown=0;
+    for(var i=6;i>=0;i--){
+      var d=new Date(wk+"T00:00:00"); d.setDate(d.getDate()+i); d=fmtISO(d);
+      if(d>todayStr()) continue;   // 未来日期不显示
+      var late=[];
+      (DATA.attendance||[]).forEach(function(r){
+        if(String(r["日期"]||"")!==d) return;
+        if(String(r["状态"]||"")!=="迟到") return;
+        var nm=String(r["学生姓名"]||"").trim();
+        if(nm && late.indexOf(nm)<0) late.push(nm);
+      });
+      var noMap={}, lateMap={};
+      (DATA.materials||[]).forEach(function(r){
+        if(String(r["日期"]||"")!==d) return;
+        var st=String(r["状态"]||""); if(st!=="未交" && st!=="迟交") return;
+        var nm=String(r["学生姓名"]||"").trim(); if(!nm) return;
+        var item=String(r["事项"]||"未填写事项").trim()||"未填写事项";
+        var bag=(st==="未交")?noMap:lateMap;
+        if(!bag[item]) bag[item]=[];
+        if(bag[item].indexOf(nm)<0) bag[item].push(nm);
+      });
+      late.sort(nameSort);
+      Object.keys(noMap).forEach(function(k2){ noMap[k2].sort(nameSort); });
+      Object.keys(lateMap).forEach(function(k2){ lateMap[k2].sort(nameSort); });
+      var hasDay=late.length||Object.keys(noMap).length||Object.keys(lateMap).length;
+      if(hasDay) shown++;
+      var wd="日一二三四五六"[new Date(d+"T00:00:00").getDay()];
+      var isToday=(d===todayStr());
+      html+='<div class="pb-day'+(isToday?' today':'')+'">'
+        +'<div class="pb-date">📅 '+esc(d.slice(5))+' 周'+wd+(isToday?' · 今天':'')+'</div>';
+      if(!hasDay){ html+='<div class="pb-none">无迟到 / 未交 / 迟交记录</div>'; }
+      else {
+        if(late.length) html+='<div class="pb-row"><span class="pb-k late">🕐 迟到 '+late.length+'人</span><span class="pb-v">'+esc(late.join('、'))+'</span></div>';
+        Object.keys(noMap).forEach(function(k2){
+          html+='<div class="pb-row"><span class="pb-k no">✗ '+esc(k2)+' 未交 '+noMap[k2].length+'人</span><span class="pb-v">'+esc(noMap[k2].join('、'))+'</span></div>';
+        });
+        Object.keys(lateMap).forEach(function(k2){
+          html+='<div class="pb-row"><span class="pb-k late2">⏰ '+esc(k2)+' 迟交 '+lateMap[k2].length+'人</span><span class="pb-v">'+esc(lateMap[k2].join('、'))+'</span></div>';
+        });
+      }
+      html+='</div>';
+    }
+    if(!shown) html+='<div class="pb-day"><div class="pb-none">本周暂无迟到 / 未交 / 迟交记录</div></div>';
+    html+='</div>';
+    return html;
+  }
+  function parentWeekNav(act){
+    if(act==="this"){ parentBriefWeek=null; }
+    else{
+      var base=parentBriefWeek||isoWeek(todayStr()).monday;
+      var d=new Date(base+"T00:00:00"); d.setDate(d.getDate()+(act==="prev"?-7:7));
+      parentBriefWeek=fmtISO(d);
+    }
+    if(state.mod==="attendance"||state.mod==="materials") renderList(state.mod);
+  }
   function renderList(key){
     var m=MODULES[key], rows=DATA[key], box=document.getElementById("list-"+key);
     if(!box) return;
@@ -3009,10 +3117,16 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           || (r["家庭住址"]||"").toLowerCase().indexOf(pq)>=0;
       });
     }
-    // 荣誉与处分：家长/科任只看到班主任标记为「家长可见」的记录（默认不展示，逐条公开）
+    // 荣誉与处分：家长/科任只看到标记为「家长可见」的记录；处分/犯错展示满 7 天自动隐藏
     if(key==="honor" && !canEdit()){
-      rows = rows.filter(function(r){ return r["家长可见"]===true; });
+      rows = rows.filter(function(r){ return r["家长可见"]===true && !honorVisExpired(r); });
       if(cnt) cnt.textContent="共 "+rows.length+" "+m.unit;
+    }
+    // 家长身份：考勤/材料只看每日摘要（迟到 / 未交 / 迟交），完整记录不对家长开放
+    if((key==="attendance"||key==="materials") && curRole===ROLE_PARENT){
+      if(cnt) cnt.textContent="";
+      box.innerHTML = renderParentDailyBrief(key);
+      return;
     }
     var attStrip = renderModAttachments(key);
     // 值日安排：按纸面表格重做，每天一张「项目/时间/负责人」表，跳过标准卡片列表
@@ -5026,9 +5140,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       badge = r["卸任时间"] ? '<span class="pill off">已卸任</span>' : '<span class="pill on">在任</span>';
     }
     if(key==="honor" && canEdit()){
-      badge += (r["家长可见"]===true)
-        ? '<span class="pill on" title="家长端可见">👁 家长可见</span>'
-        : '<span class="pill off" title="家长端不可见">🙈 未展示</span>';
+      var _hv = r["家长可见"]===true;
+      var _hcat = String(r["类别"]||"");
+      if(_hv && (_hcat==="处分"||_hcat==="犯错")){
+        var _left = honorVisDaysLeft(r);
+        badge += (_left>0)
+          ? '<span class="pill on" title="处分/犯错展示满 7 天后自动对家长隐藏">👁 家长可见 · 剩 '+_left+' 天</span>'
+          : '<span class="pill off" title="已展示满 7 天，家长端不再显示；重新点「展示给家长」可再展示 7 天">⏱ 展示超 7 天 · 家长不可见</span>';
+      } else {
+        badge += _hv
+          ? '<span class="pill on" title="家长端可见">👁 家长可见</span>'
+          : '<span class="pill off" title="家长端不可见">🙈 未展示</span>';
+      }
     }
     var subs = m.fields.filter(function(f){return f.name!==m.main;}).map(function(f){
       var v=r[f.name];
@@ -8111,7 +8234,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(!rec) return;
     var toShow = rec["家长可见"]!==true;
     setStatus("syncing");
-    var props=recordProps("honor", id, {家长可见: toShow});
+    var props=recordProps("honor", id, toShow ? {家长可见:true, 家长可见时间: todayStr()} : {家长可见:false, 家长可见时间:""});
     apiUpdate("honor", id, props)
       .then(function(){ toast(toShow?"已展示给家长 👁（家长端只读可见）":"已对家长隐藏 🙈"); return refreshAll(); })
       .then(function(){ setStatus("ok"); })
@@ -9880,6 +10003,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var grid=e.target.closest("[data-grid]"); if(grid){ var k=grid.getAttribute("data-grid"); state.grid[k]=!state.grid[k]; renderList(k); return; }
     var gtog=e.target.closest("[data-gridtoggle],[data-gridtable]"); if(gtog){ var gk=gtog.getAttribute("data-gridtoggle")||gtog.getAttribute("data-gridtable"); GRIDVIEW[gk]=!GRIDVIEW[gk]; renderList(gk); return; }
     // 注意：data-ruleapply / data-rulecfg 统一在 document.body 委托中处理（模态网格在 #content 之外），避免重复触发
+    var pw=e.target.closest("[data-pweek]"); if(pw){ parentWeekNav(pw.getAttribute("data-pweek")); return; }
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
     var add=e.target.closest("[data-add]"); if(add){
@@ -11417,7 +11541,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mat-folder-2026-09-07";
+  var __APP_VERSION__ = "parent-brief-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
