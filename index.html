@@ -1423,8 +1423,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* ================= /班级制度公示 ================= */
 #wbUpdateBar{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3200;background:#2f6fed;color:#fff;padding:9px 15px;border-radius:999px;font-size:13px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18);opacity:.95;transition:opacity .15s}
 #wbUpdateBar:hover{opacity:1}
-</style>
-</head>
+  /* 值日表 · 快速交换模式 */
+  .duty-swap-hint{margin:0 0 10px;padding:8px 12px;background:#EEF4FF;border:1px solid #C9DAFF;border-radius:8px;font-size:12.5px;color:#3A5BBF;line-height:1.6}
+  .duty-week-wrap.duty-swap-on .dw-cell{cursor:pointer}
+  .duty-week-wrap.duty-swap-on .dw-cell.dw-filled{box-shadow:inset 0 0 0 2px #C9DAFF}
+  .duty-week-wrap.duty-swap-on .dw-cell.dw-empty{box-shadow:inset 0 0 0 1.5px #E3E9F5}
+  .duty-week-wrap.duty-swap-on .dw-cell.dw-swap-sel{box-shadow:inset 0 0 0 2.5px #4A7DFF;background:#EEF4FF}
+  .duty-swap-btn-on{background:#EEF4FF !important;border-color:#9FBCFF !important;color:#3A5BBF !important}
+</style></head>
 <body data-page-node-id="F1WyvywKVEtHg8HFCxws5M">
 <div class="layout" data-page-node-id="GqflCBY9j6U3lJZgqDOWLZ">
   <!-- 侧边栏 -->
@@ -3731,6 +3737,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return (r["值日小组"]||"")===g && (r["分工"]||"")===div;
     })[0] || null;
   }
+  /* 负责人/学号字符串 → [{name,no}]（多人格统一拆分规则，快速交换复用） */
+  function dutySplitPersons(names,nos){
+    var ns=String(names||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    var xs=String(nos||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+    return ns.map(function(n,i){ return {name:n, no:xs[i]||""}; });
+  }
   function dutyWeekCellPersons(g,div){
     var rec=dutyWeekCellRecord(g,div); if(!rec) return [];
     var ns=(rec["负责人"]||"").split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
@@ -3893,6 +3905,61 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       DATA.duty=[]; setStatus("ok"); toast("已清空本周 ✓"); renderList("duty");
     }).catch(function(e){ setStatus("offline"); toast("清空失败："+(e&&e.message||e)); });
   }
+  /* ---------- 值日表 · 快速交换 ----------
+     「🔄 快速交换」进入交换模式 → 依次点两个格子 → 两格的值日生整组互换。
+     空格也可作为目标（等于把整格人挪过去）；完成后自动退出交换模式。 */
+  var dutySwap={on:false, sel:null};
+  function dutySwapToggle(){
+    dutySwap.on=!dutySwap.on; dutySwap.sel=null;
+    renderList("duty");
+  }
+  function dutySwapHintHTML(){
+    if(!dutySwap.on) return "";
+    var t=dutySwap.sel
+      ? "已选「"+dutySwap.sel.g+" · "+dutySwap.sel.div+"」，再点另一格完成互换；点原格可取消选择"
+      : "交换模式：依次点两个格子，两格的值日生整组互换（空格=挪入）；完成后自动退出";
+    return '<div class="duty-swap-hint">🔄 '+esc(t)+'</div>';
+  }
+  function dutySwapCellClick(g,div){
+    if(dutySwap.sel && dutySwap.sel.g===g && dutySwap.sel.div===div){
+      dutySwap.sel=null; renderList("duty"); return;
+    }
+    if(!dutySwap.sel){ dutySwap.sel={g:g,div:div}; renderList("duty"); return; }
+    dutyWeekSwapCells(dutySwap.sel, {g:g,div:div});
+  }
+  function dutyWeekSwapCells(a,b){
+    var recA=dutyWeekCellRecord(a.g,a.div), recB=dutyWeekCellRecord(b.g,b.div);
+    var pa=dutySplitPersons(recA&&recA["负责人"], recA&&recA["学号"]);
+    var pb=dutySplitPersons(recB&&recB["负责人"], recB&&recB["学号"]);
+    if(!pa.length && !pb.length){ toast("两格都是空的，无需交换"); dutySwap.sel=null; renderList("duty"); return; }
+    var same = pa.length===pb.length && pa.length>0 && pa.every(function(p,i){ return p.name===pb[i].name; });
+    if(same){ toast("两格人员相同，无需交换"); dutySwap.on=false; dutySwap.sel=null; renderList("duty"); return; }
+    setStatus("syncing");
+    var jobs=[];
+    [[a,pb],[b,pa]].forEach(function(pair){
+      var cell=pair[0], persons=pair[1];
+      var rec=dutyWeekCellRecord(cell.g,cell.div);
+      var nStr=persons.map(function(p){ return p.name; }).join(",");
+      var noStr=persons.map(function(p){ return p.no||""; }).join(",");
+      if(persons.length){
+        if(rec){
+          var props={负责人:nStr,学号:noStr};
+          jobs.push(apiUpdate("duty",rec._id,recordProps("duty",rec._id,props)).then(function(){ rec["负责人"]=nStr; rec["学号"]=noStr; }));
+        } else {
+          var addProps={值日小组:cell.g,分工:cell.div,负责人:nStr,学号:noStr};
+          jobs.push(apiAdd("duty",addProps).then(function(o){ Object.assign(o,addProps); (DATA.duty=DATA.duty||[]).push(o); }));
+        }
+      } else if(rec){
+        jobs.push(apiDelete("duty",rec._id).then(function(){ DATA.duty=(DATA.duty||[]).filter(function(r){ return r._id!==rec._id; }); }));
+      }
+    });
+    Promise.all(jobs).then(function(){
+      setStatus("ok");
+      dutySwap.on=false; dutySwap.sel=null;
+      toast("已互换 "+a.g+"·"+a.div+" ↔ "+b.g+"·"+b.div+" ✓");
+      renderList("duty");
+    }).catch(function(e){ setStatus("offline"); toast("交换失败："+(e&&e.message||e)); });
+  }
   function renderDutyTable(){
     var note=getDutyNote();
     var groups=getDutyGroups();   // 权威组列表（持久化；含数据中已用组）
@@ -3936,7 +4003,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           }).join('')
           +(isHead()?'<button type="button" class="dw-add-btn dw-add-btn-mini" data-dwadd="'+esc(g)+'|'+esc(div)+'" title="再关联一名">＋</button>':'');
         }
-        return '<td class="dw-cell '+(persons.length?'dw-filled':'dw-empty')+'">'+inner+'</td>';
+        var swapSel = dutySwap.on && dutySwap.sel && dutySwap.sel.g===g && dutySwap.sel.div===div;
+        return '<td class="dw-cell '+(persons.length?'dw-filled':'dw-empty')+(dutySwap.on?' dw-swapable':'')+(swapSel?' dw-swap-sel':'')+'" data-dwcell="'+esc(g)+'|'+esc(div)+'">'+inner+'</td>';
       }).join('');
       var grpDel = isHead() ? '<button type="button" class="dw-grp-del" data-dutyact="delGroup" data-grp="'+esc(g)+'" title="删除该值日小组（含其分工与负责人）">✕</button>' : '';
       return '<tr><th class="dw-row-th">'+esc(g)+grpDel+'</th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
@@ -3949,6 +4017,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       html+='    <div class="duty-tools">';
       html+='      <button type="button" class="btn-mini" data-dutyact="addGroup">＋ 添加新组</button>';
       html+='      <button type="button" class="btn-mini" data-dutyact="reset">🧹 清空本周</button>';
+      html+='      <button type="button" class="btn-mini'+(dutySwap.on?' duty-swap-btn-on':'')+'" data-dutyact="swap" title="依次点两个格子，两格值日生整组互换">🔄 快速交换</button>';
       html+='      <button type="button" class="btn-mini" data-dutyact="print">🖨 打印</button>';
       html+='    </div>';
     }
@@ -3966,7 +4035,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'</span>';
     html+='  </div>';
     html+='  <div class="duty-note" contenteditable="true" data-dutynote="1" title="点击编辑班级备注">'+esc(note)+'</div>';
-    html+='  <div class="duty-week-wrap"><table class="duty-week-table">';
+    html+=dutySwapHintHTML();
+    html+='  <div class="duty-week-wrap'+(dutySwap.on?' duty-swap-on':'')+'"><table class="duty-week-table">';
     html+='    <thead>'+thead+'</thead>';
     html+='    <tbody>'+rows+'</tbody>';
     html+='  </table></div>';
@@ -9537,6 +9607,15 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var rdel=e.target.closest("[data-rdel]"); if(rdel){ dutyRosterRemove(rdel.getAttribute("data-rg"), rdel.getAttribute("data-rn")); return; }
     var radd=e.target.closest("[data-radd]"); if(radd){ dutyRosterAdd(radd.getAttribute("data-rg")); return; }
     var rmem=e.target.closest(".db-rmem"); if(rmem){ onDutyRosterClick(rmem); return; }
+    // 值日表 · 快速交换：交换模式下点任意格子选择/互换（须在 dwadd/dwdel 之前拦截，此时＋/✕ 也视为选格）
+    if(dutySwap && dutySwap.on){
+      var swc=e.target.closest("[data-dwcell]");
+      if(swc && !e.target.closest("[data-dutyact]")){
+        var swp=swc.getAttribute("data-dwcell").split("|");
+        dutySwapCellClick(swp[0],swp[1]);
+        return;
+      }
+    }
     // 值日表：格子 +关联 / -移除 / 组长指定 / 工具按钮
     var dwadd=e.target.closest("[data-dwadd]");
     if(dwadd){
@@ -9558,6 +9637,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(a==="addGroup"){ dutyWeekAddGroup(); return; }
       if(a==="delGroup"){ dutyWeekDelGroup(dact.getAttribute("data-grp")); return; }
       if(a==="redflag"){ askRedFlag(); return; }
+      if(a==="swap"){ dutySwapToggle(); return; }
       if(a==="reset"){ dutyWeekReset(); return; }
       if(a==="print"){ printDutyTable(); return; }
     }
@@ -9989,6 +10069,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // 表现为「点击栏目无法跳转 / 跳错地方」。
     for(var c in ORDER){ if(ORDER[c].indexOf(mod)>=0){ state.cat=c; break; } }
     state.mod=mod;
+    if(typeof dutySwap!=="undefined"){ dutySwap.on=false; dutySwap.sel=null; }
     if(state.cat!=="overview") state.open[state.cat]=true;
     render();
   }
@@ -10962,7 +11043,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "honor-multistu-2026-09-07";
+  var __APP_VERSION__ = "duty-swap-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
