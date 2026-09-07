@@ -582,6 +582,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rc-fmeta b.neg{color:#2E9E6B}
   .rc-list{padding:10px 12px;display:flex;flex-direction:column;gap:10px;background:#FCFBFE}
   .rc-list .card{margin:0}
+  /* 班规执行 · 紧凑行 */
+  .rc-list{padding:4px 10px}
+  .rrow{display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px dashed #EFEAF6}
+  .rrow:last-child{border-bottom:none}
+  .rr-val{flex:0 0 46px;text-align:center;font-size:13px;font-weight:800;border-radius:8px;padding:2px 0;margin-top:1px}
+  .rr-val.pos{color:#D9534F;background:#FBEDEC}
+  .rr-val.neg{color:#2E9E6B;background:#EAF6F0}
+  .rr-body{flex:1;min-width:0}
+  .rr-txt{font-size:13.5px;line-height:1.45;color:var(--ink);word-break:break-word;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .rr-note{font-size:12px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rr-acts{flex:0 0 auto;display:flex;gap:5px;opacity:.55;transition:opacity .15s}
+  .rrow:hover .rr-acts{opacity:1}
+  .rr-acts .mini{padding:3px 9px;font-size:11.5px}
   /* 加减分详情弹窗 */
   .pf-rows{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
   .pf-row{display:flex;flex-wrap:wrap;gap:5px 10px;padding:8px 11px;background:#FBF9FC;border:1px solid var(--line);border-radius:10px}
@@ -5369,11 +5383,33 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +(sub?(' · <b class="neg">扣 -'+sub+'</b>'):'')
         +'</span></div>';
       if(open){
-        html+='<div class="rc-list">'+gr.map(function(r){ return cardHTML("rules", r); }).join("")+'</div>';
+        html+='<div class="rc-list">'+gr.map(function(r){ return ruleRowHTML(r); }).join("")+'</div>';
       }
       html+='</div>';
     });
     return html;
+  }
+  /* 班规执行 · 紧凑行：分值徽章（正分红/负分绿）+ 内容（超2行折叠，title 看全文）+ 低调操作按钮 */
+  function ruleRowHTML(r){
+    var v=Number(r["分值"])||0;
+    var neg=r["方向"]==="扣分";
+    var sign=(neg?"-":"+")+(v%1===0?v:v.toFixed(1));
+    var txt=String(r["内容"]||"（未填写）");
+    var note=String(r["说明"]||"");
+    var tip=esc(txt)+(note?("　·　"+esc(note)):"");
+    var acts='';
+    if(canEdit()){
+      acts+='<button class="mini '+(neg?"neg":"pos")+'" data-act="ruleapply" data-id="'+esc(r._id)+'" title="按此班规选择学生'+(neg?"扣分":"加分")+'（可多选）">'+(neg?"扣分…":"加分…")+'</button>'
+          +'<button class="mini" data-act="edit" data-mod="rules" data-id="'+esc(r._id)+'">编辑</button>'
+          +'<button class="mini del" data-act="del" data-mod="rules" data-id="'+esc(r._id)+'">删除</button>';
+    }
+    return '<div class="rrow" title="'+tip+'">'
+      +'<span class="rr-val '+(neg?"neg":"pos")+'">'+sign+'</span>'
+      +'<div class="rr-body"><div class="rr-txt">'+esc(txt)+'</div>'
+      +(note?'<div class="rr-note">💬 '+esc(note)+'</div>':'')
+      +'</div>'
+      +(acts?'<span class="rr-acts">'+acts+'</span>':'')
+      +'</div>';
   }
   function toggleRuleCat(cat){ rulesView.open[cat] = (rulesView.open[cat]===false); renderList("rules"); }
   function onRuleCatAdd(){
@@ -11299,7 +11335,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "reg2rules-2026-09-07";
+  var __APP_VERSION__ = "rules-compact-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
