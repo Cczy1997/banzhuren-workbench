@@ -683,6 +683,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .card .row{display:flex;gap:8px;margin-top:7px;font-size:13.5px;align-items:baseline}
   .card .row .lbl{flex:0 0 64px;color:var(--ink-soft);font-weight:600}
   .card .row .val{flex:1;color:var(--ink);word-break:break-word;white-space:pre-wrap}
+  .honor-vis-hint{font-size:12px;color:#9a9aa2;margin:6px 0 10px;padding:8px 12px;background:#f7f8fa;border:1px solid #eceef2;border-radius:8px;line-height:1.6}
   .card .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{font-style:normal;font-size:12px;background:#EEF9F5;color:var(--mint-d);border-radius:999px;padding:2px 9px;font-weight:600}
   .chip.lav{background:#F1ECFD;color:var(--lav)}
@@ -1870,7 +1871,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   var ROLE_MODS = {};
   ROLE_MODS[ROLE_HEAD]    = null;
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
-  ROLE_MODS[ROLE_PARENT]  = ["duty","honorboard","materials","schedule","messages","regulations"];
+  ROLE_MODS[ROLE_PARENT]  = ["duty","honor","honorboard","materials","schedule","messages","regulations"];
   function canSee(key){
     if(isHead()) return true;
     var list=ROLE_MODS[curRole]||[];
@@ -2740,10 +2741,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + ocrBtn
       + stuGroupBtn
       + comMonthlyBtn
-      +'<button class="btn-exp" data-exp="'+key+'">导出</button>'
+      +(key==="honor" && !canEdit() ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
       + roAdd
       +'</div>'
       + (key==="students" ? '<div class="stu-search-wrap"><input class="stu-search" id="stuSearch" placeholder="🔍 搜索姓名 / 学号 / 标签 / 小组…" value="'+esc(state.stuQ||"")+'"></div>' : '')
+      + (key==="honor" && canEdit() ? '<div class="honor-vis-hint">👁 家长端仅看到标记为「家长可见」的记录，默认全部隐藏。点卡片上的「👁 展示给家长」逐条公开。</div>' : '')
       + (key==="parents" ? '<div class="stu-search-wrap"><input class="stu-search" id="parSearch" placeholder="🔍 搜索学生姓名 / 学号 / 家长…" value="'+esc(state.parQ||"")+'"></div>' : '')
       +'<div id="list-'+key+'"></div>';
   }
@@ -2957,6 +2959,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           || (r["家庭住址"]||"").toLowerCase().indexOf(pq)>=0;
       });
     }
+    // 荣誉与处分：家长/科任只看到班主任标记为「家长可见」的记录（默认不展示，逐条公开）
+    if(key==="honor" && !canEdit()){
+      rows = rows.filter(function(r){ return r["家长可见"]===true; });
+      if(cnt) cnt.textContent="共 "+rows.length+" "+m.unit;
+    }
     var attStrip = renderModAttachments(key);
     // 值日安排：按纸面表格重做，每天一张「项目/时间/负责人」表，跳过标准卡片列表
     if(key==="duty"){
@@ -2996,7 +3003,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       archiveHTML=renderAffArchive(doneRows);
     }
     if(!rows.length){
-      var emptyNote = (key==="affairs" && archiveHTML) ? "待办都清空啦 🎉 已完成的事项都在上方「已完成归档」里" : "还没有数据，点右上角「+ 添加」开始吧～";
+      var emptyNote = (key==="affairs" && archiveHTML) ? "待办都清空啦 🎉 已完成的事项都在上方「已完成归档」里" : (key==="honor" && !canEdit() ? "班主任暂未展示荣誉与处分记录。" : "还没有数据，点右上角「+ 添加」开始吧～");
       var matWarn = (key==="materials" && matUseLocal) ? '<div class="mat-local-note">📎 当前为「本机存储」模式：尚未在 Supabase 建表，数据仅存此设备。在后台执行 <code>hr_materials</code> 建表 SQL 后刷新即自动转为云端同步（已建的本机记录会自动迁移上云）。</div>' : '';
       box.innerHTML = attStrip + extra + archiveHTML
         +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>'+emptyNote+'</div></div>'+matWarn;
@@ -4671,6 +4678,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     if(key==="committee"){
       badge = r["卸任时间"] ? '<span class="pill off">已卸任</span>' : '<span class="pill on">在任</span>';
     }
+    if(key==="honor" && canEdit()){
+      badge += (r["家长可见"]===true)
+        ? '<span class="pill on" title="家长端可见">👁 家长可见</span>'
+        : '<span class="pill off" title="家长端不可见">🙈 未展示</span>';
+    }
     var subs = m.fields.filter(function(f){return f.name!==m.main;}).map(function(f){
       var v=r[f.name];
       if(v==null||v==="") return "";
@@ -4725,6 +4737,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       }
       acts+='<button class="mini resign" data-act="resign" data-mod="committee" data-id="'+id+'">卸任</button>';
     }
+    if(key==="honor"){
+      acts+='<button class="mini '+(r["家长可见"]===true?"":"pos")+'" data-act="honorvis" data-mod="honor" data-id="'+id+'" title="'+(r["家长可见"]===true?"对家长隐藏这条记录":"将这条记录展示给家长（家长端只读）")+'">'+(r["家长可见"]===true?"🙈 对家长隐藏":"👁 展示给家长")+'</button>';
+    }
     acts+='<button class="mini edit" data-act="edit" data-mod="'+key+'" data-id="'+id+'">编辑</button>';
     if(key==="rules"){
       var rdir=r["方向"];
@@ -4734,6 +4749,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     }
     acts+='<button class="mini del" data-act="del" data-mod="'+key+'" data-id="'+id+'">删除</button>';
 
+    if(!canEdit()) acts="";   // 家长/科任只读：卡片不渲染编辑/删除/展示切换等操作按钮
     return '<div class="card" >'
       +'<div class="card-main">'+mainHTML+' '+badge+'</div>'
       +(key==="committee"?('<div class="row"><span class="lbl">任期</span><span class="val">'+((r["任职时间"]?fmtDate(r["任职时间"]):"—")+(r["卸任时间"]?(" 至 "+fmtDate(r["卸任时间"])+"（已卸任）"):" 起（在任）"))+'</span></div>'):"")
@@ -7673,6 +7689,20 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("恢复失败"); });
   }
+  /* 荣誉与处分：切换该条记录是否展示给家长（家长端只读，仅看到被标记的记录）。
+     用 recordProps 全量合并写回，避免 apiUpdate 整体覆盖清空其它字段。 */
+  function honorToggleVis(id){
+    if(!canEdit()){ toast("仅班主任可操作"); return; }
+    var rec=(DATA.honor||[]).filter(function(r){return r._id===id;})[0];
+    if(!rec) return;
+    var toShow = rec["家长可见"]!==true;
+    setStatus("syncing");
+    var props=recordProps("honor", id, {家长可见: toShow});
+    apiUpdate("honor", id, props)
+      .then(function(){ toast(toShow?"已展示给家长 👁（家长端只读可见）":"已对家长隐藏 🙈"); return refreshAll(); })
+      .then(function(){ setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败"); });
+  }
   /* 班务待办：已完成归档区（默认折叠，点标题展开查看历史） */
   var affArchiveOpen = false;
   function renderAffArchive(list){
@@ -9510,6 +9540,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       else if(act==="unmark-bad") unmarkCommitteeNegligent(id);
       else if(act==="ruleapply") ruleApplyToStudent(id);
       else if(act==="undone") undoDone(id);
+      else if(act==="honorvis") honorToggleVis(id);
     }
     // 班务待办：展开 / 收起「已完成归档」
     var aarch=e.target.closest("[data-aff-arch]");
@@ -10887,7 +10918,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "honor-event-2026-09-07";
+  var __APP_VERSION__ = "honor-parent-vis-2026-09-07";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
