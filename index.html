@@ -574,6 +574,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rrow:hover .rr-acts{opacity:1}
   .rr-acts .mini{padding:3px 9px;font-size:11.5px}
   /* 材料文件夹 · 新建对话框 */
+  /* 积分基分预警 */
+  .ptsa-bar{margin:0 0 10px;display:flex;flex-direction:column;gap:6px}
+  .ptsa-line{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .ptsa-k{font-size:12.5px;font-weight:600}
+  .ptsa-k.warn{color:#c8761b}
+  .ptsa-k.danger{color:#d8453f}
+  .ptsa-chip{font-size:12px;padding:2px 8px;border-radius:999px}
+  .ptsa-chip.warn{background:#fff3e6;color:#c8761b;border:1px solid #ffcf9a}
+  .ptsa-chip.danger{background:#fdecec;color:#d8453f;border:1px solid #f6b6b2}
+  .pf-lv{font-style:normal;font-size:10.5px;padding:1px 7px;border-radius:999px;margin-left:6px;display:inline-block}
+  .pf-lv.warn{background:#fff3e6;color:#c8761b;border:1px solid #ffcf9a}
+  .pf-lv.danger{background:#fdecec;color:#d8453f;border:1px solid #f6b6b2}
   /* 快速制表向导 */
   .qt-mask{position:fixed;inset:0;background:rgba(23,28,45,.55);z-index:3400;display:flex;align-items:center;justify-content:center;padding:18px}
   .qt-card{background:#fff;border-radius:18px;padding:16px;width:min(430px,92vw);max-height:92vh;overflow:auto;box-shadow:0 18px 60px rgba(20,30,80,.28);font-size:14px}
@@ -5824,8 +5836,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   /* ---------- 荣誉榜：个人积分TOP3 + 小组积分TOP2 ---------- */
   function renderHonor(){
-    // 总积分(累积，不含兑换) 与 现在积分(可用，含兑换花费)
+    // 总积分(累积，不含兑换) 与 现在积分(可用，含兑换花费)；全员先按基分100初始化，口径与 studentPoints 一致
     var total={}, cur={};
+    (DATA.students||[]).forEach(function(s){ var nm=String(s["姓名"]||"").trim(); if(!nm) return; total[nm]=PTS_BASE; cur[nm]=PTS_BASE; });
     DATA.points.forEach(function(r){
       var nm=r["学生姓名"]; if(!nm) return;
       var v=Number(r["分值"])||0;
@@ -5951,6 +5964,26 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return h+'</div>';
   }
   function togglePointsTop(){ pointsView.topOpen = (pointsView.topOpen===false); renderList("points"); }
+  /* 预警条：现在积分（含基分）<80 预警 / <60 最终警告，按分数升序列出全部触发学生 */
+  function renderPtsAlerts(){
+    var warn=[], danger=[];
+    (DATA.students||[]).forEach(function(s){
+      var nm=String(s["姓名"]||"").trim(); if(!nm) return;
+      var sc=studentPoints(nm);
+      if(sc<PTS_DANGER) danger.push({n:nm, sc:sc});
+      else if(sc<PTS_WARN) warn.push({n:nm, sc:sc});
+    });
+    if(!warn.length && !danger.length) return "";
+    function chips(list, cls){
+      return list.sort(function(a,b){ return a.sc-b.sc; }).map(function(x){
+        return '<span class="ptsa-chip '+cls+'">'+esc(x.n)+' '+fmtPts(x.sc)+'</span>';
+      }).join("");
+    }
+    return '<div class="ptsa-bar">'
+      +(danger.length?'<div class="ptsa-line"><span class="ptsa-k danger">🚨 最终警告（低于'+PTS_DANGER+'分）· '+danger.length+' 人</span>'+chips(danger,"danger")+'</div>':'')
+      +(warn.length?'<div class="ptsa-line"><span class="ptsa-k warn">⚠️ 预警（低于'+PTS_WARN+'分）· '+warn.length+' 人</span>'+chips(warn,"warn")+'</div>':'')
+      +'</div>';
+  }
   function renderPointsView(){
     var rows=(DATA.points||[]).slice();
     var groups=[
@@ -5962,7 +5995,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
         +'<div>还没有加减分记录。点右上角「+ 添加」记一笔，或在「班级制度」里按班规直接扣分/加分。</div></div>';
     }
-    var html=renderPointsTop10();
+    var html=renderPointsTop10()+renderPtsAlerts();
     groups.forEach(function(g){
       var gr=rows.filter(function(r){ return ptsTypeOf(r)===g.key; });
       if(!gr.length) return;
@@ -6399,7 +6432,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       + (info.length?'<div class="pf-tags">'+info.map(function(p){return '<span class="pf-tag"><i>'+esc(p[0])+'</i>'+esc(p[1])+'</span>';}).join("")+'</div>':'')
       +'</div>'
       +'<div class="pf-pts"><div class="pf-pt"><b class="'+(total>=0?'pos':'neg')+'">'+fmtPts(total)+'</b><span>累计积分</span></div>'
-      +'<div class="pf-pt"><b class="'+(cur>=0?'pos':'neg')+'">'+fmtPts(cur)+'</b><span>可用积分</span></div></div>'
+      +'<div class="pf-pt"><b class="'+(cur>=0?'pos':'neg')+'">'+fmtPts(cur)+'</b><span>可用积分</span>'
+      + (function(){ var lv=ptsLevelOf(cur); return lv?'<i class="pf-lv '+lv+'">'+(lv==="danger"?"🚨 最终警告":"⚠️ 预警")+'</i>':''; })()
+      +'</div></div>'
       +'</div>';
     if(st && st["备注"]) html+='<div class="pf-note">📝 '+esc(st["备注"])+'</div>';
     if(st && st["班干部"] && String(st["班干部"]).trim()){
@@ -6633,11 +6668,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
 
   /* ---------- 积分（可用 / 累积）---------- */
-  function studentPoints(name){   // 现在积分（可用，含兑换花费）
-    var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; var x=Number(r["分值"])||0; if(r["类型"]==="减分"||r["类型"]==="兑换") x=-x; v+=x; }); return v;
+  /* ---------- 积分基分与预警线：每人起始 100 分；<80 预警；<60 最终警告 ---------- */
+  var PTS_BASE=100, PTS_WARN=80, PTS_DANGER=60;
+  function ptsLevelOf(sc){ return sc<PTS_DANGER ? "danger" : (sc<PTS_WARN ? "warn" : ""); }
+  function studentPoints(name){   // 现在积分（可用，含基分100与兑换花费）
+    var v=PTS_BASE; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; var x=Number(r["分值"])||0; if(r["类型"]==="减分"||r["类型"]==="兑换") x=-x; v+=x; }); return v;
   }
-  function studentTotal(name){    // 累积积分（不含兑换花费，成长总账）
-    var v=0; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; if(r["类型"]==="兑换") return; var x=Number(r["分值"])||0; if(r["类型"]==="减分") x=-x; v+=x; }); return v;
+  function studentTotal(name){    // 累积积分（含基分100，不含兑换花费，成长总账）
+    var v=PTS_BASE; (DATA.points||[]).forEach(function(r){ if(r["学生姓名"]!==name) return; if(r["类型"]==="兑换") return; var x=Number(r["分值"])||0; if(r["类型"]==="减分") x=-x; v+=x; }); return v;
   }
   function classAvgPoints(){
     var names=(DATA.students||[]).map(function(s){return s["姓名"];}).filter(Boolean);
@@ -11431,7 +11469,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "quick-tables-2026-09-08";
+  var __APP_VERSION__ = "points-base-warn-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
