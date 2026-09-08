@@ -552,6 +552,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pts-sub .pts-row{padding:7px 14px 7px 26px}
   .pts-sub .pts-row:last-child{border-bottom:1px solid #F0EDF4}
   .pts-sub .pts-name{min-width:56px;font-size:13px}
+  .pts-dsep{font-size:11px;font-weight:800;color:#7E6FA8;background:#F5F2FB;padding:5px 14px;border-top:1px solid #EDE8F6;letter-spacing:.3px}
   /* 班级制度 · 按方向分文件夹 */
   .rc-folder{border:1.5px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:#fff}
   .rc-fh{display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;
@@ -6083,6 +6084,9 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +'<div>还没有加减分记录。点右上角「+ 添加」记一笔，或在「班级制度」里按班规直接扣分/加分。</div></div>';
     }
     var html=renderPointsTop10()+renderPtsAlerts();
+    /* 文件夹顺序：按「各组最新记录日期」倒序 —— 有新日期的类型排最上面，
+       避免"上周加分"整体压在"今天扣分"之上（旧日期在上）的观感 */
+    var ready=[];
     groups.forEach(function(g){
       var gr=rows.filter(function(r){ return ptsTypeOf(r)===g.key; });
       if(!gr.length) return;
@@ -6092,6 +6096,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if(da!==db) return da<db?1:-1;
         return String(b["时间"]||"").localeCompare(String(a["时间"]||""));
       });
+      ready.push({g:g, gr:gr, last:String(gr[0]["日期"]||"")});
+    });
+    ready.sort(function(a,b){ return a.last<b.last?1:(a.last>b.last?-1:0); });
+    ready.forEach(function(item){
+      var g=item.g, gr=item.gr;
       var sum=0; gr.forEach(function(r){ sum+=ptsSigned(r); });
       var open=pointsView.open[g.key]!==false;   // 默认展开
       html+='<div class="pts-folder '+(open?'open':'')+' '+g.cls+'">';
@@ -6110,8 +6119,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
           if(gmap[k]){ gmap[k].list.push(r); }
           else{ gmap[k]={date:String(r["日期"]||""), reason:String(r["原因"]||"").trim()||"（无原因）", sc:ptsSigned(r), list:[r]}; items.push(k); }
         });
+        var lastD=null;
         items.forEach(function(k){
           var g=gmap[k];
+          /* 日期分段：换天就插一条日期分隔（含星期），最新在上 */
+          var dstr=String(g.date||"");
+          if(dstr!==lastD){
+            lastD=dstr;
+            var wd="";
+            if(/^\d{4}-\d{2}-\d{2}$/.test(dstr)) wd=" 周"+"日一二三四五六"[new Date(dstr+"T00:00:00").getDay()];
+            html+='<div class="pts-dsep">'+esc(fmtDate(dstr)||"（无日期）")+wd+'</div>';
+          }
           var reason=g.reason; if(reason.length>26) reason=reason.slice(0,26)+"…";
           if(g.list.length===1){
             var r=g.list[0], sc=g.sc, no=String(r["学号"]||"");
@@ -11624,7 +11642,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "pts-group-compact-2026-09-08";
+  var __APP_VERSION__ = "pts-date-sort-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
