@@ -5914,41 +5914,52 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      口径：净积分 = 加分 − 减分 − 兑换（与列表每笔正负号一致，见 ptsSigned），降序取前 10 名。
      用横向条形而非纵向柱状：中文姓名在手机上也能完整平铺显示，不必旋转标签。 */
   function renderPointsTop10(){
-    var rows=(DATA.points||[]);
-    var agg={};
-    rows.forEach(function(r){
-      var nm=String(r["学生姓名"]||"").trim();
-      if(!nm) return;
-      agg[nm]=(agg[nm]||0)+ptsSigned(r);
+    /* 口径与荣誉榜 renderHonor 完全同步：累计积分 = 基分 100 + 加分 − 减分（兑换只减可用，不动累计）。
+       「加减分处于扣分」（净加减分 < 0）的学生不上榜；上榜者按累计积分降序取前 10 名。 */
+    var open=pointsView.topOpen!==false;
+    var total={}, cur={};
+    (DATA.students||[]).forEach(function(s){ var nm=String(s["姓名"]||"").trim(); if(!nm) return; total[nm]=PTS_BASE; cur[nm]=PTS_BASE; });
+    var seen={};
+    (DATA.points||[]).forEach(function(r){
+      var nm=String(r["学生姓名"]||"").trim(); if(!nm) return;
+      seen[nm]=true;
+      if(!(nm in total)){ total[nm]=PTS_BASE; cur[nm]=PTS_BASE; }
+      var v=Number(r["分值"])||0;
+      if(r["类型"]==="兑换"){ cur[nm]-=v; }
+      else { var t=(r["类型"]==="减分")?-Math.abs(v):Math.abs(v); total[nm]+=t; cur[nm]+=t; }
     });
-    var list=Object.keys(agg).map(function(nm){ return {name:nm, val:agg[nm]}; });
-    if(!list.length) return "";
+    var list=[], cut=0;
+    Object.keys(seen).forEach(function(nm){
+      if(total[nm]-PTS_BASE<0){ cut++; return; }        // 处于扣分：不上榜
+      list.push({name:nm, val:total[nm]});
+    });
+    var h='<div class="pts-top10">'
+      +'<div class="pts-t10h" data-ptstop="1">'
+      +'<span class="pts-caret">'+(open?'▾':'▸')+'</span>'
+      +'<span class="pts-fname">🏆 积分榜 · 前十名</span>'
+      +'<span class="pts-fmeta">'+(list.length?('共 '+list.length+' 人上榜'+(cut?' · '+cut+' 人处于扣分未列入':'')):'暂无上榜学生')+'</span>'
+      +'</div>';
+    if(!open) return h+'</div>';
+    if(!list.length){
+      var note0=cut?('有 '+cut+' 名学生处于扣分状态（净加减分为负），未列入积分榜。'):'暂无积分记录，去「加减分管理」记一笔吧～';
+      return h+'<div class="pts-t10body"><div class="pts-t10note">'+note0+'</div></div></div>';
+    }
     list.sort(function(a,b){ return b.val-a.val; });
     var top=list.slice(0,10);
     var W=680, rowH=26, barH=14, x0=130, valW=54;
     var barMax=W-x0-valW;               // 条形可占最大宽度
     var H=top.length*rowH+8;
-    var open=pointsView.topOpen!==false;
-    var h='<div class="pts-top10">'
-      +'<div class="pts-t10h" data-ptstop="1">'
-      +'<span class="pts-caret">'+(open?'▾':'▸')+'</span>'
-      +'<span class="pts-fname">🏆 积分榜 · 前十名</span>'
-      +'<span class="pts-fmeta">共 '+list.length+' 人有积分记录</span>'
-      +'</div>';
-    if(!open) return h+'</div>';
 
-    /* 条长按「数值相对全距」映射：净积分越高条越长，含负分也保持单调
-       （旧实现按 |val| 取绝对值，会出现 -20 的条比 -3 长、排名靠后反而更长，与排序观感相反）。
-       0 分基准画成虚线：条末端越过虚线=正分，未到=负分。 */
-    var minV=0, maxV=0;
+    /* 条长按「数值相对全距」映射；虚线为基分 100 基准（条末端越过虚线 = 净加减分为正）。 */
+    var minV=Infinity, maxV=-Infinity;
     top.forEach(function(t){ if(t.val<minV) minV=t.val; if(t.val>maxV) maxV=t.val; });
     var span=(maxV-minV)||1;
-    var zeroX=x0+Math.round((0-minV)/span*barMax);
+    var zeroX=x0+Math.round((PTS_BASE-minV)/span*barMax);
     var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMinYMin meet" style="display:block" role="img" aria-label="积分前十名柱状图">';
     top.forEach(function(t,i){
       var y=i*rowH+4;
       var bw=Math.max(3, Math.round((t.val-minV)/span*barMax));
-      var col=(t.val>=0)?"#D9534F":"#2E9E6B";          // 正分红 / 负分绿，与列表 .pos / .neg 一致
+      var col=(t.val>=PTS_BASE)?"#D9534F":"#2E9E6B";   // 高于基分红 / 低于基分绿，与列表 .pos / .neg 一致
       var rk=i+1;
       var rc=(rk===1)?"#FFB84D":(rk===2)?"#A9B4C6":(rk===3)?"#D9A566":"#C2CADB";
       var nmv=(t.name.length>7)?(t.name.slice(0,7)+"…"):t.name;
@@ -5958,9 +5969,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       s+='<rect x="'+x0+'" y="'+(y+2)+'" width="'+bw+'" height="'+barH+'" rx="'+(barH/2)+'" fill="'+col+'"></rect>';
       s+='<text x="'+(x0+barMax+8)+'" y="'+(y+14)+'" font-size="12.5" font-weight="800" fill="'+col+'">'+fmtPts(t.val)+'</text>';
     });
-    s+='<line x1="'+zeroX+'" x2="'+zeroX+'" y1="0" y2="'+(H-2)+'" stroke="#5B6884" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"></line>';
+    if(minV<=PTS_BASE){   // 有人恰好停在基分：虚线画在最左；全员高于基分时不画
+      if(zeroX<x0) zeroX=x0;
+      s+='<line x1="'+zeroX+'" x2="'+zeroX+'" y1="0" y2="'+(H-2)+'" stroke="#5B6884" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"></line>';
+    }
     s+='</svg>';
-    h+='<div class="pts-t10body">'+s+'<div class="pts-t10note">口径：净积分 = 加分 − 减分 − 兑换，按降序取前 10 名；条越长分越高，虚线为 0 分基准（<span style="color:#D9534F;font-weight:700">红=正分</span>，<span style="color:#2E9E6B;font-weight:700">绿=负分</span>）</div></div>';
+    h+='<div class="pts-t10body">'+s+'<div class="pts-t10note">口径：与荣誉榜同步——累计积分 = 基分 100 + 加分 − 减分（兑换不计入累计），按累计降序取前 10 名；处于扣分（净加减分为负）的学生不上榜。虚线为基分 100 基准（<span style="color:#D9534F;font-weight:700">红=高于基分</span>，<span style="color:#2E9E6B;font-weight:700">绿=低于基分</span>）</div></div>';
     return h+'</div>';
   }
   function togglePointsTop(){ pointsView.topOpen = (pointsView.topOpen===false); renderList("points"); }
@@ -11469,7 +11483,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "points-base-warn-2026-09-08";
+  var __APP_VERSION__ = "pts-board-sync-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
