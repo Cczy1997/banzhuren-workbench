@@ -98,6 +98,30 @@ self.addEventListener("fetch", function(e){
   var isShell = req.mode === "navigate" || p.endsWith("/") || p.endsWith("index.html") || p.endsWith(".html");
   if(!isShell) return;
 
+  /* ?fresh=1 强制刷新入口：绕过缓存直连网络，最新外壳回写规范地址的缓存键。
+     用途：更新条没弹/怀疑版本旧时，访问 原地址?fresh=1 一步拿到最新版。 */
+  if(url.search.indexOf("fresh=") >= 0){
+    e.respondWith((async function(){
+      var canon = new Request(url.origin + url.pathname);
+      try{
+        var res = await fetch(canon, { cache:"no-cache" });
+        if(res && res.status === 200){
+          try{ var c0 = await caches.open(CACHE); await c0.put(canon, res.clone()); }catch(_){}
+          return res;
+        }
+      }catch(_){}
+      try{
+        var c1 = await caches.open(CACHE);
+        var fb = await c1.match(canon);
+        if(fb) return fb;
+      }catch(_){}
+      return fetch(req).catch(function(){
+        return new Response("离线且网络不可用", { status:503, headers:{ "Content-Type":"text/plain; charset=utf-8" } });
+      });
+    })());
+    return;
+  }
+
   e.respondWith((async function(){
     var cache = await caches.open(CACHE);
     var cached = await cache.match(req);
