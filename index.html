@@ -574,6 +574,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .rrow:hover .rr-acts{opacity:1}
   .rr-acts .mini{padding:3px 9px;font-size:11.5px}
   /* 材料文件夹 · 新建对话框 */
+  /* 快速制表向导 */
+  .qt-mask{position:fixed;inset:0;background:rgba(23,28,45,.55);z-index:3400;display:flex;align-items:center;justify-content:center;padding:18px}
+  .qt-card{background:#fff;border-radius:18px;padding:16px;width:min(430px,92vw);max-height:92vh;overflow:auto;box-shadow:0 18px 60px rgba(20,30,80,.28);font-size:14px}
+  .qt-title{font-weight:700;font-size:15px;color:#2c3350}
+  .qt-tabs{display:flex;gap:6px;margin:10px 0 12px}
+  .qt-tab{flex:1;padding:8px 4px;border-radius:10px;border:1px solid #e3e6ef;background:#f7f8fb;color:#5a6178;cursor:pointer;font-size:13px;text-align:center}
+  .qt-tab.on{background:#eef2ff;border-color:#c3cdf5;color:#3d4db7;font-weight:600}
+  .qt-pane{display:none}.qt-pane.on{display:block}
+  .qt-lab{font-size:12px;color:#8a90a5;margin:10px 0 5px}
+  .qt-ta{width:100%;box-sizing:border-box;min-height:96px;border:1px solid #dfe3ee;border-radius:10px;padding:8px 10px;font-size:13px;resize:vertical;font-family:inherit}
+  .qt-row{display:flex;gap:8px;margin-top:6px}
+  .qt-opt{flex:1;padding:8px 6px;border-radius:10px;border:1px solid #e3e6ef;background:#f7f8fb;color:#5a6178;cursor:pointer;text-align:center;font-size:12.5px}
+  .qt-opt.on{background:#eef7f1;border-color:#bfe3cf;color:#2c7a52;font-weight:600}
+  .qt-in{width:100%;box-sizing:border-box;border:1px solid #dfe3ee;border-radius:10px;padding:8px 10px;font-size:13px}
+  .qt-note{font-size:11.5px;color:#a0a5b8;margin-top:8px;line-height:1.55}
+  .qt-btns{display:flex;gap:10px;margin-top:14px}
+  .qt-btn{flex:1;padding:9px;border-radius:10px;border:1px solid #e3e6ef;background:#fff;color:#5a6178;cursor:pointer;font-size:13.5px}
+  .qt-btn.primary{background:#4f6bdd;border-color:#4f6bdd;color:#fff}
+  .qt-chk{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;color:#5a6178;margin-top:10px;line-height:1.5}
   .matnew-card{background:#fff;border-radius:18px;padding:18px;width:min(400px,92vw);box-shadow:0 18px 48px rgba(40,46,78,.25);font-size:14px}
   .matnew-title{font-size:16px;font-weight:800;margin-bottom:12px;color:var(--ink)}
   .matnew-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;outline:none;margin-bottom:12px}
@@ -1428,6 +1447,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <nav class="nav" id="nav" data-page-node-id="1qxRxX8Jik0VraExXkWdG9"></nav>
     <span class="s-status" id="status" data-page-node-id="uZtaM2ssqRBLDzRwzS46uq"><span class="dot" data-page-node-id="jxHwKd2tulNGwFQjvEc2xv"></span><span id="statusText" data-page-node-id="KrrceaHspcCrQbHNUDd6Yk">同步中</span></span>
     <button class="logout-btn share-btn" id="shareBtn" style="display:none" title="生成带二维码的分享海报，保存后可直接发到微信">📤 分享工作台</button>
+    <button class="logout-btn share-btn" id="quickTblBtn" style="display:none" title="一键生成：材料收集表 / 座位表 / 值日安排表">⚡ 快速制表</button>
     <button class="logout-btn" id="logoutBtn" style="display:none" title="退出当前账号，回到身份选择界面" data-page-node-id="LDBOXLC4blVKdUjUrrp9op">⇄ 切换身份 / 退出</button>
   </aside>
 
@@ -3897,6 +3917,185 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     x.fillText("微信里长按二维码，家长无需选择身份直接登录", W/2, H-56);
     return cv;
   }
+  /* ---------- ⚡ 快速制表：材料收集表 / 座位表 / 值日安排表（仅班主任） ---------- */
+  function qtShuffle(arr){
+    var a=arr.slice();
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  var QT_CNUM=["一","二","三","四","五","六","七","八"];
+  function qtGo(mod, after){
+    state.cat=(MODULES[mod]&&MODULES[mod].cat)||"aff"; state.mod=mod; state.open[state.cat]=true;
+    render();
+    if(typeof after==="function") setTimeout(after,0);
+  }
+  function openQuickTables(){
+    if(!isHead()){ toast("仅班主任可使用快速制表"); return; }
+    var old=document.getElementById("qtMask"); if(old) old.remove();
+    var ov=document.createElement("div"); ov.className="qt-mask"; ov.id="qtMask";
+    var L=seatLayout;
+    ov.innerHTML='<div class="qt-card">'
+      +'<div class="qt-title">⚡ 快速制表</div>'
+      +'<div class="qt-tabs">'
+      +'<div class="qt-tab on" data-qttab="mat">📁 材料收集</div>'
+      +'<div class="qt-tab" data-qttab="seat">🪑 座位表</div>'
+      +'<div class="qt-tab" data-qttab="duty">🧹 值日表</div>'
+      +'</div>'
+      /* A 材料收集 */
+      +'<div class="qt-pane on" data-qtpane="mat">'
+      +'<div class="qt-lab">每行一个事项名（可批量）</div>'
+      +'<textarea id="qtMatNames" class="qt-ta" placeholder="如：\n数学作业\n英语作业\n社会实践表"></textarea>'
+      +'<div class="qt-lab">类型</div>'
+      +'<div class="qt-row">'
+      +'<div class="qt-opt on" data-qtmattype="作业提交">📝 作业类 · 按日期收</div>'
+      +'<div class="qt-opt" data-qtmattype="材料上交">📦 收材料 · 单次收齐</div>'
+      +'</div>'
+      +'<div class="qt-note">创建后自动跳入第一个事项的网格视图，点格即记「已交 → 迟交 → 未交」。</div>'
+      +'</div>'
+      /* B 座位表 */
+      +'<div class="qt-pane" data-qtpane="seat">'
+      +'<div class="qt-lab">布局模式</div>'
+      +'<div class="qt-row">'
+      +'<div class="qt-opt on" data-qtseatmode="grid">▦ 常规网格（行 × 列）</div>'
+      +'<div class="qt-opt'+(L.mode==="group"?" on":"")+'" data-qtseatmode="group">👥 小组围坐</div>'
+      +'</div>'
+      +'<div data-qtseatgrid>'
+      +'<div class="qt-lab">行数 / 列数</div>'
+      +'<div class="qt-row"><input id="qtSeatRows" class="qt-in" type="number" min="1" max="12" value="'+L.rows+'"><input id="qtSeatCols" class="qt-in" type="number" min="1" max="14" value="'+L.cols+'"></div>'
+      +'</div>'
+      +'<div data-qtseatgroup style="display:none">'
+      +'<div class="qt-lab">组数 / 每组列数 / 每组行数</div>'
+      +'<div class="qt-row"><input id="qtSeatGroups" class="qt-in" type="number" min="1" max="8" value="'+L.groups+'"><input id="qtSeatCPG" class="qt-in" type="number" min="1" max="6" value="'+L.colsPerGroup+'"><input id="qtSeatRPG" class="qt-in" type="number" min="1" max="12" value="'+L.rowsPerGroup+'"></div>'
+      +'</div>'
+      +'<div class="qt-lab">排座方式</div>'
+      +'<div class="qt-row">'
+      +'<div class="qt-opt on" data-qtseatorder="seq">按名单顺序</div>'
+      +'<div class="qt-opt" data-qtseatorder="rand">🎲 随机打乱</div>'
+      +'</div>'
+      +'<div class="qt-note">将清空当前网格座位重新排布（讲台两侧单独安排的座位会保留），然后自动跳到座位表。</div>'
+      +'</div>'
+      /* C 值日表 */
+      +'<div class="qt-pane" data-qtpane="duty">'
+      +'<div class="qt-lab">值日小组数（第X组）</div>'
+      +'<select id="qtDutyN" class="qt-in">'
+      +'<option value="4">4 组</option><option value="5" selected>5 组</option><option value="6">6 组</option><option value="7">7 组</option><option value="8">8 组</option>'
+      +'</select>'
+      +'<div class="qt-lab">分组方式</div>'
+      +'<div class="qt-row">'
+      +'<div class="qt-opt on" data-qtdutyorder="seq">按名单顺序轮转</div>'
+      +'<div class="qt-opt" data-qtdutyorder="rand">🎲 随机均分</div>'
+      +'</div>'
+      +'<label class="qt-chk"><input type="checkbox" id="qtDutyClear"><span>清空现有值日安排后重新生成（含组长 / 值日班长标记，不可恢复）</span></label>'
+      +'<div class="qt-note">全班按组均分（每组人数差 ≤1），组内成员依次填入五大分工：黑板 → 室内地板 → 走廊 → 倒垃圾 → 卫生区；人多的分工自动叠加多人。</div>'
+      +'</div>'
+      +'<div class="qt-btns"><button class="qt-btn" id="qtCancel">取消</button><button class="qt-btn primary" id="qtOk">生成</button></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    var matType="作业提交", seatMode="grid", seatOrder="seq", dutyOrder="seq";
+    function toggle(sel, el, key){
+      Array.prototype.forEach.call(ov.querySelectorAll(sel), function(x){ x.classList.toggle("on", x===el); });
+    }
+    ov.addEventListener("click", function(e){
+      var tab=e.target.closest("[data-qttab]");
+      if(tab){
+        var k=tab.getAttribute("data-qttab");
+        Array.prototype.forEach.call(ov.querySelectorAll(".qt-tab"), function(x){ x.classList.toggle("on", x===tab); });
+        Array.prototype.forEach.call(ov.querySelectorAll(".qt-pane"), function(x){ x.classList.toggle("on", x.getAttribute("data-qtpane")===k); });
+        return;
+      }
+      var mt=e.target.closest("[data-qtmattype]");
+      if(mt){ matType=mt.getAttribute("data-qtmattype"); toggle("[data-qtmattype]", mt); return; }
+      var sm=e.target.closest("[data-qtseatmode]");
+      if(sm){
+        seatMode=sm.getAttribute("data-qtseatmode"); toggle("[data-qtseatmode]", sm);
+        ov.querySelector("[data-qtseatgrid]").style.display = seatMode==="grid"?"":"none";
+        ov.querySelector("[data-qtseatgroup]").style.display = seatMode==="group"?"":"none";
+        return;
+      }
+      var so=e.target.closest("[data-qtseatorder]");
+      if(so){ seatOrder=so.getAttribute("data-qtseatorder"); toggle("[data-qtseatorder]", so); return; }
+      var dord=e.target.closest("[data-qtdutyorder]");
+      if(dord){ dutyOrder=dord.getAttribute("data-qtdutyorder"); toggle("[data-qtdutyorder]", dord); return; }
+      if(e.target===ov || e.target.id==="qtCancel"){ ov.remove(); return; }
+      if(e.target.id==="qtOk"){
+        var pane=ov.querySelector(".qt-pane.on");
+        var pk=pane.getAttribute("data-qtpane");
+        if(pk==="mat") qtApplyMaterials(ov);
+        else if(pk==="seat") qtApplySeats(ov, seatMode, seatOrder);
+        else qtApplyDuty(ov, dutyOrder);
+      }
+    });
+  }
+  function qtApplyMaterials(ov){
+    var lines=String(ov.querySelector("#qtMatNames").value||"").split(/\n+/)
+      .map(function(x){ return x.trim(); }).filter(Boolean);
+    if(!lines.length){ toast("请先填写至少一个事项名"); return; }
+    var seen={}, add=[];
+    for(var i=0;i<lines.length;i++){
+      var nm=lines[i]; if(seen[nm]) continue; seen[nm]=1;
+      var dup=(MAT_FOLDERS||[]).some(function(f){ return f.item===nm && f.type===matType; })
+        || (DATA.materials||[]).some(function(r){ return String(r["事项"]||"").trim()===nm && (r["类型"]||"作业提交")===matType; });
+      if(!dup) add.push({ item:nm, type:matType, created:todayStr() });
+    }
+    if(!add.length){ toast("没有可新建的事项（同名同类型均已存在）"); return; }
+    add.forEach(function(f){ MAT_FOLDERS.push(f); });
+    persistSettings();
+    ov.remove();
+    toast("已创建 "+add.length+" 个材料文件夹 ✓");
+    gridState.mod="materials"; gridState.curItem=add[0].item; gridState.curType=add[0].type;
+    qtGo("materials");
+  }
+  function qtApplySeats(ov, seatMode, seatOrder){
+    function num(sel, def, min, max){
+      var v=parseInt(ov.querySelector(sel).value,10);
+      if(isNaN(v)) v=def;
+      return Math.min(max, Math.max(min, v));
+    }
+    if(seatMode==="group"){
+      seatLayout={ mode:"group", groups:num("#qtSeatGroups",4,1,8), colsPerGroup:num("#qtSeatCPG",2,1,6), rowsPerGroup:num("#qtSeatRPG",7,1,12) };
+    } else {
+      seatLayout={ mode:"grid", rows:num("#qtSeatRows",8,1,12), cols:num("#qtSeatCols",7,1,14) };
+    }
+    saveSeatLayout();
+    ov.remove();
+    fillSeatsFromRoster({ shuffle:seatOrder==="rand", silent:true });
+    qtGo("seats");
+  }
+  function qtApplyDuty(ov, dutyOrder){
+    var n=parseInt(ov.querySelector("#qtDutyN").value,10)||5;
+    var clear=!!ov.querySelector("#qtDutyClear").checked;
+    var st=(DATA.students||[]).slice();
+    if(!st.length){ toast("请先在「学生档案」录入学生名单"); return; }
+    if(dutyOrder==="rand") st=qtShuffle(st);
+    var buckets=[]; for(var g=0;g<n;g++) buckets.push([]);
+    for(var i=0;i<st.length;i++) buckets[i%n].push(st[i]);   /* 轮转均分：各组人数差 ≤1 */
+    var rows=[];
+    buckets.forEach(function(b,g){
+      b.forEach(function(s,j){
+        rows.push({
+          值日小组:"第"+QT_CNUM[g]+"组",
+          分工:DUTY_WEEK_DIVISIONS[j % DUTY_WEEK_DIVISIONS.length],
+          负责人:s["姓名"]||"",
+          学号:String(s["学号"]||"")
+        });
+      });
+    });
+    setStatus("syncing");
+    function doAdd(){
+      return apiAddBatch("duty", rows).then(function(out){
+        (DATA.duty=DATA.duty||[]).push.apply(DATA.duty, out||[]);
+      });
+    }
+    var p;
+    if(clear && (DATA.duty||[]).length){
+      p=apiDeleteBatch("duty", DATA.duty.map(function(r){ return r._id; })).then(function(){ DATA.duty=[]; return doAdd(); });
+    } else p=doAdd();
+    return p.then(function(){
+      setStatus("ok"); ov.remove();
+      toast("值日表已生成："+QT_CNUM.slice(0,n).map(function(c){ return "第"+c+"组"; }).join("、")+"，共 "+rows.length+" 格 ✓");
+      qtGo("duty");
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("生成失败："+(e&&e.message||e)); });
+  }
   function openSharePoster(){
     ensureQRLib().then(function(){
       var qcv=makeQRCanvas(shareSiteURL(), 370);   /* 与海报托盘同尺寸：cell 取整后整像素、不溢出 */
@@ -5518,10 +5717,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     toast("座位表已导出为 Excel ✓");
   }
   /* 按学生档案顺序一键排座（清空旧座位后重新排布） */
-  function fillSeatsFromRoster(){
-    var st=DATA.students||[];
+  function fillSeatsFromRoster(opts){
+    opts=opts||{};
+    var st=(DATA.students||[]).slice();
+    if(opts.shuffle) st=qtShuffle(st);   /* 随机排座：打乱副本，不动名单原序 */
     if(!st.length){ toast("请先在「学生档案」录入学生名单"); return; }
-    if(!confirm("按名单排座将清空当前座位并依学生档案顺序重新排布，确定？")) return;
+    if(!opts.silent && !confirm("按名单排座将清空当前座位并依学生档案顺序重新排布，确定？")) return;
     setStatus("syncing");
     var isGroup=seatLayout.mode==="group";
     var R = isGroup ? seatLayout.rowsPerGroup : seatLayout.rows;
@@ -11133,6 +11334,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   document.getElementById("logoutBtn").onclick=switchIdentity;
   var _shw=document.getElementById("shareBtn"); if(_shw) _shw.onclick=function(){ try{ closeDrawer(); }catch(_e){} openSharePoster(); };
+  var _qtw=document.getElementById("quickTblBtn"); if(_qtw) _qtw.onclick=function(){ try{ closeDrawer(); }catch(_e){} openQuickTables(); };
   var _srb=document.getElementById("switchRoleBtn"); if(_srb) _srb.onclick=switchIdentity;
   function onSignedIn(user){
     try{
@@ -11143,6 +11345,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
       var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
+      var _qtb=document.getElementById("quickTblBtn"); if(_qtb) _qtb.style.display=(curRole===ROLE_HEAD)?"":"none";
       var _srb2=document.getElementById("switchRoleBtn"); if(_srb2) _srb2.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
@@ -11228,7 +11431,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "mat-first-click-2026-09-08";
+  var __APP_VERSION__ = "quick-tables-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
