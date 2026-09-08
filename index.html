@@ -1345,6 +1345,49 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .msg-sqlbox .btn-mini{margin-bottom:8px}
   .msg-sql{margin:0;max-height:260px;overflow:auto;white-space:pre;font-family:ui-monospace,Menlo,monospace;
     font-size:11px;line-height:1.55;color:#3a3a44;background:#F4F5F7;padding:10px;border-radius:8px}
+  /* ===== 家长端 · 家校首页 ===== */
+  .ph-wrap{display:flex;flex-direction:column;gap:14px;margin-top:2px}
+  .ph-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px 16px}
+  .ph-kid{display:flex;align-items:center;gap:14px;padding:14px 16px;
+    background:linear-gradient(135deg,#FFF8FB 0%,#F5F8FF 100%)}
+  .ph-avatar{width:54px;height:54px;border-radius:50%;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden;flex:none}
+  .ph-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph-kid-main{flex:1;min-width:0}
+  .ph-kid-name{font-size:18px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .ph-kid-sub{font-size:12px;color:#8a8a95;margin-top:4px;line-height:1.5}
+  .ph-score{text-align:right;flex:none;padding-left:6px}
+  .ph-score-v{font-size:27px;font-weight:800;line-height:1;color:var(--ink)}
+  .ph-score-v.danger{color:#D9534F} .ph-score-v.warn{color:#D98B2B} .ph-score-v.ok{color:#2E9E6B}
+  .ph-score-l{font-size:11px;color:#8a8a95;margin-top:5px}
+  .ph-sec-h{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:10px}
+  .ph-sec-h .spacer{margin-left:auto;font-weight:600;font-size:12px;color:#8a8a95}
+  .ph-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media (max-width:560px){ .ph-grid{grid-template-columns:repeat(2,1fr)} }
+  .ph-stat{border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;background:#fff}
+  .ph-stat-v{font-size:20px;font-weight:800;color:var(--ink);line-height:1.2}
+  .ph-stat-v.warn{color:#D98B2B} .ph-stat-v.danger{color:#D9534F} .ph-stat-v.good{color:#2E9E6B}
+  .ph-stat-l{font-size:11px;color:#8a8a95;margin-top:4px}
+  .ph-msg{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .ph-msg-b{flex:1;min-width:180px;background:#F7F8FA;border-radius:12px;padding:10px 12px}
+  .ph-msg-t{font-size:11.5px;color:#9a9aa2;margin-bottom:4px}
+  .ph-msg-c{font-size:13.5px;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .ph-unread{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;
+    border-radius:999px;background:#E8453C;color:#fff;font-size:11px;font-weight:800}
+  .cnt.msg-unread{background:#E8453C;color:#fff;font-weight:800}
+  .ph-today{display:flex;flex-direction:column}
+  .ph-tc{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .ph-tc:last-child{border-bottom:none}
+  .ph-tc-n{width:66px;flex:none;color:#8a8a95;font-size:11.5px}
+  .ph-tc-c{font-weight:700;color:var(--ink)}
+  .ph-tc-t{margin-left:auto;color:#9a9aa2;font-size:11.5px}
+  .ph-empty{font-size:12.5px;color:#9a9aa2;padding:4px 0;line-height:1.7}
+  .ph-tip{font-size:12px;color:#9a9aa2;line-height:1.75;margin-top:8px}
+  .ph-kv{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--ink-soft);line-height:1.9}
+  .ph-kv b{color:var(--ink);font-weight:700}
+  .msg-form-bc{border:1px solid #F0DAE3;background:#FFFAFC;border-radius:14px;padding:10px 12px;margin:10px 0 14px}
+  .msg-bc-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px;flex-wrap:wrap}
+  .msg-bc-tip{font-size:11.5px;font-weight:500;color:#8a8a95}
   .auth-err{margin-top:6px;font-size:12.5px;color:var(--danger);min-height:16px;line-height:1.4}
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
@@ -1909,7 +1952,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var ROLE_MODS = {};
   ROLE_MODS[ROLE_HEAD]    = null;
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
-  ROLE_MODS[ROLE_PARENT]  = ["duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
+  ROLE_MODS[ROLE_PARENT]  = ["phome","duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
   function canSee(key){
     if(isHead()) return true;
     var list=ROLE_MODS[curRole]||[];
@@ -2179,6 +2222,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     messages:{
       title:"📝 留言板", cat:"board", unit:"", main:"", fields:[]
     },
+    /* 家长端「家校首页」：纯聚合视图（不落地数据），默认落地页。
+       只展示该家长自己孩子的积分 / 考勤 / 收交 / 值日 / 今日课表 + 班主任留言。 */
+    phome:{
+      title:"🏠 家校首页", cat:"phome", unit:"", main:"", fields:[]
+    },
     /* 班级制度公示：单一文档（章节列表），班主任可写，家长/科任老师只读
        ——与"班级制度"加分/扣分条目表(模块rules)是不同模块 */
     regulations:{
@@ -2193,10 +2241,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     mine:["schedule"],
     meet:["meeting","weekly"],
     ai:["ai"],
-    board:["messages"]
+    board:["messages"],
+    phome:["phome"]
   };
   var CAT_META = {
     overview:{icon:"🏠",label:"总览"},
+    phome:{icon:"🏠",label:"家校首页"},
     stu:{icon:"🧑‍🎓",label:"学生管理"},
     aff:{icon:"🗂️",label:"班级事务"},
     mor:{icon:"💗",label:"德育心理"},
@@ -2642,10 +2692,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(!vis.length) return "";
       sub='<div class="sub'+(show?'':' collapsed')+'">';
       vis.forEach(function(k){
-        var m=MODULES[k];
+        var m=MODULES[k], cntHtml="";
+        if(k==="messages"){ var _un=msgUnread(); if(_un) cntHtml='<span class="cnt msg-unread">'+_un+'</span>'; }
+        else if(k!=="phome"){ cntHtml='<span class="cnt">'+(DATA[k]||[]).length+'</span>'; }
         sub+='<a class="'+(state.mod===k?'active':'')+'" data-mod="'+k+'">'
           + '<span>'+esc(stripEmoji(m.title))+'</span>'
-          + '<span class="cnt">'+(DATA[k]||[]).length+'</span></a>';
+          + cntHtml+'</a>';
       });
       sub+='</div>';
     }
@@ -2690,8 +2742,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         +renderScheduleHTML("class", canEdit());
       return;
     }
+    /* 家长端家校首页：聚合视图，班主任 / 科任老师不可见 */
+    if(state.mod==="phome"){ box.innerHTML=renderParentHome(); bindParentHome(); return; }
     /* 留言板：三种身份都能发帖，可见范围由后端 RLS 控制（本人 + 班主任） */
-    if(state.mod==="messages"){ box.innerHTML=renderMessages(); bindMessages(); return; }
+    if(state.mod==="messages"){ box.innerHTML=renderMessages(); bindMessages(); markMsgRead(); return; }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(state.mod==="mall"){ box.innerHTML=renderMall(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
@@ -7132,7 +7186,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="msg-meta"><b>'+esc(who)+'</b>'
       +(m.authorRole?' <span class="msg-role">'+esc(m.authorRole)+'</span>':'')
       +'<span class="msg-time">'+esc(msgTime(m.ts))+'</span>'
-      +'<button class="msg-del" data-msgdel="'+esc(m._id)+'" title="删除">×</button>'
+      /* 删除仅对自己的留言开放：班主任的回复归对方家长所有，RLS 会拒绝，按钮干脆不渲染 */
+      +(mine?'<button class="msg-del" data-msgdel="'+esc(m._id)+'" title="删除">×</button>':'')
       +'</div>'
       +(m.student?'<div class="msg-stu">关联学生：'+esc(m.student)+'</div>':'')
       +'<div class="msg-c">'+esc(m.content||"")+'</div></div>';
@@ -7173,19 +7228,34 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     } else {
       msgStuCtrl="";
     }
-    var form='<div class="msg-form">'
-      +'<textarea id="msgText" placeholder="写下你想说的话…"></textarea>'
-      +'<div class="msg-form-row">'
-      + msgStuCtrl
-      +'<button class="btn-add" id="msgSend">发送</button>'
-      +'</div></div>';
+    var form;
+    if(isH){
+      /* 班主任：主输入框 = 全班通知。按家长成员每人写一行（owner=该家长 uid），
+         于是每位家长只看到属于自己的那一份，家长之间依然互相看不到。 */
+      var _pn=parentMembers().length;
+      form='<div class="msg-form-bc">'
+        +'<div class="msg-bc-h">📢 全班通知'
+        +'<span class="msg-bc-tip">发给 '+_pn+' 位家长，每人各收一份，家长之间互相看不到</span></div>'
+        +'<textarea id="msgText" placeholder="写给全班家长的通知…（如需单独沟通，请在下方对应家长的会话里回复）"></textarea>'
+        +'<div class="msg-form-row">'
+        +'<button class="btn-add" id="msgSend"'+( _pn ? '' : ' disabled style="opacity:.45"' )+'>📢 发送通知</button>'
+        +'</div></div>';
+    } else {
+      form='<div class="msg-form">'
+        +'<textarea id="msgText" placeholder="写下你想说的话…（只有班主任能看到，其他家长看不到）"></textarea>'
+        +'<div class="msg-form-row">'
+        + msgStuCtrl
+        +'<button class="btn-add" id="msgSend">发送</button>'
+        +'</div></div>';
+    }
     if(!list.length) return head+form+'<div class="empty">还没有留言，来写第一条吧～</div>';
     var body="";
     if(isH){
       /* 班主任：按「对方」分组成会话——成员帖按 authorUid 归组，我的回复按 owner 归到对应成员 */
       var groups={}, order=[];
       list.forEach(function(m){
-        var other=(m.authorUid && m.authorUid!==curUid) ? m.authorUid : (m.owner||"未知");
+        /* owner 为空（历史「备忘」帖）→ 归到"我自己"，避免出现「未知」分组 */
+        var other=(m.authorUid && m.authorUid!==curUid) ? m.authorUid : (m.owner||curUid);
         if(!groups[other]){ groups[other]=[]; order.push(other); }
         groups[other].push(m);
       });
@@ -7228,7 +7298,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         var st=document.getElementById("msgStu");
         stuVal=(st&&st.value)||"";
       }
-      postMessage(txt, stuVal, null);
+      if(isHead()){ broadcastMessage(txt); }
+      else { postMessage(txt, stuVal, null); }
       if(t) t.value="";
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-msgsend]"), function(b){
@@ -7252,6 +7323,208 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       };
     });
   }
+  /* ===== 未读计数 =====
+     只按「别人发给我的」统计：authorUid !== 我，且时间晚于我上次打开留言板的时间。
+     读取状态存 localStorage（按账号隔离），不占用云端表。 */
+  var MSG_READ_KEY = "bzr_msg_read_v1";
+  function msgReadTs(){
+    try{ var o=JSON.parse(localStorage.getItem(MSG_READ_KEY)||"{}"); return String(o[curUid||""]||""); }
+    catch(e){ return ""; }
+  }
+  function markMsgRead(){
+    try{
+      var o=JSON.parse(localStorage.getItem(MSG_READ_KEY)||"{}");
+      o[curUid||""]=new Date().toISOString();
+      localStorage.setItem(MSG_READ_KEY, JSON.stringify(o));
+    }catch(e){}
+  }
+  function msgUnread(){
+    var last=msgReadTs();
+    return (DATA.messages||[]).filter(function(m){
+      if(!m.authorUid || m.authorUid===curUid) return false;      // 只看别人发给我的
+      return last ? (String(m.ts||"")>last) : true;
+    }).length;
+  }
+  /* 家长成员列表（班主任广播通知的收件人） */
+  function parentMembers(){
+    return (DATA.members||[]).filter(function(m){
+      return m && m["uid"] && (m["role"]||"")===ROLE_PARENT;
+    });
+  }
+  /* 班主任「📢 全班通知」：按家长成员各写一行，owner=该家长 uid。
+     家长 A 只能读到 owner=A 的那一行 → 家长之间互相看不见，符合私密会话口径。 */
+  function broadcastMessage(content){
+    var ps=parentMembers();
+    if(!ps.length){ toast("还没有家长成员，请先在「⚙️ 成员管理」里添加家长"); return; }
+    var ts=new Date().toISOString();
+    var recs=ps.map(function(m){
+      return { content:content, student:m["student"]||"", ts:ts,
+               authorUid:curUid, authorRole:curRole, owner:m["uid"], bc:true };
+    });
+    apiAddBatch("messages", recs).then(function(){
+      return apiQuery("messages").then(function(res){ DATA.messages=res.results||[]; });
+    }).then(function(){
+      render(); toast("已发给 "+recs.length+" 位家长 ✓");
+    }).catch(function(e){
+      var msg=(e&&e.message)||String(e||"");
+      if(!trySchemaFix(msg)) toast("发送失败："+msg);
+    });
+  }
+
+  /* ===== 家长端 · 家校首页 ===== */
+  function parentChildName(){ return (myMemberRow&&myMemberRow["student"])||""; }
+  function parentStudentRow(){
+    var n=parentChildName(); if(!n) return null;
+    return (DATA.students||[]).filter(function(s){ return String(s["姓名"]||"")===n; })[0]||null;
+  }
+  function studentPhoto(row){
+    var ph=(row&&row["照片"])||"";
+    if(!ph) return "";
+    var first=String(ph).split(/[,，]/).map(function(x){return x.trim();}).filter(Boolean)[0]||"";
+    return first;
+  }
+  /* 今日课程（从家长可见的同一份班级课表取，含本周临时课表覆盖） */
+  function todayCoursesOf(){
+    var b=schedActiveBase("class");
+    if(!b || !b.blocks) return [];
+    var day="周"+"日一二三四五六"[new Date().getDay()];
+    var out=[];
+    (b.blocks||[]).forEach(function(seg){
+      (seg.rows||[]).forEach(function(r){
+        if(r.type!=="section") return;
+        var c=((r.courses||{})[day]||"").trim();
+        if(c) out.push({ name:r.name||"", time:r.time||"", course:c });
+      });
+    });
+    return out;
+  }
+  /* 家长端本周概况：只统计自己孩子 */
+  function parentWeekStat(name){
+    var wk=isoWeek(todayStr()).monday, td=todayStr();
+    var o={ late:0, absent:0, nosub:0, latesub:0, honor:0, dutyTask:"", dutyGroup:"" };
+    if(!name) return o;
+    (DATA.attendance||[]).forEach(function(r){
+      if(String(r["学生姓名"]||"")!==name) return;
+      var d=String(r["日期"]||"").slice(0,10);
+      if(!d || d<wk || d>td) return;
+      var st=String(r["状态"]||"");
+      if(st==="迟到") o.late++;
+      else if(st==="缺勤"||st==="旷课") o.absent++;
+    });
+    (DATA.materials||[]).forEach(function(r){
+      if(String(r["学生姓名"]||"")!==name) return;
+      var d=String(r["日期"]||"").slice(0,10);
+      if(!d || d<wk || d>td) return;
+      var st=String(r["状态"]||"");
+      if(st==="未交") o.nosub++; else if(st==="迟交") o.latesub++;
+    });
+    o.honor=(DATA.honor||[]).filter(function(r){ return String(r["学生姓名"]||"")===name; }).length;
+    /* 值日分工：横向周表里负责人命中该学生 */
+    (DATA.duty||[]).forEach(function(r){
+      if(o.dutyTask) return;
+      var ns=String(r["负责人"]||"").split(/[,，、]/).map(function(x){return x.trim();});
+      if(ns.indexOf(name)<0) return;
+      o.dutyTask=String(r["分工"]||"").trim();
+      o.dutyGroup=String(r["值日小组"]||"").trim();
+    });
+    return o;
+  }
+  /* 班主任发给"我"的最新一条（家长视角：authorUid 是班主任 = 不是我本人） */
+  function parentLatestTeacherMsg(){
+    var list=(DATA.messages||[]).filter(function(m){
+      return m.authorUid && m.authorUid!==curUid;
+    }).sort(function(a,b){ return String(b.ts||"").localeCompare(String(a.ts||"")); });
+    return list[0]||null;
+  }
+  function renderParentHome(){
+    var name=parentChildName();
+    var row=parentStudentRow();
+    var head='<div class="phead"><h3>🏠 家校首页</h3><span class="hint">'
+      +'只展示您孩子本人的情况，其他学生信息不对外公开</span></div>';
+    if(!name){
+      return head+'<div class="ph-card"><div class="ph-empty">账号尚未关联学生。'
+        +'请联系班主任在「留言板 → ⚙️ 成员管理」中把您的账号绑定到孩子姓名。</div></div>';
+    }
+    var st=parentWeekStat(name);
+    var total=studentTotal(name), avail=studentPoints(name);
+    var lv=ptsLevelOf(total);
+    var lvTxt = lv==="danger" ? "需关注" : (lv==="warn" ? "预警" : "良好");
+    var photo=studentPhoto(row);
+
+    /* ① 孩子卡片 */
+    var html='<div class="ph-wrap"><div class="ph-card ph-kid">'
+      +'<div class="ph-avatar">'+(photo?'<img src="'+esc(photo)+'" alt="">':'🧒')+'</div>'
+      +'<div class="ph-kid-main">'
+      +'<div class="ph-kid-name">'+esc(name)+'</div>'
+      +'<div class="ph-kid-sub">'
+      +[ (row&&row["学号"])?"学号 "+esc(row["学号"]):"",
+         (row&&row["学习小组"])?esc(row["学习小组"]):"",
+         st.dutyGroup?esc(st.dutyGroup):"" ].filter(Boolean).join(" · ")
+      +'</div></div>'
+      +'<div class="ph-score"><div class="ph-score-v '+lv+'">'+total+'</div>'
+      +'<div class="ph-score-l">累计积分 · '+lvTxt+'<br>可用 '+avail+'</div></div>'
+      +'</div>';
+
+    /* ② 班主任留言 */
+    var un=msgUnread();
+    var lm=parentLatestTeacherMsg();
+    html+='<div class="ph-card"><div class="ph-sec-h">💬 班主任留言'
+      +(un?'<span class="ph-unread">'+un+'</span>':'')
+      +'<span class="spacer"><button class="btn-mini" data-phgo="messages">去留言 ›</button></span></div>';
+    if(lm){
+      html+='<div class="ph-msg"><div class="ph-msg-b">'
+        +'<div class="ph-msg-t">班主任 · '+esc(msgTime(lm.ts))+'</div>'
+        +'<div class="ph-msg-c">'+esc(lm.content||"")+'</div></div></div>';
+    } else {
+      html+='<div class="ph-empty">还没有班主任留言。有问题可以直接给班主任留言，只有您和班主任能看到。</div>';
+    }
+    html+='</div>';
+
+    /* ③ 本周概况 */
+    var bad=st.late+st.absent;
+    html+='<div class="ph-card"><div class="ph-sec-h">📊 本周概况<span class="spacer">'
+      +esc(isoWeek(todayStr()).monday.slice(5))+' 起</span></div><div class="ph-grid">'
+      +'<div class="ph-stat"><div class="ph-stat-v '+(st.late?'warn':'good')+'">'+st.late+'</div><div class="ph-stat-l">迟到次数</div></div>'
+      +'<div class="ph-stat"><div class="ph-stat-v '+(st.absent?'danger':'good')+'">'+st.absent+'</div><div class="ph-stat-l">缺勤次数</div></div>'
+      +'<div class="ph-stat"><div class="ph-stat-v '+(st.nosub?'warn':'good')+'">'+st.nosub+'</div><div class="ph-stat-l">作业未交</div></div>'
+      +'<div class="ph-stat"><div class="ph-stat-v good">'+st.honor+'</div><div class="ph-stat-l">荣誉记录</div></div>'
+      +'</div>'
+      +'<div class="ph-kv" style="margin-top:10px">'
+      +'<span>值日分工：<b>'+(st.dutyTask?esc(st.dutyGroup+' · '+st.dutyTask):'暂未安排')+'</b></span>'
+      +'<span>迟交作业：<b>'+st.latesub+' 次</b></span>'
+      +'</div></div>';
+
+    /* ④ 今日课表 */
+    var cs=todayCoursesOf();
+    html+='<div class="ph-card"><div class="ph-sec-h">📅 今日课表'
+      +'<span class="spacer"><button class="btn-mini" data-phgo="schedule">完整课表 ›</button></span></div>';
+    if(cs.length){
+      html+='<div class="ph-today">'+cs.map(function(c){
+        return '<div class="ph-tc"><span class="ph-tc-n">'+esc(c.name)+'</span>'
+          +'<span class="ph-tc-c">'+esc(c.course)+'</span>'
+          +(c.time?'<span class="ph-tc-t">'+esc(c.time)+'</span>':'')+'</div>';
+      }).join("")+'</div>';
+    } else {
+      html+='<div class="ph-empty">今天没有排课（或班主任尚未录入课表）。</div>';
+    }
+    html+='</div>';
+
+    html+='<div class="ph-tip">本页面仅汇总您孩子本人的在校情况；'
+      +'如需核对或沟通，请用「💬 班主任留言」——您的留言只有班主任能看到，其他家长看不到。</div>';
+    html+='</div>';
+    return head+html;
+  }
+  function bindParentHome(){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-phgo]"), function(b){
+      b.onclick=function(){
+        var k=b.getAttribute("data-phgo");
+        if(!canSee(k)){ toast("该模块未对您开放"); return; }
+        state.mod=k; state.cat=(MODULES[k]&&MODULES[k].cat)||"aff";
+        state.open[state.cat]=true; render();
+      };
+    });
+  }
+
   /* owner 显式指定接收人；不传时：成员→班主任，班主任→留空（仅自己可见） */
   function postMessage(content, student, owner){
     var rec={ content:content, student:student||"", ts:new Date().toISOString(),
@@ -11624,7 +11897,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "lazy-libs-2026-09-08";
+  var __APP_VERSION__ = "parent-home-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
