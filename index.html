@@ -845,7 +845,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .honor-sub{font-size:13px;font-weight:800;color:var(--ink-soft);margin:16px 0 8px}
   .honor-sub:first-of-type{margin-top:2px}
   /* TOP3 领奖台：银(左) 金(中) 铜(右) */
-  .podium{display:flex;align-items:flex-end;gap:10px;margin-top:10px}
+  .podium3{display:flex;align-items:flex-end;gap:10px;margin-top:10px}
   .pod{flex:1;min-width:0;border-radius:14px;padding:10px 8px 12px;text-align:center;position:relative;overflow:hidden;animation:podIn .5s ease both}
   .pod:nth-child(2){animation-delay:.08s}
   .pod:nth-child(3){animation-delay:.16s}
@@ -884,6 +884,29 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .gbrow:nth-child(3) .gb-fill{background:linear-gradient(90deg,#EFD9BC,#D8B58A)}
   @keyframes gbIn{from{transform:scaleX(0)}}
   .g-mem{font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.5}
+  /* 电脑端（≥721px）：领奖台与小组榜整体放大 */
+  @media (min-width:721px){
+    .honor{padding:24px 26px}
+    .honor-h{font-size:22px}
+    .honor-sub{font-size:14px;margin:20px 0 10px}
+    .podium3{gap:18px;margin-top:14px}
+    .pod{padding:14px 12px 18px;border-radius:16px}
+    .pod.p1{padding-top:20px}
+    .pod-top{font-size:19px;min-height:24px}
+    .pod-av{width:58px;height:58px;font-size:23px;margin:10px auto 8px}
+    .pod.p1 .pod-av{width:72px;height:72px;font-size:28px}
+    .pod-nm{font-size:16px}
+    .pod-sc{font-size:23px}
+    .pod.p1 .pod-sc{font-size:27px}
+    .pod-cur{font-size:13px}
+    .gbars{gap:14px}
+    .gb-rank{font-size:21px;width:34px}
+    .gb-nm{font-size:15.5px}
+    .gb-sc{font-size:16.5px}
+    .gb-cur{font-size:12.5px}
+    .gb-track{height:10px;border-radius:5px;margin-top:6px}
+    .g-mem{font-size:12.5px;margin-top:5px}
+  }
   .honor .empty{padding:12px;color:var(--ink-soft);font-size:13px;background:#FAFAFA;border-radius:12px}
 
   /* modal */
@@ -5895,7 +5918,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     } else {
       /* 领奖台布局：银(左) 金(中) 铜(右)，与名次解耦 */
       var order=(ind.length>=3)?[1,0,2]:(ind.length===2?[1,0]:[0]);
-      html+='<div class="podium">';
+      html+='<div class="podium3">';   // 类名避开座位表「讲台」横幅的旧 .podium
       order.forEach(function(ix){
         var x=ind[ix];
         html+='<div class="pod p'+(ix+1)+'">'
@@ -11522,7 +11545,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "honor-cool-2026-09-08";
+  var __APP_VERSION__ = "honor-desk-fix-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
