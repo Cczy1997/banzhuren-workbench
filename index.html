@@ -11548,7 +11548,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parent-brief-period-2026-09-08";
+  var __APP_VERSION__ = "sw-update-fix-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -11716,7 +11716,17 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
      supabase 等跨域 API 请求不进缓存。右下角「清缓存强刷」可强制清除。 */
   if('serviceWorker' in navigator && location.protocol==='https:'){
     window.addEventListener('load', function(){
-      try{ navigator.serviceWorker.register('sw.js?v='+encodeURIComponent(__APP_VERSION__)).catch(function(){}); }catch(_){}
+      try{
+        navigator.serviceWorker.register('sw.js?v='+encodeURIComponent(__APP_VERSION__)).then(function(){
+          function askCheck(){ try{ if(navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:'check-now'}); }catch(_){} }
+          setTimeout(askCheck, 2500);            // 进页面 2.5s 主动查一次新版
+          var _lastVis=0;
+          document.addEventListener('visibilitychange', function(){
+            if(document.visibilityState!=='visible') return;
+            var n=Date.now(); if(n-_lastVis<60000) return; _lastVis=n; askCheck();
+          });
+        }).catch(function(){});
+      }catch(_){}
     });
     try{
       navigator.serviceWorker.addEventListener('message', function(e){

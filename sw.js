@@ -48,12 +48,44 @@ self.addEventListener("activate", function(e){
 /* 页面点「更新」时：立即跳过等待、接管页面 */
 self.addEventListener("message", function(e){
   if(e && e.data && e.data.type === "skip-waiting"){ self.skipWaiting(); }
+  if(e && e.data && e.data.type === "check-now"){
+    e.waitUntil((async function(){
+      try{
+        var cache = await caches.open(CACHE);
+        var cs = await self.clients.matchAll({ includeUncontrolled:true });
+        lastCheck = Date.now();
+        await Promise.all(cs.map(function(c){
+          return checkShell(new Request(c.url, { cache:"no-cache" }), cache);
+        }));
+      }catch(_){}
+    })());
+  }
 });
 
 function notifyUpdate(){
   self.clients.matchAll({ includeUncontrolled:true }).then(function(cs){
     cs.forEach(function(c){ try{ c.postMessage({ type:"sw-update" }); }catch(_){} });
   });
+}
+
+/* 拉取最新外壳并与缓存比对：有差异才写缓存并通知页面弹更新条。
+   {cache:"no-cache"} 强制与服务器再验证 —— 绕过 GitHub Pages CDN 的
+   max-age=600 边缘缓存（否则部署后 10 分钟内可能检查到"假最新"）。 */
+function checkShell(req, cache){
+  return fetch(req, { cache:"no-cache" }).then(function(res){
+    if(!res || res.status !== 200 || res.type === "opaque") return null;
+    return res.clone().text().then(function(txt){
+      return cache.match(req).then(function(cached){
+        if(!cached) return cache.put(req, res.clone());
+        return cached.clone().text().then(function(oldTxt){
+          if(oldTxt !== txt){
+            return cache.put(req, res.clone()).then(notifyUpdate);
+          }
+          return null;
+        });
+      });
+    });
+  }).catch(function(){ return null; });
 }
 
 self.addEventListener("fetch", function(e){
@@ -75,18 +107,7 @@ self.addEventListener("fetch", function(e){
     var now = Date.now();
     if(!cached || now - lastCheck > CHECK_INTERVAL){
       lastCheck = now;
-      updating = fetch(req).then(function(res){
-        if(!res || res.status !== 200 || res.type === "opaque") return null;
-        return res.clone().text().then(function(txt){
-          if(!cached) return cache.put(req, res.clone());
-          return cached.clone().text().then(function(oldTxt){
-            if(oldTxt !== txt){
-              return cache.put(req, res.clone()).then(notifyUpdate);
-            }
-            return null;
-          });
-        });
-      }).catch(function(){ return null; });
+      updating = checkShell(req, cache);
     }
 
     if(cached){                       // 秒开：直接用缓存，不等网络
