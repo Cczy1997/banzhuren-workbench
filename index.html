@@ -8810,8 +8810,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       cycle:["缺勤","迟到","请假",""] },
     materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE },
-      // 手动点击只在「异常态」间循环（未交→迟交→空→未交）；已交由「一键补齐已交」批量默认
-      cycle:["未交","迟交",""] }
+      // 手动点击循环：空格首次点击=已交（统计友好），已交→迟交→未交→空→已交
+      cycle:["已交","迟交","未交",""] }
   };
   var gridState = { mod:null, dates:[], curType:"作业提交", curItem:"", week:null }; // week = 当前查看的周(周一日期)；null 表示本周
   var MAT_FOLDERS=[]; // 材料文件夹登记表（含空文件夹；持久化于 settings.matFolders）
@@ -9361,12 +9361,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var perCls = (period==="上午")?"per-am":(period==="下午"?"per-pm":"");
     if(gridMark && gridMark.date===date){
       if(gridMark.picked.has(no)){ div.className="grid-cell mark-pick"+perCls; div.textContent=""; }
-      else { var v0=cellVisual(mod,no,date,period); div.className=v0.cls+perCls; div.innerHTML=(period==="下午"?'<span class="per-tag">下</span>':"")+esc(v0.icon); }
+      else { var v0=cellVisual(mod,no,date,period); div.className=v0.cls+perCls; div.innerHTML=(period==="下午"?'<span class="per-tag">下</span>':"")+v0.icon; }
       return;
     }
     var vis=cellVisual(mod,no,date,period);
     div.className = vis.cls + (perCls?(" "+perCls):"");
-    div.innerHTML = (period==="下午"?'<span class="per-tag">下</span>':"") + esc(vis.icon);
+    // icon 为内部常量 HTML（SVG/✓），与 renderGrid 一致原样插入；esc 会把标签转成乱码文本
+    div.innerHTML = (period==="下午"?'<span class="per-tag">下</span>':"") + vis.icon;
   }
   /* 小范围刷新底部「今日面板」（只写 foot 容器，不重建整表） */
   function refreshTodayPanel(){
@@ -11227,7 +11228,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "legacy-cleanup-2026-09-08";
+  var __APP_VERSION__ = "mat-first-click-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
