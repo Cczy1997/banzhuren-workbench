@@ -3028,17 +3028,19 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       +'<span class="pb-wk">'+(wk===cur?'本周':'历史周')+' '+esc(w.monday.slice(5))+' ~ '+esc(w.sunday.slice(5))+'</span>'
       +(wk===cur?'':'<button class="gt-btn" data-pweek="this">回到本周</button>')
       +'</div>'
-      +'<div class="pb-hint">每天只展示 迟到 / 未交 / 迟交 的学生名单概况，完整考勤与收交记录仅班主任可见。</div>';
+      +'<div class="pb-hint">每天只展示 迟到 / 未交 / 迟交 的学生名单概况（迟到分上午 / 下午列出），完整考勤与收交记录仅班主任可见。</div>';
     var shown=0;
     for(var i=6;i>=0;i--){
       var d=new Date(wk+"T00:00:00"); d.setDate(d.getDate()+i); d=fmtISO(d);
       if(d>todayStr()) continue;   // 未来日期不显示
-      var late=[];
+      var lateAM=[], latePM=[];
       (DATA.attendance||[]).forEach(function(r){
         if(String(r["日期"]||"")!==d) return;
         if(String(r["状态"]||"")!=="迟到") return;
         var nm=String(r["学生姓名"]||"").trim();
-        if(nm && late.indexOf(nm)<0) late.push(nm);
+        if(!nm) return;
+        var per=(String(r["时段"]||"上午")==="下午")?latePM:lateAM;   // 旧记录无时段视为上午
+        if(per.indexOf(nm)<0) per.push(nm);
       });
       var noMap={}, lateMap={};
       (DATA.materials||[]).forEach(function(r){
@@ -3050,10 +3052,10 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if(!bag[item]) bag[item]=[];
         if(bag[item].indexOf(nm)<0) bag[item].push(nm);
       });
-      late.sort(nameSort);
+      lateAM.sort(nameSort); latePM.sort(nameSort);
       Object.keys(noMap).forEach(function(k2){ noMap[k2].sort(nameSort); });
       Object.keys(lateMap).forEach(function(k2){ lateMap[k2].sort(nameSort); });
-      var hasDay=late.length||Object.keys(noMap).length||Object.keys(lateMap).length;
+      var hasDay=lateAM.length||latePM.length||Object.keys(noMap).length||Object.keys(lateMap).length;
       if(hasDay) shown++;
       var wd="日一二三四五六"[new Date(d+"T00:00:00").getDay()];
       var isToday=(d===todayStr());
@@ -3061,7 +3063,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +'<div class="pb-date">📅 '+esc(d.slice(5))+' 周'+wd+(isToday?' · 今天':'')+'</div>';
       if(!hasDay){ html+='<div class="pb-none">无迟到 / 未交 / 迟交记录</div>'; }
       else {
-        if(late.length) html+='<div class="pb-row"><span class="pb-k late">🕐 迟到 '+late.length+'人</span><span class="pb-v">'+esc(late.join('、'))+'</span></div>';
+        if(lateAM.length) html+='<div class="pb-row"><span class="pb-k late">🕐 上午迟到 '+lateAM.length+'人</span><span class="pb-v">'+esc(lateAM.join('、'))+'</span></div>';
+        if(latePM.length) html+='<div class="pb-row"><span class="pb-k late">🕐 下午迟到 '+latePM.length+'人</span><span class="pb-v">'+esc(latePM.join('、'))+'</span></div>';
         Object.keys(noMap).forEach(function(k2){
           html+='<div class="pb-row"><span class="pb-k no">✗ '+esc(k2)+' 未交 '+noMap[k2].length+'人</span><span class="pb-v">'+esc(noMap[k2].join('、'))+'</span></div>';
         });
@@ -11545,7 +11548,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "honor-desk-fix-2026-09-08";
+  var __APP_VERSION__ = "parent-brief-period-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
