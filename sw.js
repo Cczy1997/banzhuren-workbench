@@ -96,6 +96,24 @@ self.addEventListener("fetch", function(e){
   if(url.origin !== self.location.origin) return;        // 跨域（supabase）不缓存
   var p = url.pathname;
   var isShell = req.mode === "navigate" || p.endsWith("/") || p.endsWith("index.html") || p.endsWith(".html");
+  /* 惰性库（xlsx.full.min.js / pinyin.min.js / qrcode.min.js）：缓存优先 + 后台更新。
+     首屏不再内联这 1.25MB，改为按需加载；缓存后第二次使用秒开、离线可用。 */
+  if(!isShell && p.endsWith(".js")){
+    e.respondWith((async function(){
+      var cache = await caches.open(CACHE);
+      var hit = await cache.match(req);
+      var net = fetch(req, { cache:"no-cache" }).then(function(res){
+        if(res && res.status === 200){ try{ cache.put(req, res.clone()); }catch(_){} }
+        return res;
+      }).catch(function(){ return null; });
+      if(hit){ e.waitUntil(net); return hit; }
+      var fresh = await net;
+      if(fresh) return fresh;
+      var fb = await cache.match(req);
+      return fb || new Response("", { status:504, headers:{ "Content-Type":"application/javascript" } });
+    })());
+    return;
+  }
   if(!isShell) return;
 
   /* ?fresh=1 强制刷新入口：绕过缓存直连网络，最新外壳回写规范地址的缓存键。
