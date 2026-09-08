@@ -545,6 +545,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pts-sc{flex:0 0 auto;min-width:44px;text-align:right;font-size:15px;font-weight:800}
   .pts-sc.pos{color:#D9534F}
   .pts-sc.neg{color:#2E9E6B}
+  .pts-no.g{background:#8E7CC3}
+  .pts-gcnt{font-size:11px;color:var(--ink-soft);font-weight:700}
+  .pts-caret2{flex:0 0 auto;font-size:12px;color:var(--ink-soft)}
+  .pts-sub{background:#FBFAFE}
+  .pts-sub .pts-row{padding:7px 14px 7px 26px}
+  .pts-sub .pts-row:last-child{border-bottom:1px solid #F0EDF4}
+  .pts-sub .pts-name{min-width:56px;font-size:13px}
   /* 班级制度 · 按方向分文件夹 */
   .rc-folder{border:1.5px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden;background:#fff}
   .rc-fh{display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;
@@ -6095,19 +6102,58 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +'</div>';
       if(open){
         html+='<div class="pts-list">';
+        /* 相同「日期+原因+分值」合并为一行（同批操作如全班扣分不再铺满整页） */
+        var subOpen=pointsView.subOpen||(pointsView.subOpen={});
+        var gmap={}, items=[];
         gr.forEach(function(r){
-          var nm=String(r["学生姓名"]||"（未填写）");
-          var sc=ptsSigned(r);
-          var reason=String(r["原因"]||"").trim()||"（无原因）";
-          if(reason.length>26) reason=reason.slice(0,26)+"…";
-          var no=String(r["学号"]||"");
-          html+='<div class="pts-row" data-ptsdetail="'+esc(r._id)+'">'
-            +'<span class="pts-no">'+esc(no)+'</span>'
-            +'<span class="pts-name">'+esc(nm)+'</span>'
-            +'<span class="pts-reason">'+esc(reason)+'</span>'
-            +'<span class="pts-date">'+esc(fmtDate(r["日期"]))+'</span>'
-            +'<span class="pts-sc '+(sc>=0?'pos':'neg')+'">'+fmtPts(sc)+'</span>'
-            +'</div>';
+          var k=String(r["日期"]||"")+"\u0001"+String(r["原因"]||"").trim()+"\u0001"+String(r["分值"]);
+          if(gmap[k]){ gmap[k].list.push(r); }
+          else{ gmap[k]={date:String(r["日期"]||""), reason:String(r["原因"]||"").trim()||"（无原因）", sc:ptsSigned(r), list:[r]}; items.push(k); }
+        });
+        items.forEach(function(k){
+          var g=gmap[k];
+          var reason=g.reason; if(reason.length>26) reason=reason.slice(0,26)+"…";
+          if(g.list.length===1){
+            var r=g.list[0], sc=g.sc, no=String(r["学号"]||"");
+            var nm=String(r["学生姓名"]||"（未填写）");
+            html+='<div class="pts-row" data-ptsdetail="'+esc(r._id)+'">'
+              +'<span class="pts-no">'+esc(no)+'</span>'
+              +'<span class="pts-name">'+esc(nm)+'</span>'
+              +'<span class="pts-reason">'+esc(reason)+'</span>'
+              +'<span class="pts-date">'+esc(fmtDate(r["日期"]))+'</span>'
+              +'<span class="pts-sc '+(sc>=0?'pos':'neg')+'">'+fmtPts(sc)+'</span>'
+              +'</div>';
+          }else{
+            var isOpen=!!subOpen[k];
+            var total=g.sc*g.list.length;
+            var mem=g.list.slice().sort(function(a,b){
+              var na=parseFloat(a["学号"]), nb=parseFloat(b["学号"]);
+              if(!isNaN(na)&&!isNaN(nb)&&na!==nb) return na-nb;
+              return String(a["学生姓名"]||"").localeCompare(String(b["学生姓名"]||""), "zh");
+            });
+            html+='<div class="pts-row pts-grow" data-ptsgroup="'+esc(k)+'">'
+              +'<span class="pts-no g" title="'+g.list.length+' 人同一情况">×'+g.list.length+'</span>'
+              +'<span class="pts-name">'+esc(reason)+'</span>'
+              +'<span class="pts-reason pts-gcnt">'+g.list.length+' 人 · 点击'+(isOpen?'收起':'展开')+'</span>'
+              +'<span class="pts-date">'+esc(fmtDate(g.date))+'</span>'
+              +'<span class="pts-sc '+(total>=0?'pos':'neg')+'">'+fmtPts(total)+'</span>'
+              +'<span class="pts-caret2">'+(isOpen?'▾':'▸')+'</span>'
+              +'</div>';
+            if(isOpen){
+              html+='<div class="pts-sub">';
+              mem.forEach(function(r){
+                var sc=ptsSigned(r), no=String(r["学号"]||"");
+                var nm=String(r["学生姓名"]||"（未填写）");
+                html+='<div class="pts-row" data-ptsdetail="'+esc(r._id)+'">'
+                  +'<span class="pts-no">'+esc(no)+'</span>'
+                  +'<span class="pts-name">'+esc(nm)+'</span>'
+                  +'<span class="pts-date">'+esc(fmtDate(r["日期"]))+'</span>'
+                  +'<span class="pts-sc '+(sc>=0?'pos':'neg')+'">'+fmtPts(sc)+'</span>'
+                  +'</div>';
+              });
+              html+='</div>';
+            }
+          }
         });
         html+='</div>';
       }
@@ -6116,6 +6162,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return html;
   }
   function togglePointsGroup(k){ pointsView.open[k] = (pointsView.open[k]===false); renderList("points"); }
+  function togglePointsSub(k){ pointsView.subOpen[k]=!pointsView.subOpen[k]; renderList("points"); }
   /* 点某一行 → 打开该笔记录的详情（只读展示 + 可编辑/删除） */
   function openPointsDetail(id){
     var r=(DATA.points||[]).filter(function(x){ return x._id===id; })[0];
@@ -10101,6 +10148,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var rctog=e.target.closest("[data-rctoggle]"); if(rctog){ toggleRuleCat(rctog.getAttribute("data-rctoggle")); return; }
     /* 加减分管理 · 分组列表 */
     var ptog=e.target.closest("[data-ptstoggle]"); if(ptog){ togglePointsGroup(ptog.getAttribute("data-ptstoggle")); return; }
+    var pgrp=e.target.closest("[data-ptsgroup]"); if(pgrp){ togglePointsSub(pgrp.getAttribute("data-ptsgroup")); return; }
     if(e.target.closest("[data-ptstop]")){ togglePointsTop(); return; }
     var pdet=e.target.closest("[data-ptsdetail]"); if(pdet){ openPointsDetail(pdet.getAttribute("data-ptsdetail")); return; }
     /* 积分商城 */
@@ -11576,7 +11624,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "check-update-btn-2026-09-08";
+  var __APP_VERSION__ = "pts-group-compact-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
