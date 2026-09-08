@@ -11816,6 +11816,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
       restoreView();       // 下拉刷新/重开后回到上次所在的栏目与模块
+      /* 家长每次进入 / 下拉刷新都落在「🏠 家校首页」：那是家长端的主入口，
+         其余模块（考勤 / 材料 / 课表 / 留言板…）仍可从侧边栏照常进入。 */
+      if(curRole===ROLE_PARENT){ state.cat="phome"; state.mod="phome"; state.open["phome"]=true; }
       renderSidebar();
       render();            // 立即渲染外壳，避免数据加载失败时整页空白
       bootLoad();
