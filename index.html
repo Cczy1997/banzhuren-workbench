@@ -1512,6 +1512,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <span class="s-status" id="status" data-page-node-id="uZtaM2ssqRBLDzRwzS46uq"><span class="dot" data-page-node-id="jxHwKd2tulNGwFQjvEc2xv"></span><span id="statusText" data-page-node-id="KrrceaHspcCrQbHNUDd6Yk">同步中</span></span>
     <button class="logout-btn share-btn" id="shareBtn" style="display:none" title="生成带二维码的分享海报，保存后可直接发到微信">📤 分享工作台</button>
     <button class="logout-btn share-btn" id="quickTblBtn" style="display:none" title="一键生成：材料收集表 / 座位表 / 值日安排表">⚡ 快速制表</button>
+    <button class="logout-btn" id="checkUpdBtn" style="display:none" title="手动检查是否有新版本；也可在地址栏后加 ?fresh=1 强制刷新">🔄 检查更新</button>
     <button class="logout-btn" id="logoutBtn" style="display:none" title="退出当前账号，回到身份选择界面" data-page-node-id="LDBOXLC4blVKdUjUrrp9op">⇄ 切换身份 / 退出</button>
   </aside>
 
@@ -11451,6 +11452,32 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   document.getElementById("logoutBtn").onclick=switchIdentity;
   var _shw=document.getElementById("shareBtn"); if(_shw) _shw.onclick=function(){ try{ closeDrawer(); }catch(_e){} openSharePoster(); };
+
+  /* 🔄 检查更新：手动触发一次外壳比对（check-now）+ sw.js 更新检查。
+     有新版 → 底部弹「🖐 有新版本，点击更新」条，点条即切换；
+     无 SW（微信内置浏览器等）→ 直接跳 ?fresh=1 强制拿最新。 */
+  var _cuw=document.getElementById("checkUpdBtn");
+  if(_cuw) _cuw.onclick=function(){
+    var btn=_cuw, oldTxt=btn.textContent;
+    function reset(){ btn.textContent=oldTxt; btn.disabled=false; }
+    btn.disabled=true; btn.textContent="检查中…";
+    try{ closeDrawer(); }catch(_e){}
+    if(!('serviceWorker' in navigator) || location.protocol!=='https:'){
+      try{ location.href=location.pathname+"?fresh=1"; }catch(_e2){ location.reload(); }
+      return;
+    }
+    var barShown=false;
+    var _poll=setInterval(function(){
+      if(document.getElementById("wbUpdateBar")){ barShown=true; clearInterval(_poll); reset(); }
+    }, 400);
+    try{ if(navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({type:'check-now'}); }catch(_e3){}
+    try{ navigator.serviceWorker.getRegistration().then(function(r){ if(r) return r.update(); }).catch(function(){}); }catch(_e4){}
+    setTimeout(function(){
+      clearInterval(_poll);
+      if(!barShown){ try{ toast("已是最新版本 ✓"); }catch(_e5){} }
+      reset();
+    }, 20000);
+  };
   var _qtw=document.getElementById("quickTblBtn"); if(_qtw) _qtw.onclick=function(){ try{ closeDrawer(); }catch(_e){} openQuickTables(); };
   var _srb=document.getElementById("switchRoleBtn"); if(_srb) _srb.onclick=switchIdentity;
   function onSignedIn(user){
@@ -11464,6 +11491,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
       var _qtb=document.getElementById("quickTblBtn"); if(_qtb) _qtb.style.display=(curRole===ROLE_HEAD)?"":"none";
       var _srb2=document.getElementById("switchRoleBtn"); if(_srb2) _srb2.style.display="";
+      var _cub=document.getElementById("checkUpdBtn"); if(_cub) _cub.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
       restoreView();       // 下拉刷新/重开后回到上次所在的栏目与模块
@@ -11548,7 +11576,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "sw-update-fix2-2026-09-08";
+  var __APP_VERSION__ = "check-update-btn-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
