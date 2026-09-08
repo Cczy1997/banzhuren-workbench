@@ -840,19 +840,50 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .btn-grid.btn-xls:hover{background:#D6F2E6}
 
   /* honor 荣誉榜 */
-  .honor{margin-top:24px;background:#fff;border-radius:18px;padding:18px;box-shadow:0 4px 16px rgba(0,0,0,.05)}
-  .honor-h{margin:0 0 4px;font-size:18px;font-weight:800}
+  .honor{margin-top:24px;background:linear-gradient(180deg,#FFFBF2,#FFFFFF 42%);border-radius:18px;padding:18px;box-shadow:0 4px 16px rgba(0,0,0,.05)}
+  .honor-h{margin:0 0 4px;font-size:19px;font-weight:900;letter-spacing:.5px;background:linear-gradient(92deg,#E8A23D 0%,#E23C3C 48%,#8E5BD8 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .honor-sub{font-size:13px;font-weight:800;color:var(--ink-soft);margin:16px 0 8px}
   .honor-sub:first-of-type{margin-top:2px}
-  .honor-list{display:flex;flex-direction:column;gap:8px}
-  .hrow{display:flex;align-items:center;gap:10px;background:#FFF0F6;border:1px solid #FFE0EC;border-radius:12px;padding:10px 12px}
-  .hrow.g{background:#EEF4FF;border-color:#D8E6FF}
-  .hrow .medal{font-size:20px;line-height:1}
-  .hrow .hn{font-weight:800;flex:1;color:var(--ink)}
-  .hrow .hv{font-weight:800}
-  .hrow .hv.pos{color:#1c9e6b}
-  .hrow .hv.neg{color:#e23c3c}
-  .hrow .hv.hv-cur{font-weight:600;opacity:.7;font-size:12px;margin-left:2px}
+  /* TOP3 领奖台：银(左) 金(中) 铜(右) */
+  .podium{display:flex;align-items:flex-end;gap:10px;margin-top:10px}
+  .pod{flex:1;min-width:0;border-radius:14px;padding:10px 8px 12px;text-align:center;position:relative;overflow:hidden;animation:podIn .5s ease both}
+  .pod:nth-child(2){animation-delay:.08s}
+  .pod:nth-child(3){animation-delay:.16s}
+  @keyframes podIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+  .pod.p1{background:linear-gradient(168deg,#FFF6D8,#FFE7A6);border:1.5px solid #FFD98A;box-shadow:0 10px 22px rgba(255,170,40,.25);padding-top:14px}
+  .pod.p2{background:linear-gradient(168deg,#F4F7FB,#E2E9F2);border:1.5px solid #CBD6E4}
+  .pod.p3{background:linear-gradient(168deg,#FAF1E6,#F0DFC8);border:1.5px solid #E0C8A6}
+  .pod.p1::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.6) 50%,transparent 68%);transform:translateX(-130%);animation:podShine 3.4s ease-in-out infinite;pointer-events:none}
+  @keyframes podShine{0%,55%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
+  .pod-top{font-size:15px;line-height:1.2;min-height:18px}
+  .pod-av{width:42px;height:42px;border-radius:50%;margin:8px auto 7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#4A3A28;background:rgba(255,255,255,.85);border:2px solid rgba(0,0,0,.05)}
+  .pod.p1 .pod-av{width:50px;height:50px;font-size:20px;background:linear-gradient(160deg,#FFF3CC,#FFD268);border-color:#F0B34C;box-shadow:0 4px 10px rgba(240,170,50,.35)}
+  .pod.p2 .pod-av{background:linear-gradient(160deg,#FFFFFF,#DCE4EE);border-color:#B9C6D6}
+  .pod.p3 .pod-av{background:linear-gradient(160deg,#FDF6EC,#EAD5BC);border-color:#D3B592}
+  .pod-nm{font-weight:800;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pod-nm[data-profile]{cursor:pointer}
+  .pod-nm[data-profile]:hover{color:var(--pink-d)}
+  .pod-sc{font-weight:900;font-size:17px;margin-top:2px;color:#D9534F}
+  .pod.p1 .pod-sc{font-size:19px}
+  .pod-cur{font-size:11px;font-weight:600;color:var(--ink-soft);margin-top:1px}
+  /* 小组积分榜：渐变条形 */
+  .gbars{display:flex;flex-direction:column;gap:12px;margin-top:2px}
+  .gbrow{display:flex;gap:10px;align-items:flex-start}
+  .gb-rank{width:28px;text-align:center;font-size:17px;line-height:1.2;flex:none;padding-top:1px}
+  .gb-main{flex:1;min-width:0}
+  .gb-line{display:flex;align-items:baseline;gap:6px}
+  .gb-nm{font-weight:800;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+  .gb-sc{font-weight:900;font-size:14px}
+  .gb-sc.pos{color:#D9534F}
+  .gb-sc.neg{color:#2E9E6B}
+  .gb-cur{font-size:11.5px;color:var(--ink-soft)}
+  .gb-track{height:8px;border-radius:4px;background:#F1F5FD;margin-top:5px;overflow:hidden}
+  .gb-fill{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#EAF0FA,#D3DFF0);transform-origin:left;animation:gbIn .7s ease both}
+  .gbrow:nth-child(1) .gb-fill{background:linear-gradient(90deg,#FFD98A,#FFAE3D)}
+  .gbrow:nth-child(2) .gb-fill{background:linear-gradient(90deg,#D8E1EC,#AFC0D6)}
+  .gbrow:nth-child(3) .gb-fill{background:linear-gradient(90deg,#EFD9BC,#D8B58A)}
+  @keyframes gbIn{from{transform:scaleX(0)}}
+  .g-mem{font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.5}
   .honor .empty{padding:12px;color:var(--ink-soft);font-size:13px;background:#FAFAFA;border-radius:12px}
 
   /* modal */
@@ -896,8 +927,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 一生一档 · 学生档案 */
   .pn{cursor:pointer;color:var(--pink-d);border-bottom:1.5px dotted var(--pink)}
   .pn:active{opacity:.7}
-  .hn[data-profile]{cursor:pointer}
-  .hn[data-profile]:hover{color:var(--pink-d)}
   .pf-head{display:flex;align-items:center;gap:13px;padding:6px 2px 14px;border-bottom:1px solid var(--line);margin-bottom:12px}
   .pf-av{width:50px;height:50px;flex:0 0 auto;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-d))}
   .pf-id{flex:1;min-width:0}
@@ -5860,38 +5889,48 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     var medal=["🥇","🥈","🥉"];
     var html='<div class="honor">'
       +'<div class="honor-h-row"><h2 class="honor-h">🏆 荣誉榜</h2>'+(isHead()?'<button class="btn-mall" data-mall="1">🛒 积分商城</button>':'')+'</div>'
-      +'<div class="honor-sub">个人积分 TOP3（累计积分，括号内为可用积分）</div><div class="honor-list">';
+      +'<div class="honor-sub">👑 个人积分 TOP3（累计积分，「可用」为超出基分的可兑余额）</div>';
     if(!ind.length){
       html+='<div class="empty">暂无积分记录，去「加减分管理」记一笔吧～</div>';
     } else {
-      ind.forEach(function(x,i){
-        html+='<div class="hrow"><span class="medal">'+medal[i]+'</span>'
-          +'<span class="hn" data-profile="'+esc(x.n)+'">'+esc(x.n)+'</span>'
-          +'<span class="hv '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
-          + (x.t!==x.c?'<span class="hv hv-cur">（'+fmtPts(x.c)+'）</span>':'')
+      /* 领奖台布局：银(左) 金(中) 铜(右)，与名次解耦 */
+      var order=(ind.length>=3)?[1,0,2]:(ind.length===2?[1,0]:[0]);
+      html+='<div class="podium">';
+      order.forEach(function(ix){
+        var x=ind[ix];
+        html+='<div class="pod p'+(ix+1)+'">'
+          +'<div class="pod-top">'+(ix===0?'👑 ':'')+medal[ix]+'</div>'
+          +'<div class="pod-av">'+esc((x.n||"?").slice(0,1))+'</div>'
+          +'<div class="pod-nm" data-profile="'+esc(x.n)+'">'+esc(x.n)+'</div>'
+          +'<div class="pod-sc">'+fmtPts(x.t)+'</div>'
+          +(x.t!==x.c?'<div class="pod-cur">可用 '+fmtPts(x.c)+'</div>':'')
           +'</div>';
       });
+      html+='</div>';
     }
-    html+='</div>'
-      +'<div class="honor-sub">📊 小组积分榜（组内成员个人积分之和；点击展开看组员）</div><div class="honor-list">';
+    html+='<div class="honor-sub">📊 小组积分榜（组内成员个人积分之和）</div>';
     if(!groups.length){
       html+='<div class="empty">暂无小组积分，请先在「学生档案」点「👥 批量分小组」给学生分配小组。</div>';
     } else {
+      var maxT=1; groups.forEach(function(x){ if(x.t>maxT) maxT=x.t; });
+      html+='<div class="gbars">';
       groups.forEach(function(x,i){
         // 找组员
         var members=(DATA.students||[]).filter(function(s){return s["学习小组"]===x.g;}).map(function(s){return s["姓名"];}).filter(Boolean);
-        var memHtml = members.length ? '<div class="g-mem" style="font-size:11.5px;color:var(--ink-soft);margin:2px 0 4px 30px">组员：'+esc(members.join("、"))+'</div>' : '';
-        html+='<div class="hrow g">'
-          +'<span class="medal">'+(i<3?medal[i]:(i+1))+'</span>'
-          +'<span class="hn">'+esc(x.g)+'</span>'
-          +'<span class="hv '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
-          + (x.t!==x.c?'<span class="hv hv-cur">（'+fmtPts(x.c)+'）</span>':'')
-          + memHtml
-          +'</div>';
+        var w=x.t>0?Math.max(6,Math.round(x.t/maxT*100)):0;
+        html+='<div class="gbrow">'
+          +'<span class="gb-rank">'+(i<3?medal[i]:(i+1))+'</span>'
+          +'<div class="gb-main">'
+            +'<div class="gb-line"><span class="gb-nm">'+esc(x.g)+'</span>'
+            +'<span class="gb-sc '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
+            +(x.t!==x.c?'<span class="gb-cur">可用 '+fmtPts(x.c)+'</span>':'')+'</div>'
+            +'<div class="gb-track"><i class="gb-fill" style="width:'+w+'%"></i></div>'
+            +(members.length?'<div class="g-mem">组员：'+esc(members.join("、"))+'</div>':'')
+          +'</div></div>';
       });
+      html+='</div>';
     }
-    html+='</div></div>';
-    return html;
+    return html+'</div>';
   }
   function fmtPts(v){ return (v>0?"+":"")+v; }
 
@@ -5911,7 +5950,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     return (t==="加分") ? v : -Math.abs(v);
   }
   /* 积分榜 · 前十名横向条形图（纯内联 SVG，零外部依赖）
-     口径：净积分 = 加分 − 减分 − 兑换（与列表每笔正负号一致，见 ptsSigned），降序取前 10 名。
+     口径：与荣誉榜同步——累计 = 基分100 + 加分 − 减分（兑换不计入累计），处于扣分（净加减分<0）者不上榜，降序取前 10 名。
      用横向条形而非纵向柱状：中文姓名在手机上也能完整平铺显示，不必旋转标签。 */
   function renderPointsTop10(){
     /* 口径与荣誉榜 renderHonor 完全同步：累计积分 = 基分 100 + 加分 − 减分（兑换只减可用，不动累计）。
@@ -6086,7 +6125,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function mallClassAvg(){
     var stus=(DATA.students||[]).filter(function(s){ return s && s["姓名"]; });
     if(!stus.length) return 50;
-    var sum=0; stus.forEach(function(s){ sum+=studentPoints(s["姓名"]); });
+    var sum=0; stus.forEach(function(s){ sum+=Math.max(0, studentPoints(s["姓名"])-PTS_BASE); });   // 人均可兑（超基分部分）
     var avg=sum/stus.length;
     return avg>0 ? avg : 50;
   }
@@ -6116,13 +6155,13 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         +'<button class="btn-mini" data-add="mall">＋ 添加奖品</button>'
         +'</div>'
         +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
-        +'<div>还没有奖品。点「＋ 添加奖品」上架第一件吧～<br><span class="mall-tip">定价按「班级人均积分 × 难度 ÷ 5」自动计算</span></div></div>';
+        +'<div>还没有奖品。点「＋ 添加奖品」上架第一件吧～<br><span class="mall-tip">定价按「班级人均可兑积分（超基分100的部分）× 难度 ÷ 5」自动计算</span></div></div>';
     }
     // 按定价升序，学生视图更直观（先看到够得着的）
     prizes.sort(function(a,b){ return mallPrice(a)-mallPrice(b); });
     var html='<div class="phead"><h3>🛒 积分商城</h3><span class="hint">'
       +(mallView.manage?'管理模式：可编辑难度与上下架':'兑换视图：仅显示价格，隐藏难度')
-      +' · 班级人均积分 '+Math.round(mallClassAvg())+'</span></div>';
+      +' · 班级人均可兑积分 '+Math.round(mallClassAvg())+'</span></div>';
     html+='<div class="mall-bar">'
       +'<button class="btn-mini" data-mallmode="1">'+(mallView.manage?'👀 切换为兑换视图':'⚙️ 切换为管理视图')+'</button>'
       +(mallView.manage?'<button class="btn-mini" data-add="mall">＋ 添加奖品</button>':'')
@@ -6162,18 +6201,18 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       if(na!==nb) return na-nb;
       return String(a["姓名"]||"").localeCompare(String(b["姓名"]||""),"zh");
     });
-    var ok=stus.filter(function(s){ return studentPoints(s["姓名"])>price; });
+    var ok=stus.filter(function(s){ return studentPoints(s["姓名"])-PTS_BASE>=price; });   // 只有超出基分100的部分可兑
     var body = ok.length ? ok.map(function(s){
-      var pts=studentPoints(s["姓名"]);
+      var pts=Math.max(0, studentPoints(s["姓名"])-PTS_BASE);   // 可兑 = 超出基分的部分
       return '<button type="button" class="sp-item" data-rdstu="'+esc(s["姓名"])+'">'
         +'<span class="sp-av">'+esc((s["姓名"]||"?").slice(0,1))+'</span>'
         +'<span class="sp-name">'+esc(s["姓名"])+'</span>'
-        +'<span class="sp-no">可用 '+pts+' 分</span>'
+        +'<span class="sp-no">可兑 '+pts+' 分</span>'
         +'</button>';
-    }).join("") : '<div class="photos-empty">暂无同学的可兑积分超过 '+price+' 分。<br>可先去「加减分管理」加分，或降低该奖品难度。</div>';
+    }).join("") : '<div class="photos-empty">暂无同学「超出基分 100 的积分」达到 '+price+' 分。<br>基分不可用于兑换，可先去「加减分管理」加分，或降低该奖品难度。</div>';
     var mask=document.createElement("div"); mask.className="mask show"; mask.id="redeemMask";
     mask.innerHTML='<div class="sheet"><h3>🎁 兑换「'+esc(p["名称"]||"")+'」<button type="button" class="x" data-rdclose="1">×</button></h3>'
-      +'<div class="mall-rd-price">需 '+price+' 积分（兑换只扣「可用积分」，不影响累计总账与排名）</div>'
+      +'<div class="mall-rd-price">需 '+price+' 积分（只能用超出基分 100 的部分兑换；不扣累计总账与排名）</div>'
       +'<div class="sp-list">'+body+'</div></div>';
     document.body.appendChild(mask);
     mask.addEventListener("click", function(e){
@@ -11483,7 +11522,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "pts-board-sync-2026-09-08";
+  var __APP_VERSION__ = "honor-cool-2026-09-08";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
