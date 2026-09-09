@@ -1389,6 +1389,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .msg-bc-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px;flex-wrap:wrap}
   .msg-bc-tip{font-size:11.5px;font-weight:500;color:#8a8a95}
   .auth-err{margin-top:6px;font-size:12.5px;color:var(--danger);min-height:16px;line-height:1.4}
+  /* 班干部免密进入名单 */
+  .officer-item{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 14px;cursor:pointer;text-align:left;box-sizing:border-box;font-size:14px}
+  .officer-item:hover{border-color:#2E8B8B;background:#f4fbfb}
+  .officer-badge{flex:none;width:34px;height:34px;border-radius:10px;background:#2E8B8B;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  .officer-nm{font-weight:700;color:var(--ink)}
+  .officer-post{flex:1;font-size:12px;color:var(--ink-soft)}
+  .officer-go{font-size:12.5px;color:#2E8B8B;font-weight:700}
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
   .logout-btn:active{background:#FFF0F6}
@@ -1859,6 +1866,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           <div class="auth-role-desc" data-page-node-id="yby45QoCewK6zYZnzLZnro">值日 · 荣誉 · 材料 · 课表</div>
           <button type="button" class="auth-role-btn" data-page-node-id="2Ptk3eQuRbYI5qY11d0VDv">登录</button>
         </div>
+        <div class="auth-role-card" data-role="班干部" role="button" tabindex="0">
+          <div class="auth-role-ico" style="background:#2E8B8B">班</div>
+          <div class="auth-role-name">班干部</div>
+          <div class="auth-role-desc">作业登记 · 点名字免密进入</div>
+          <button type="button" class="auth-role-btn">进入</button>
+        </div>
       </div>
     </div>
 
@@ -1876,6 +1889,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         </select>
       </div>
       <p class="auth-roletip" id="authRoleTip" data-page-node-id="6xNhELKOCje4BZXBPRPvMc"></p>
+      <div id="officerPick" style="display:none">
+        <div style="font-size:12.5px;color:var(--ink-soft);margin:6px 0 10px;line-height:1.7">由班主任提前关联。点击你的名字即可进入（无需密码），登记当天作业上交情况，结果同步给班主任并展示给家长。</div>
+        <div id="officerList" style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12.5px;color:#9a9aa2">正在加载班干部名单…</span></div>
+      </div>
       <button class="auth-btn" id="authLogin" data-page-node-id="D9san4KJ2zeRd3UZET8Wli">登录</button>
       <button class="auth-btn ghost" id="authSignup" data-page-node-id="3Ic8LeHRmsIjRBdlG7fdrK">注册新账号</button>
       <button type="button" class="auth-back2" id="authBack2" data-page-node-id="bk2AuthBack2">← 返回身份选择</button>
@@ -1942,9 +1959,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* ===== 身份与权限（班主任 / 科任老师 / 家长） =====
      身份存在 auth.user_metadata.role，登录后从 session 读出。
      老账号（没有 role 元数据）一律按「班主任」处理，保证原有用法完全不受影响。 */
-  var ROLE_HEAD="班主任", ROLE_SUBJECT="科任老师", ROLE_PARENT="家长";
+  var ROLE_HEAD="班主任", ROLE_SUBJECT="科任老师", ROLE_PARENT="家长", ROLE_OFFICER="班干部";
   var curRole = ROLE_HEAD;           // 当前身份，默认班主任
   function isHead(){ return curRole===ROLE_HEAD; }
+  /* 班干部：只可登记材料收集（当天作业上交情况），其余全部只读 */
+  function isOfficer(){ return curRole===ROLE_OFFICER; }
+  function canMarkMat(){ return isHead()||isOfficer(); }
   /* 仅班主任可增删改；科任老师 / 家长一律只读 */
   function canEdit(){ return isHead(); }
   /* 各身份可见模块（null = 全部）。留言板 messages 三身份通用。
@@ -1953,6 +1973,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   ROLE_MODS[ROLE_HEAD]    = null;
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
   ROLE_MODS[ROLE_PARENT]  = ["phome","duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
+  ROLE_MODS[ROLE_OFFICER]  = ["materials"];   // 班干部：只开放材料收集，文件夹由班主任提前建好
   function canSee(key){
     if(isHead()) return true;
     var list=ROLE_MODS[curRole]||[];
@@ -2602,8 +2623,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     /* 已判定后端不可达时：单次请求、不再重试（retry(fn,1) 仍会重试一次，故直接调 go()） */
     return _netDown ? go() : retry(go, 3);
   }
-  function apiAdd(key, props){
-    return db.from(tbl(key)).insert({ user_id: curUid, data: props }).select('id, data').then(function(res){
+  function apiAdd(key, props, uidOverride){
+    return db.from(tbl(key)).insert({ user_id: uidOverride||curUid, data: props }).select('id, data').then(function(res){
       if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; }
       var rows = res.data || [];
       var r = rows[0];
@@ -5633,6 +5654,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     ctrl+='<button class="btn-grid" data-seat="applylayout">应用布局</button>'
       +'<button class="btn-grid" data-seat="fill">👥 按名单排座</button>'
       +'<button class="btn-grid btn-xls" data-seat="excel">📊 导出座位表(Excel)</button>'
+      +'<button class="btn-grid" data-seat="printseat">🖨️ 打印(讲台视角)</button>'
       +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学；讲台两侧座位点开可单独安排'+(isGroup?'；组间为<b>走廊</b>':'')+'</span>'
       +'</div>';
     var tip='<div class="seat-tip">💡 座位表直接展示如下，可随时调整：先点一位同学高亮，再点另一位即可<b>交换位置</b>（自动保存）；点空白处可把同学移过去或新增。</div>';
@@ -5746,10 +5768,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       fillSeatsFromRoster();
     } else if(act==="excel"){
       exportSeatExcel();
+    } else if(act==="printseat"){
+      printSeatTeacherView();
     }
   }
-  /* 导出座位表为 Excel（.xls，内联表格，便于打印；含讲台左右两侧座位） */
-  function exportSeatExcel(){
+  /* ===== 座位表导出/打印 · 统一「讲台视角」（教师视角） =====
+     屏幕端是俯视平面图：讲台在上、第1排紧贴讲台、列号自左向右。
+     老师站在讲台上面向学生，方向恰好整体旋转 180°：
+       · 纸的底部是讲台，第 1 排（最靠近讲台）在纸的底部
+       · 纸的左右 = 老师的左右（即屏幕端列号左右对调）
+     因此打印稿 = 屏幕网格旋转 180°，讲台两侧座位也随之对调。 */
+  function seatTeacherViewParts(){
     var isGroup=seatLayout.mode==="group";
     var R = isGroup ? seatLayout.rowsPerGroup : seatLayout.rows;
     var C = isGroup ? seatLayout.groups*seatLayout.colsPerGroup : seatLayout.cols;
@@ -5764,56 +5793,93 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var flank={};
     (DATA.seats||[]).forEach(function(r){ if(r["排号"]==="讲台"){ flank[String(r["列号"]).replace(/\D/g,"")]=r; } });
     var clsName=(DATA.cls&&DATA.cls.班级名称)||"班级";
-    var rowsHtml="";
-    var r1=flank["1"], r2=flank["2"];
-    rowsHtml+='<tr><td class="lbl">讲台左</td><td>'+(r1?esc(r1["学生姓名"]):"（空）")+'</td><td class="lbl">讲台右</td><td>'+(r2?esc(r2["学生姓名"]):"（空）")+'</td><td colspan="'+Math.max(1,C-2)+'"></td></tr>';
-    var head='<tr><th>排＼列</th>';
+
+    /* 列序列（含小组模式走廊列）：先按屏幕端正序构建，再整体反转 → 教师视角 */
+    var colSeq=[], gi, k, c;
     if(isGroup){
-      for(var gi=0;gi<G;gi++){
+      for(gi=0;gi<G;gi++){
         var gStart=gi*CPG+1;
-        for(var k=0;k<CPG;k++) head+='<th>'+(gStart+k)+'</th>';
-        if(gi<G-1) head+='<th class="aisle">走廊</th>';
+        for(k=0;k<CPG;k++) colSeq.push({c:gStart+k, aisle:false});
+        if(gi<G-1) colSeq.push({c:0, aisle:true});
       }
     } else {
-      for(var c=1;c<=C;c++) head+='<th>'+c+'</th>';
+      for(c=1;c<=C;c++) colSeq.push({c:c, aisle:false});
     }
+    colSeq.reverse();
+
+    /* 表头：列号自教师左手边起（= 屏幕端从右往左） */
+    var head='<tr><th class="corner">排＼列</th>';
+    colSeq.forEach(function(x){ head += x.aisle ? '<th class="aisle">走廊</th>' : '<th>'+x.c+'</th>'; });
     head+='</tr>';
-    for(var r=1;r<=R;r++){
-      var tr='<tr><th>'+r+'</th>';
-      if(isGroup){
-        for(var gi=0;gi<G;gi++){
-          var gStart=gi*CPG+1;
-          for(var k=0;k<CPG;k++){
-            var rec=map[r+"_"+(gStart+k)];
-            tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
-          }
-          if(gi<G-1) tr+='<td class="aisle"></td>';
-        }
-      } else {
-        for(var c=1;c<=C;c++){
-          var rec=map[r+"_"+c];
-          tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
-        }
-      }
+
+    /* 行：第 R 排（离讲台最远）在最上 → 第 1 排（贴讲台）在最下 */
+    var rowsHtml="";
+    for(var r=R;r>=1;r--){
+      var tr='<tr><th class="rowh">'+r+'</th>';
+      colSeq.forEach(function(x){
+        if(x.aisle){ tr+='<td class="aisle"></td>'; return; }
+        var rec=map[r+"_"+x.c];
+        tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
+      });
       tr+='</tr>';
       rowsHtml+=tr;
     }
+
+    /* 讲台行（纸的最底部）：左右以站在讲台上的老师为准。
+       屏幕端 1列 在平面图左侧（西）= 老师的右手边；2列（东）= 老师的左手边。 */
+    var fL=flank["2"], fR=flank["1"];
+    var footHtml='<tr>'
+      +'<td class="lbl">讲台左<br><span class="lbl2">老师左手边</span></td>'
+      +'<td class="fl">'+(fL?esc(fL["学生姓名"]||""):"（空）")+'</td>'
+      +'<td class="lbl">讲台右<br><span class="lbl2">老师右手边</span></td>'
+      +'<td class="fl">'+(fR?esc(fR["学生姓名"]||""):"（空）")+'</td>'
+      +'<td colspan="'+Math.max(1,colSeq.length-3)+'"></td></tr>';
+
+    var css='table{border-collapse:collapse;margin-top:8px}'
+      +'td,th{border:1px solid #888;padding:6px 12px;text-align:center;font-size:12px;min-width:54px}'
+      +'th{background:#FFF0F6;font-weight:700}.corner{background:#FDE2EC}.rowh{background:#FFF7FA;font-weight:700}'
+      +'.lbl{background:#FDE2EC;font-weight:700;white-space:nowrap;font-size:11px;line-height:1.35}'
+      +'.lbl2{font-weight:500;color:#a06;font-size:10px}.fl{background:#fff;font-weight:700}'
+      +'.ttl{font-size:17px;font-weight:800;margin:0}.sub{font-size:12px;color:#555;margin:4px 0 0}'
+      +'.aisle{background:#F3F3F3;color:#999;font-size:11px}.tip{font-size:11px;color:#888;margin-top:6px;line-height:1.8}';
+    var body='<h3 class="ttl">'+esc(clsName)+' 座位表 · 讲台视角（'+todayStr()+'）</h3>'
+      +'<p class="sub">📐 按站在讲台上的老师方向排布 · 共 '+R+' 排 × '+C+' 列</p>'
+      +'<table>'+head+rowsHtml+footHtml+'</table>'
+      +'<p class="tip">📐 纸的<b>底部是讲台</b>，第 1 排最靠近讲台；纸的左右就是老师的左右。'
+      +(isGroup?'组与组之间为走廊；':'')+'讲台两侧为单独安排的座位。</p>';
+    return { css:css, body:body, clsName:clsName };
+  }
+  /* 导出座位表为 Excel（.xls，讲台视角，可直接打印；含讲台左右两侧座位） */
+  function exportSeatExcel(){
+    var p=seatTeacherViewParts();
     var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
-      +'<head><meta charset="utf-8"><style>'
-      +'table{border-collapse:collapse;margin-top:8px}td,th{border:1px solid #888;padding:6px 12px;text-align:center;font-size:12px;min-width:54px}'
-      +'th{background:#FFF0F6;font-weight:700}.lbl{background:#FDE2EC;font-weight:700;white-space:nowrap}.ttl{font-size:17px;font-weight:800;margin:0}.aisle{background:#F3F3F3;color:#999;font-size:11px}'
-      +'</style></head><body>'
-      +'<h3 class="ttl">'+esc(clsName)+' 座位表（'+todayStr()+'）</h3>'
-      +'<table>'+head+rowsHtml+'</table>'
-      +'<p style="font-size:11px;color:#888;margin-top:6px">讲台左右两侧为单独安排的座位；'+(isGroup?'组与组之间为走廊；':'')+'本表可直接打印。</p>'
-      +'</body></html>';
+      +'<head><meta charset="utf-8"><style>'+p.css+'</style></head><body>'+p.body+'</body></html>';
     var blob=new Blob(["\uFEFF"+doc],{type:"application/vnd.ms-excel;charset=utf-8"});
     var url=URL.createObjectURL(blob);
     var a=document.createElement("a");
-    a.href=url; a.download=(clsName||"班级")+"_座位表_"+todayStr()+".xls";
+    a.href=url; a.download=(p.clsName||"班级")+"_座位表_讲台视角_"+todayStr()+".xls";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); },1000);
-    toast("座位表已导出为 Excel ✓");
+    toast("座位表已导出（讲台视角）✓");
+  }
+  /* 直接打印（讲台视角）：写进隐藏 iframe 再调 print，避开弹窗拦截 */
+  function printSeatTeacherView(){
+    var p=seatTeacherViewParts();
+    var f=document.createElement("iframe");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(f);
+    var d=f.contentWindow.document;
+    d.open();
+    d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(p.clsName)+'座位表（讲台视角）</title>'
+      +'<style>@page{size:A4 landscape;margin:10mm}'
+      +'body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#111;margin:0}'
+      +p.css+'</style></head><body>'+p.body+'</body></html>');
+    d.close();
+    setTimeout(function(){
+      try{ f.contentWindow.focus(); f.contentWindow.print(); }
+      catch(e){ toast("调起打印失败，请改用「📊 导出座位表(Excel)」"); }
+      setTimeout(function(){ if(f.parentNode) f.parentNode.removeChild(f); }, 60000);
+    }, 250);
   }
   /* 按学生档案顺序一键排座（清空旧座位后重新排布） */
   function fillSeatsFromRoster(opts){
@@ -6999,7 +7065,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       DATA.materials=(DATA.materials||[]).concat([rec]);
       return Promise.resolve(rec);
     }
-    return apiAdd("materials", props).then(function(o){ var rec=Object.assign({_id:o._id}, props); DATA.materials=(DATA.materials||[]).concat([rec]); return rec; });
+    /* 班干部/科任登记时落到班主任名下（MSG_OWNER）：班主任与家长经既有 member_read 立即可见 */
+    var _uid = (!isHead() && MSG_OWNER) ? MSG_OWNER : undefined;
+    return apiAdd("materials", props, _uid).then(function(o){ var rec=Object.assign({_id:o._id}, props); DATA.materials=(DATA.materials||[]).concat([rec]); return rec; });
   }
   function apiUpdMat(id, props){
     if(matUseLocal){
@@ -7104,7 +7172,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       + "drop policy if exists hr_duty_member_read on hr_duty;\n create policy hr_duty_member_read on hr_duty for select using ( exists (select 1 from hr_members m where m.user_id = hr_duty.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
       + "drop policy if exists hr_points_member_read on hr_points;\n create policy hr_points_member_read on hr_points for select using ( exists (select 1 from hr_members m where m.user_id = hr_points.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
       + "drop policy if exists hr_students_member_read on hr_students;\n create policy hr_students_member_read on hr_students for select using ( exists (select 1 from hr_members m where m.user_id = hr_students.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
-      + "drop policy if exists hr_settings_member_read on hr_settings;\n create policy hr_settings_member_read on hr_settings for select using ( exists (select 1 from hr_members m where m.user_id = hr_settings.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
+      + "drop policy if exists hr_settings_member_read on hr_settings;\n create policy hr_settings_member_read on hr_settings for select using ( exists (select 1 from hr_members m where m.user_id = hr_settings.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "-- 5. 班干部名单表（登录页免密进入；名单公开可读，写入仅限班主任）\n" + sqlOfficers() + "\n"
+      + "-- 6. 班干部登记写入授权（材料收集：成员可写入/更新班主任名下的记录，班主任与家长立即可见）\n"
+      + "drop policy if exists hr_materials_member_insert on hr_materials;\n create policy hr_materials_member_insert on hr_materials for insert with check ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_materials_member_update on hr_materials;\n create policy hr_materials_member_update on hr_materials for update using ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) ) with check ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
     return s.replace(/\n{3,}/g,"\n\n");
   })();
   function loadMessagesSafe(){
@@ -7429,6 +7501,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
     return o;
   }
+  /* 本周「未交 / 迟交」明细：班干部或班主任登记后，家长打开家校首页即见 */
+  function phNosubList(name){
+    var wk=isoWeek(todayStr()).monday, td=todayStr();
+    var rows=(DATA.materials||[]).filter(function(r){
+      if(String(r["学生姓名"]||"")!==name) return false;
+      var d=String(r["日期"]||"").slice(0,10);
+      if(!d || d<wk || d>td) return false;
+      var s=String(r["状态"]||"");
+      return s==="未交"||s==="迟交";
+    }).sort(function(a,b){ return String(b["日期"]||"").localeCompare(String(a["日期"]||"")); });
+    if(!rows.length) return "";
+    return '<div class="ph-nosub" style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">'
+      +'<div style="font-size:12px;color:var(--ink-soft);font-weight:700;margin-bottom:4px">📌 本周未交 / 迟交明细</div>'
+      + rows.map(function(r){
+        var s=String(r["状态"]||""), isMiss=(s==="未交");
+        return '<div style="display:flex;gap:8px;align-items:center;font-size:12.5px;padding:2px 0">'
+          +'<span style="color:'+(isMiss?'var(--danger)':'#e0a000')+';font-weight:700;flex:none">'+esc(s)+'</span>'
+          +'<span style="flex:1">'+esc(r["事项"]||"(未命名事项)")+'</span>'
+          +'<span style="color:var(--ink-soft);flex:none">'+esc(String(r["日期"]||"").slice(5))+'</span></div>';
+      }).join("")
+      +'</div>';
+  }
   /* 班主任发给"我"的最新一条（家长视角：authorUid 是班主任 = 不是我本人） */
   function parentLatestTeacherMsg(){
     var list=(DATA.messages||[]).filter(function(m){
@@ -7492,7 +7586,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="ph-kv" style="margin-top:10px">'
       +'<span>值日分工：<b>'+(st.dutyTask?esc(st.dutyGroup+' · '+st.dutyTask):'暂未安排')+'</b></span>'
       +'<span>迟交作业：<b>'+st.latesub+' 次</b></span>'
-      +'</div></div>';
+      +'</div>'
+      + phNosubList(name)
+      +'</div>';
 
     /* ④ 今日课表 */
     var cs=todayCoursesOf();
@@ -7561,6 +7657,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<button class="btn-mini" data-mcreateall="1">⚡ 一键创建全体家长账号</button>'
       +'<button class="btn-mini" data-mexport="1" id="memExport" style="display:none">📋 导出账号（CSV）</button></div>'
       +'<div id="memBatchInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 6px;line-height:1.6"></div>'
+      +'<div style="margin:12px 0 6px;font-weight:800;color:var(--ink);font-size:13.5px">🎖 创建班干部账号（免密进入）</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<select id="offPost" style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<option>班长</option><option>副班长</option><option>学习委员</option><option>劳动委员</option>'
+      +'<option>体育委员</option><option>宣传委员</option><option>课代表</option><option>作业组长</option></select>'
+      +'<input id="offSubj" placeholder="科目（课代表选填）" style="flex:1;min-width:110px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<input id="offName" placeholder="学生姓名" style="flex:1;min-width:100px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<button class="btn-mini" data-mcreateoff="1">创建账号</button></div>'
+      +'<div id="offCreateInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 2px;line-height:1.6">创建后该学生即可在登录页「班干部」处点击名字免密进入：只开放「材料收集」，登记当天作业上交情况，结果同步给你并展示给家长。</div>'
       +'<div style="margin:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<input id="memUid" placeholder="成员账号 ID" style="flex:2;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<input id="memName" placeholder="姓名 / 称呼" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
@@ -7575,12 +7680,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(e.target===mask || e.target.closest("[data-mclose]")){ mask.remove(); return; }
       if(e.target.closest("[data-madd]")){ addMember(mask); return; }
       if(e.target.closest("[data-mcreate]")){ createParentAccount(mask); return; }
+      if(e.target.closest("[data-mcreateoff]")){ createOneOfficer(mask); return; }
       if(e.target.closest("[data-mcreateall]")){ createAllParents(mask); return; }
       if(e.target.closest("[data-mexport]")){ exportAccountsFile(); return; }
       var del=e.target.closest("[data-mdel]");
       if(del){
         if(!confirm("移除该成员？移除后对方将看不到班级数据。")) return;
+        var _mrow=(DATA.members||[]).filter(function(r){ return r._id===del.getAttribute("data-mdel"); })[0];
         apiDelete("members", del.getAttribute("data-mdel")).then(function(){
+          /* 班干部成员被移除时，同步清掉登录名单里对应条目（尽力而为，失败不阻塞） */
+          if(_mrow && _mrow["uid"] && _mrow["role"]==="班干部" && db){
+            try{ db.from(tbl("officers")).delete().eq("data->>uid", _mrow["uid"]).then(function(){}, function(){}); }catch(_e){}
+          }
           return loadMembersSafe();
         }).then(function(){ renderMembersList(mask); render(); toast("已移除"); })
         .catch(function(e){ toast("移除失败："+(e&&e.message||e)); });
@@ -7727,6 +7838,49 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
             return {email:email, stu:stu, pwd:pwd, id:u.id, confirmed: !!(u&&u.email_confirmed_at)};
           });
       });
+    });
+  }
+  /* 班主任创建班干部账号：选职务 + 填姓名 → 自动生成账号并写入 hr_members + hr_officers。
+     学生在登录页「班干部」处点击名字即免密进入（无需邮箱密码）。 */
+  function createOneOfficer(mask){
+    if(!isHead()){ toast("仅班主任可创建班干部账号"); return; }
+    if(!db){ toast("未连接后端"); return; }
+    var nameEl=mask.querySelector("#offName"), postEl=mask.querySelector("#offPost"), subjEl=mask.querySelector("#offSubj");
+    var name=(nameEl&&nameEl.value||"").trim();
+    var post=(postEl&&postEl.value||"班干部").trim();
+    var subj=(subjEl&&subjEl.value||"").trim();
+    if(subj) post+="·"+subj;
+    if(!name){ toast("请填写学生姓名"); return; }
+    if((DATA.members||[]).some(function(r){ return r.role==="班干部" && r.name===name; })){ toast("「"+name+"」已有班干部账号"); return; }
+    var info=mask.querySelector("#offCreateInfo");
+    if(info) info.textContent="正在创建班干部账号…";
+    var signer = dbGuest || db;   // 独立客户端 signUp，避免污染班主任会话（同家长账号逻辑）
+    var pwd = "gb" + Math.random().toString(36).slice(2, 8);
+    var email = "gb" + Date.now().toString(36) + Math.random().toString(36).slice(2,5) + "@banzhuren.app";
+    signer.auth.signUp({email:email,password:pwd,options:{data:{role:"班干部",displayName:name}}}).then(function(res){
+      if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; }
+      var u=res.data&&res.data.user;
+      if(!u||!u.id) throw new Error("未返回新账号信息");
+      return db.from(tbl("members")).insert({ user_id: curUid,
+        data:{uid:u.id,name:name,role:"班干部",ownerUid:curUid,email:email,pwd:pwd,post:post} }).select('id')
+        .then(function(r2){
+          if(r2.error) throw r2.error;
+          return db.from(tbl("officers")).insert({ user_id: curUid,
+            data:{uid:u.id,name:name,post:post,email:email,pwd:pwd} }).then(function(){ return u.id; }, function(e3){
+            if(!trySchemaFix(e3.message || e3.code || "")) toast("名单表写入失败："+(e3.message||""));
+            throw e3;
+          });
+        });
+    }).then(function(){
+      return loadMembersSafe();
+    }).then(function(){
+      if(info) info.innerHTML="✅ 已创建：<b>"+esc(name)+"</b>（"+esc(post)+"）。无需告知账号密码——学生在登录页「班干部」处点击名字即可进入登记。";
+      if(nameEl) nameEl.value="";
+      renderMembersList(mask); render(); toast("班干部账号已创建 ✓");
+    }).catch(function(e){
+      var m=(e&&e.message)||String(e||"");
+      if(info) info.textContent="创建失败："+m;
+      toast("创建失败："+m);
     });
   }
   /* 班主任用学生姓名创建家长登录账号（单个，供「关联学生」入口调用） */
@@ -8344,11 +8498,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +"create policy hr_regulations_own on hr_regulations\n"
       +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);";
   }
+  /* 班干部名单表：登录页（未登录）可读名单 → 实现「点击名字免密进入」；
+     名单里含自动生成的登录凭据（与成员表同级的受限账号），写入仅限班主任本人。 */
+  function sqlOfficers(){
+    return "create table if not exists hr_officers (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists hr_officers_user_idx on hr_officers(user_id);\n"
+      +"alter table hr_officers enable row level security;\n"
+      +"drop policy if exists hr_officers_public_read on hr_officers;\n"
+      +"create policy hr_officers_public_read on hr_officers\n"
+      +"  for select using (true);\n"
+      +"drop policy if exists hr_officers_own on hr_officers;\n"
+      +"create policy hr_officers_own on hr_officers\n"
+      +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);";
+  }
   function sqlForTable(t){
     if(!/^hr_[a-z0-9_]+$/i.test(t)) return "";
     /* 这几张表的可见范围不是「仅本人」，需专用策略，不能用通用模板 */
     if(t==="hr_messages")  return sqlMessages();
     if(t==="hr_members")   return sqlMembers();
+    if(t==="hr_officers")  return sqlOfficers();
     /* 班级制度公示：班主任写，所有登录用户读（家长端只读） */
     if(t==="hr_regulations") return sqlRegulations();
     return "create table if not exists "+t+" (\n"
@@ -9522,7 +9695,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var tb=document.getElementById(gridTargets.tb);
     var wrap=document.getElementById(gridTargets.wrap);
     var foot=document.getElementById(gridTargets.foot);
-    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 ' + (isHead() ? '选择文件夹进入，或新建一个' : '选择文件夹进入') + '</span>'
+    if(tb) tb.innerHTML='<span class="hint" style="padding:6px 10px">📁 ' + (isHead() ? '选择文件夹进入，或新建一个' : (isOfficer() ? '选择文件夹进入，点格子登记当天上交情况' : '选择文件夹进入')) + '</span>'
       +'<span class="gt-sep"></span>'
       + (isHead() ? '<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>' : '');
     var groups=matFoldersGroup();
@@ -9820,22 +9993,26 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       ? '<button class="gt-btn" data-matBackFolders title="返回文件夹列表">← 文件夹</button>'
       : '';
     if(mod==="materials"){
+      /* 班干部：文件夹由班主任建好，这里只做登记 → 隐藏 建表类控件 */
+      var off = isOfficer();
       tb.innerHTML =
         folderBackBtn
        +(matSingle?'<span class="gt-btn" style="cursor:default">📦 单次收取</span>':gridWeekBar())
-       +'<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
-       +'<button class="gt-tab '+(gridState.curType==="材料上交"?"on":"")+'" data-gttype="材料上交">📦 材料上交</button>'
-       +'<span class="gt-sep"></span>'
-       +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">事项:</span>'
-       +'<input class="gt-input" placeholder="如：数学作业/实践表" value="'+esc(gridState.curItem||"")+'" style="width:160px">'
-       +'<button class="gt-btn" data-gridtApplyItem>应用</button>'
-       +'<span class="gt-sep"></span>'
+       +(off?''
+          :'<button class="gt-tab '+(gridState.curType==="作业提交"?"on":"")+'" data-gttype="作业提交">📝 作业提交</button>'
+           +'<button class="gt-tab '+(gridState.curType==="材料上交"?"on":"")+'" data-gttype="材料上交">📦 材料上交</button>'
+           +'<span class="gt-sep"></span>'
+           +'<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600">事项:</span>'
+           +'<input class="gt-input" placeholder="如：数学作业/实践表" value="'+esc(gridState.curItem||"")+'" style="width:160px">'
+           +'<button class="gt-btn" data-gridtApplyItem>应用</button>'
+           +'<span class="gt-sep"></span>')
        +'<span style="font-size:12.5px;color:var(--ink-soft)">共 '+dates.length+' 日 / '+studs.length+' 人</span>'
        +'<span class="gt-sep"></span>'
        +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为已交（只补当天）">🪄 一键补齐已交</button>'
-       +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
-       +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
-       +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>'
+       +(off?''
+          :'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
+           +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
+           +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>')
        +'<span class="gt-sep"></span>'
        + (isHead() ? '<button class="gt-btn" data-clearmenu="materials" title="清空本周 / 清空本周之前的历史 / 清空全部（均不可恢复）">🗑 清空 ▾</button>' : '');
     } else {
@@ -9885,7 +10062,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         var md=d.length>=10?d.slice(5):d;
         html+='<th class="col-head" data-colDate="'+esc(d)+'"><span class="col-date">'+esc(md)+'</span><span class="col-week">周'+wk+'</span></th>';
       });
-      html+='<th class="add-col" data-addCol>+</th>';
+      if(isHead()) html+='<th class="add-col" data-addCol>+</th>';
     }
     html+='</tr></thead><tbody>';
     var st=GRID_ST[mod];
@@ -9942,7 +10119,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
         }
       });
-      html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="为该生新增日期">+</td>';
+      if(isHead()) html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="为该生新增日期">+</td>';
       html+='</tr>';
     });
     html+='</tbody></table>';
@@ -10003,6 +10180,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(f && gridState.week===isoWeek(todayStr()).monday) f.innerHTML=buildTodayPanel(gridState.mod);
   }
   function gridCellClick(no, date, period){
+    if(!canMarkMat()){ toast("当前身份仅可查看，不能修改"); return; }
     if(gridMark && gridMark.date===date){
       if(gridMark.picked.has(no)) gridMark.picked.delete(no); else gridMark.picked.add(no);
       renderGrid(); return;
@@ -10146,6 +10324,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 一键补齐（只补当天，以实际日期为准）：把今日该模块尚无记录的同学批量标记为默认态
      （考勤=出勤 / 材料=已交）。已手动标记异常的同学不受影响；其它日期不补。 */
   function gridFillToday(mod, onlyPeriod){
+    if(!canMarkMat()){ toast("当前身份仅可查看，不能修改"); return; }
     var st=GRID_ST[mod];
     var def=st.yes; // 出勤 / 已交
     var today=(mod==="materials" && gridState.curType==="材料上交") ? matFixedDate() : todayStr(); // 收材料=固定日期列
@@ -10182,6 +10361,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 保存并计算积分：显式触发规则计算（与每次改动的防抖自动套用并存，给教师一个明确的「录入完成」动作） */
   function gridSaveCompute(mod){
+    if(!isHead()){ toast("仅班主任可计算积分"); return; }
     if(mod!=="attendance" && mod!=="materials") return;
     setStatus("syncing");
     applyRules(mod);
@@ -10768,11 +10948,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var matAdd=e.target.closest("[data-matFolderAdd]");
     if(matAdd){ if(!isHead()){ toast("仅班主任可创建文件夹"); return; } matNewFolderDialog(); return; }
     var h=e.target.closest("[data-colDate]");
-    if(h){ showColMenu(h.getAttribute("data-colDate"), h); return; }
+    if(h){ if(isHead()) showColMenu(h.getAttribute("data-colDate"), h); return; }
     var c=e.target.closest("[data-cell]");
     if(c){ var per=c.getAttribute("data-period")||""; gridCellClick(c.getAttribute("data-no"), c.getAttribute("data-date"), per); return; }
     var ac=e.target.closest("[data-addCol]");
-    if(ac){ gridAddDate(); return; }
+    if(ac){ if(isHead()) gridAddDate(); return; }
     var dm=e.target.closest("[data-gridMarkDone]");
     if(dm){ gridMarkDone(); return; }
     var mc=e.target.closest("[data-gridMarkCancel]");
@@ -11806,7 +11986,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       curUid=user.id;
       /* 身份来自注册时写入的 user_metadata.role；老账号没有该字段 → 按班主任（全权限）处理 */
       var _r=(user&&user.user_metadata&&user.user_metadata.role)||"";
-      curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT) ? _r : ROLE_HEAD;
+      curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT||_r===ROLE_OFFICER) ? _r : ROLE_HEAD;
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
       var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
@@ -11819,6 +11999,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       /* 家长每次进入 / 下拉刷新都落在「🏠 家校首页」：那是家长端的主入口，
          其余模块（考勤 / 材料 / 课表 / 留言板…）仍可从侧边栏照常进入。 */
       if(curRole===ROLE_PARENT){ state.cat="phome"; state.mod="phome"; state.open["phome"]=true; }
+      /* 班干部每次进入都落在「材料收集」：唯一的登记入口 */
+      if(curRole===ROLE_OFFICER){ state.cat="aff"; state.mod="materials"; state.open["aff"]=true; }
       renderSidebar();
       render();            // 立即渲染外壳，避免数据加载失败时整页空白
       bootLoad();
@@ -11900,7 +12082,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parent-home-2026-09-09";
+  var __APP_VERSION__ = "officer-role-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -12001,6 +12183,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         var signup=document.getElementById("authSignup");
         var tip=document.getElementById("authRoleTip");
         var err=document.getElementById("authErr"); if(err) err.textContent="";
+        var em=document.getElementById("authEmail"), pw=document.getElementById("authPwd"), lg=document.getElementById("authLogin");
+        var op=document.getElementById("officerPick");
+        var offMode=(role==="班干部");
+        if(op) op.style.display = offMode ? "" : "none";
+        if(em) em.style.display = offMode ? "none" : "";
+        if(pw) pw.style.display = offMode ? "none" : "";
+        if(lg) lg.style.display = offMode ? "none" : "";
         if(role==="班主任"){
           if(title) title.textContent="班主任登录";
           if(roleWrap) roleWrap.style.display="none";
@@ -12012,12 +12201,60 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           if(signup) signup.style.display="";
           var rs=document.getElementById("authRole"); if(rs) rs.value="科任老师";
           if(tip) tip.textContent="科任老师可在此自助注册（只读权限：材料、课表、留言板）。";
+        } else if(offMode){
+          if(title) title.textContent="班干部进入";
+          if(roleWrap) roleWrap.style.display="none";
+          if(signup) signup.style.display="none";
+          if(tip) tip.textContent="点击你的名字即可进入（无需密码）。名单由班主任提前关联。";
+          loadOfficerList();
         } else {
           if(title) title.textContent="家长登录";
           if(roleWrap) roleWrap.style.display="none";
           if(signup) signup.style.display="none";
           if(tip) tip.textContent="家长账号由班主任在「留言板 → ⚙️ 成员管理」中用学生姓名创建，请用班主任提供的账号密码登录。";
         }
+      }
+      /* 班干部免密进入：未登录状态拉取公开名单（hr_officers），点击即用预置凭据登录 */
+      function loadOfficerList(){
+        var box=document.getElementById("officerList"); if(!box) return;
+        if(!db){ box.innerHTML='<span style="font-size:12.5px;color:var(--danger)">后端未连接，请刷新重试</span>'; return; }
+        box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2">正在加载班干部名单…</span>';
+        db.from(tbl("officers")).select("id,data").then(function(res){
+          if(res.error){
+            box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2;line-height:1.7">暂未关联班干部。请班主任在「留言板 → ⚙️ 成员管理」中创建班干部账号后重试。</span>';
+            return;
+          }
+          var rows=(res.data||[]).map(function(r){ return r.data||{}; });
+          if(!rows.length){
+            box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2;line-height:1.7">还没有班干部账号。请班主任在「⚙️ 成员管理」里创建（选职务 + 填姓名即可）。</span>';
+            return;
+          }
+          box.innerHTML=rows.map(function(o,i){
+            var badge=String(o.post||"班干部").slice(0,3);
+            return '<button type="button" class="officer-item" data-officer="'+i+'">'
+              +'<span class="officer-badge">'+esc(badge)+'</span>'
+              +'<span class="officer-nm">'+esc(o.name||"")+'</span>'
+              +'<span class="officer-post">'+esc(o.post||"班干部")+'</span>'
+              +'<span class="officer-go">进入 ›</span></button>';
+          }).join("");
+          box._officers=rows;
+          Array.prototype.forEach.call(box.querySelectorAll("[data-officer]"), function(b){
+            b.addEventListener("click", function(){
+              var o=box._officers[Number(b.getAttribute("data-officer"))]; if(!o) return;
+              var err=document.getElementById("authErr"); if(err) err.textContent="";
+              setStatus("syncing");
+              db.auth.signInWithPassword({email:o.email||"",password:o.pwd||""}).then(function(r){
+                if(r.error) throw r.error;
+                onSignedIn(r.data.user);
+              }).catch(function(e){
+                setStatus("offline");
+                if(err) err.textContent="进入失败："+((e&&e.message)||e);
+              });
+            });
+          });
+        }).catch(function(){
+          box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2">名单加载失败，请检查网络后重试</span>';
+        });
       }
       window.__showAuthCard=showAuthCard;
       function showAuthCover(){
