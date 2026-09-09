@@ -756,6 +756,35 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-left:6px;vertical-align:middle}
   .pill.on{background:#E6F7EC;color:#1B7A43}
   .pill.off{background:#F0F1F5;color:#9AA3B8}
+  /* 班委成员：分组看板（紧凑行 + 点行展开） */
+  .cmb-grp{margin:14px 0 2px}
+  .cmb-grp-h{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--ink-soft,#6B7280);padding:2px 2px 7px}
+  .cmb-grp-h .cmb-cnt{font-size:11.5px;font-weight:600;background:#F0F1F5;color:#8A8F9C;border-radius:999px;padding:1px 8px}
+  .cmb-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ECEEF2;border-radius:12px;padding:9px 12px;margin-bottom:6px;cursor:pointer}
+  .cmb-row:active{background:#FAFBFD}
+  .cmb-badge{flex:0 0 auto;min-width:38px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;letter-spacing:.5px}
+  .cmb-g0 .cmb-badge{background:#FFF4E3;color:#B26A00}
+  .cmb-g1 .cmb-badge{background:#EAF2FF;color:#3A6EA5}
+  .cmb-g2 .cmb-badge{background:#F0EAFF;color:#7A5FC7}
+  .cmb-g3 .cmb-badge{background:#E8F6EE;color:#2E8B57}
+  .cmb-g4 .cmb-badge{background:#FDEFF3;color:#C25577}
+  .cmb-g9 .cmb-badge{background:#F0F1F5;color:#8A8F9C}
+  .cmb-info{flex:1;min-width:0}
+  .cmb-name{font-size:15px;font-weight:650;color:var(--ink,#22252B)}
+  .cmb-meta{font-size:12px;color:var(--ink-soft,#6B7280);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cmb-right{flex:0 0 auto;display:flex;align-items:center;gap:6px}
+  .cmb-pill{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px}
+  .cmb-pill.on{background:#E8F6EE;color:#2E8B57}
+  .cmb-pill.off{background:#F0F1F5;color:#8A8F9C}
+  .cmb-pill.warn{background:#FFF0F0;color:#C0392B}
+  .cmb-arrow{color:#C3C8D2;font-size:12px;transition:transform .15s;display:inline-block}
+  .cmb-row.open .cmb-arrow{transform:rotate(90deg)}
+  .cmb-detail{background:#FAFBFD;border:1px dashed #E4E7EE;border-radius:12px;padding:10px 12px;margin:0 0 8px}
+  .cmb-detail .row{display:flex;gap:8px;font-size:13px;margin:3px 0}
+  .cmb-detail .lbl{color:var(--ink-soft,#6B7280);flex:0 0 52px}
+  .cmb-detail .val{color:var(--ink,#22252B);word-break:break-all}
+  .cmb-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .cmb-off-h{cursor:pointer}
   .mini.resign{background:#FFF3E0;color:#B26A00;border:1px solid #FFE0B0}
   .mini.resign:active{background:#FFE0B0}
   .mini{
@@ -1570,6 +1599,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     <nav class="nav" id="nav" data-page-node-id="1qxRxX8Jik0VraExXkWdG9"></nav>
     <span class="s-status" id="status" data-page-node-id="uZtaM2ssqRBLDzRwzS46uq"><span class="dot" data-page-node-id="jxHwKd2tulNGwFQjvEc2xv"></span><span id="statusText" data-page-node-id="KrrceaHspcCrQbHNUDd6Yk">同步中</span></span>
     <button class="logout-btn share-btn" id="shareBtn" style="display:none" title="生成带二维码的分享海报，保存后可直接发到微信">📤 分享工作台</button>
+    <button class="logout-btn share-btn" id="clsQrBtn" style="display:none" title="生成班级二维码：家长扫码即进入本班家长视图（留言板仍需本人账号登录）">📱 班级二维码</button>
     <button class="logout-btn share-btn" id="quickTblBtn" style="display:none" title="一键生成：材料收集表 / 座位表 / 值日安排表">⚡ 快速制表</button>
     <button class="logout-btn" id="checkUpdBtn" style="display:none" title="手动检查是否有新版本；也可在地址栏后加 ?fresh=1 强制刷新">🔄 检查更新</button>
     <button class="logout-btn" id="logoutBtn" style="display:none" title="退出当前账号，回到身份选择界面" data-page-node-id="LDBOXLC4blVKdUjUrrp9op">⇄ 切换身份 / 退出</button>
@@ -2765,9 +2795,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return;
     }
     /* 家长端家校首页：聚合视图，班主任 / 科任老师不可见 */
-    if(state.mod==="phome"){ box.innerHTML=renderParentHome(); bindParentHome(); return; }
+    if(state.mod==="phome"){ box.innerHTML=isGuest()?renderGuestHome():renderParentHome(); bindParentHome(); return; }
     /* 留言板：三种身份都能发帖，可见范围由后端 RLS 控制（本人 + 班主任） */
-    if(state.mod==="messages"){ box.innerHTML=renderMessages(); bindMessages(); markMsgRead(); return; }
+    if(state.mod==="messages"){
+      if(isGuest()){ box.innerHTML=renderGuestMsgGate(); bindGuestMsgGate(); return; }
+      box.innerHTML=renderMessages(); bindMessages(); markMsgRead(); return;
+    }
     if(state.mod==="honorboard"){ box.innerHTML='<div class="phead"><h3>🏆 荣誉榜</h3><span class="hint">数据来自「加减分管理」与「学生档案·学习小组」</span></div>'+renderHonor(); return; }
     if(state.mod==="mall"){ box.innerHTML=renderMall(); return; }
     if(state.mod==="ai"){ box.innerHTML=renderAIChat(); bindAI(); return; }
@@ -3226,6 +3259,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         +'<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>'+emptyNote+'</div></div>'+matWarn;
       return;
     }
+    // 班委成员：按职务分 5 类的分组看板（紧凑行 + 点行展开操作）
+    if(key==="committee"){
+      box.innerHTML = attStrip + renderCommitteeBoard();
+      return;
+    }
     // 班级制度：按「方向(类别)」分文件夹收纳，同一方向的制度放在一起，可展开/收起
     if(key==="rules"){
       box.innerHTML = attStrip + extra + renderRulesView(rows);
@@ -3240,6 +3278,102 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     box.innerHTML = attStrip + extra + archiveHTML + rows.map(function(r){ return cardHTML(key,r); }).join("");
   }
 
+  /* ---------- 班委成员：分组看板（5 类职务 + 紧凑行 + 点行展开） ---------- */
+  var OFFICE_GROUPS=[
+    {icon:"👑",label:"班长 · 副班长",posts:["班长","副班长"]},
+    {icon:"📋",label:"委员",posts:["学习委员","纪律委员","体育委员","文艺委员","宣传委员","电教委员","心理委员","安全委员"]},
+    {icon:"📚",label:"课代表",posts:["课代表"]},
+    {icon:"👥",label:"小组长",posts:["小组长","作业组长"]},
+    {icon:"🧺",label:"生活类职务",posts:["生活委员","卫生委员","劳动委员"]}
+  ];
+  var cmbExpanded={};    // 行展开状态（会话内）
+  var cmbOffOpen=false;  // 「已卸任」分组默认收起
+  function officeGroupOf(post){
+    var p=String(post||"").trim();
+    if(!p) return 9;
+    if(p.indexOf("课代表")>=0) return 2;
+    if(p.indexOf("组长")>=0) return 3;
+    if(/生活|卫生|劳动/.test(p)) return 4;
+    if(p.indexOf("班长")>=0) return 0;
+    if(p.indexOf("委员")>=0) return 1;
+    return 9;
+  }
+  function cmbSortKey(r){
+    var gi=officeGroupOf(r["职务"]), post=String(r["职务"]||"");
+    var pi=(gi<5&&OFFICE_GROUPS[gi])?OFFICE_GROUPS[gi].posts.indexOf(post):-1;
+    var no=parseInt(r["学号"],10); if(isNaN(no)) no=9999;
+    return [(pi<0?99:pi), no, String(r["学号"]||"")];
+  }
+  function renderCommitteeBoard(){
+    var can=canEdit();
+    var rows=(DATA.committee||[]).filter(function(r){return r["学生姓名"]||r["职务"];});
+    if(!rows.length) return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg><div>还没有班委，点右上角「+ 添加」开始吧～</div></div>';
+    var act=rows.filter(function(r){return !r["卸任时间"];});
+    var off=rows.filter(function(r){return r["卸任时间"];});
+    var ymNow=(new Date()).getFullYear()+"-"+pad((new Date()).getMonth()+1);
+    function rowHTML(r){
+      var id=r._id, gi=officeGroupOf(r["职务"]);
+      var post=String(r["职务"]||"（未填职务）");
+      var meta=[];
+      if(r["学号"]) meta.push("№"+r["学号"]);
+      if(r["负责事项"]) meta.push(r["负责事项"]);
+      var isBad=Array.isArray(r["不尽责月份"])&&r["不尽责月份"].indexOf(ymNow)>=0;
+      var open=!!cmbExpanded[id];
+      var det='';
+      if(open){
+        var acts='';
+        if(can){
+          if(!r["卸任时间"]){
+            if(isBad){
+              acts+='<span class="mini bad" title="当月已标记不尽责，下月自动恢复">⚠ '+ymNow+' 不尽责</span>';
+              acts+='<button class="mini" data-act="unmark-bad" data-mod="committee" data-id="'+id+'">恢复</button>';
+            } else {
+              acts+='<button class="mini bad-mark" data-act="mark-bad" data-mod="committee" data-id="'+id+'" title="标记本月不尽责，下次月度加分将跳过">标记不尽责</button>';
+            }
+            acts+='<button class="mini resign" data-act="resign" data-mod="committee" data-id="'+id+'">卸任</button>';
+          }
+          acts+='<button class="mini edit" data-act="edit" data-mod="committee" data-id="'+id+'">编辑</button>';
+          acts+='<button class="mini del" data-act="del" data-mod="committee" data-id="'+id+'">删除</button>';
+        }
+        det='<div class="cmb-detail">'
+          +'<div class="row"><span class="lbl">任期</span><span class="val">'+((r["任职时间"]?fmtDate(r["任职时间"]):"—")+(r["卸任时间"]?(" 至 "+fmtDate(r["卸任时间"])):" 起（在任）"))+'</span></div>'
+          +(r["备注"]?'<div class="row"><span class="lbl">备注</span><span class="val">'+esc(r["备注"])+'</span></div>':'')
+          +(acts?'<div class="cmb-acts">'+acts+'</div>':'')
+          +'</div>';
+      }
+      return '<div class="cmb-row cmb-g'+gi+(open?" open":"")+'" data-cmbx="'+esc(id)+'">'
+        +'<div class="cmb-badge">'+esc(post.slice(0,2))+'</div>'
+        +'<div class="cmb-info"><div class="cmb-name">'+esc(r["学生姓名"]||"（未填姓名）")+'</div>'
+        +'<div class="cmb-meta">'+esc(post)+(meta.length?" · "+esc(meta.join(" · ")):"")+'</div></div>'
+        +'<div class="cmb-right">'
+        +(r["卸任时间"]?'<span class="cmb-pill off">已卸任</span>':(isBad?'<span class="cmb-pill warn">不尽责</span>':'<span class="cmb-pill on">在任</span>'))
+        +'<span class="cmb-arrow">▸</span></div></div>'+det;
+    }
+    function sortList(list){
+      return list.slice().sort(function(a,b){
+        var A=cmbSortKey(a),B=cmbSortKey(b);
+        if(A[0]!==B[0]) return A[0]-B[0];
+        if(A[1]!==B[1]) return A[1]-B[1];
+        return A[2]<B[2]?-1:(A[2]>B[2]?1:0);
+      });
+    }
+    function groupHTML(gi,list){
+      if(!list.length) return "";
+      var g=(gi<5&&OFFICE_GROUPS[gi])?OFFICE_GROUPS[gi]:{icon:"▪",label:"其他职务"};
+      return '<div class="cmb-grp"><div class="cmb-grp-h">'+g.icon+' '+g.label+'<span class="cmb-cnt">'+list.length+' 人</span></div>'
+        + sortList(list).map(rowHTML).join("")+'</div>';
+    }
+    var html='';
+    [0,1,2,3,4].forEach(function(gi){
+      html+=groupHTML(gi, act.filter(function(r){return officeGroupOf(r["职务"])===gi;}));
+    });
+    html+=groupHTML(9, act.filter(function(r){return officeGroupOf(r["职务"])===9;}));
+    if(off.length){
+      html+='<div class="cmb-grp"><div class="cmb-grp-h cmb-off-h" data-cmboff>🗄 已卸任<span class="cmb-cnt">'+off.length+' 人</span><span style="font-weight:400;font-size:11.5px">'+(cmbOffOpen?"收起":"展开")+'</span></div>'
+        +(cmbOffOpen?sortList(off).map(rowHTML).join(""):'')+'</div>';
+    }
+    return html;
+  }
   /* ---------- 班级制度公示：渲染文档视图（班主任可编辑，家长只读） ---------- */
   function renderRegulationsView(){
     var doc = getRegDoc();
@@ -7445,7 +7579,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 家长成员列表（班主任广播通知的收件人） */
   function parentMembers(){
     return (DATA.members||[]).filter(function(m){
-      return m && m["uid"] && (m["role"]||"")===ROLE_PARENT;
+      return m && m["uid"] && (m["role"]||"")===ROLE_PARENT && !m["guest"];
     });
   }
   /* 「✉️ 单独沟通」入口：选项=尚无会话（不在 order 中）的家长成员 */
@@ -7481,6 +7615,190 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var msg=(e&&e.message)||String(e||"");
       if(!trySchemaFix(msg)) toast("发送失败："+msg);
     });
+  }
+
+  /* ===== 班级二维码：扫码进入本班家长视图 =====
+     · 班主任点「📱 班级二维码」→ 生成 6 位班级码 + 一个「扫码访客」家长账号，写进 hr_classpass（未登录可读）
+     · 家长扫码 → ?c=<班级码> → 自动以该访客账号登录 → 进入家长身份（课表/作业/值日/荣誉…与普通家长一致）
+     · 该访客账号被 parentMembers() 排除：不收全班通知；留言板对访客显示「需登录本人账号」门禁
+     · 安全边界：拿到二维码的人可看本班公开信息；看不到任何学生私信（留言板需本人账号） */
+  function isGuest(){ return !!(myMemberRow && myMemberRow["guest"]); }
+  function classSiteURL(){
+    var u; try{ u=location.origin + (typeof SITE_ROOT!=="undefined"?SITE_ROOT:"") + "/"; if(!/^https?:\/\//.test(u)) u=location.href; }catch(e){ u=location.href; }
+    return u;
+  }
+  function classQRUrl(code){ var u=classSiteURL(); return u + (u.indexOf("?")>=0?"&":"?") + "c=" + encodeURIComponent(code); }
+  function randClassCode(){
+    var cs="abcdefghjkmnpqrstuvwxyz23456789", out="";
+    for(var i=0;i<6;i++) out+=cs.charAt(Math.floor(Math.random()*cs.length));
+    return out;
+  }
+  function loadMyClassPass(){
+    if(!db) return Promise.resolve(null);
+    return db.from(tbl("classpass")).select("id,data").eq("data->>headUid", curUid).limit(1).then(function(res){
+      if(res.error){ trySchemaFix(res.error.message||res.error.code||""); return null; }
+      var r=(res.data||[])[0];
+      return r ? Object.assign({ _id:r.id }, r.data||{}) : null;
+    }).catch(function(){ return null; });
+  }
+  function removeMemberByUid(uid){
+    var row=(DATA.members||[]).filter(function(m){ return m["uid"]===uid; })[0];
+    if(!row) return Promise.resolve(null);
+    return apiDelete("members", row._id).catch(function(){ return null; });
+  }
+  function createClassPass(){
+    var code=randClassCode(), email="guest_"+code+"@banzhuren.app", pwd="g"+Math.random().toString(36).slice(2,10);
+    var signer=dbGuest||db;
+    return signer.auth.signUp({ email:email, password:pwd,
+      options:{ data:{ role:"家长", guest:true, displayName:"班级家长（扫码）" } } }).then(function(res){
+      if(res.error){ trySchemaFix(res.error.message||res.error.code||""); throw res.error; }
+      var u=res.data&&res.data.user; if(!u||!u.id) throw new Error("未返回新账号信息");
+      return db.from(tbl("members")).insert({ user_id:curUid,
+        data:{ uid:u.id, name:"班级家长（扫码）", role:"家长", ownerUid:curUid, guest:true, student:"" } })
+        .select("id").then(function(r2){
+          if(r2.error) throw r2.error;
+          return db.from(tbl("classpass")).insert({ user_id:curUid,
+            data:{ code:code, email:email, pwd:pwd, uid:u.id, headUid:curUid,
+                   cls:(typeof shareClsName==="function"?shareClsName():"") } }).select("id");
+        }).then(function(r3){
+          if(r3.error) throw r3.error;
+          return loadMembersSafe().then(function(){ return loadMyClassPass(); });
+        });
+    });
+  }
+  function ensureClassPass(force){
+    return loadMyClassPass().then(function(cur){
+      if(cur && !force) return cur;
+      var oldUid=cur?(cur.uid||""):"";
+      return (cur?apiDelete("classpass", cur._id).catch(function(){ return null; }):Promise.resolve(null))
+        .then(function(){ return oldUid?removeMemberByUid(oldUid):Promise.resolve(null); })
+        .then(createClassPass);
+    });
+  }
+  function openClassQR(){
+    if(!isHead()){ toast("仅班主任可生成班级二维码"); return; }
+    var old=document.getElementById("classQrMask"); if(old) old.remove();
+    var ov=document.createElement("div"); ov.className="share-mask"; ov.id="classQrMask";
+    ov.innerHTML='<div class="share-card">'
+      +'<div class="share-head"><span>📱 班级二维码</span><button class="share-x" data-cqclose title="关闭">×</button></div>'
+      +'<div id="cqBody" style="text-align:center;padding:10px 4px;font-size:12.5px;color:#7A86A8">正在准备班级二维码…</div>'
+      +'<div class="share-tip">家长扫码即进入<b>本班家长视图</b>（课表 / 作业 / 值日 / 荣誉榜等与家长端一致）<br>「💬 留言板」需家长用<b>本人账号</b>登录，扫码进入的看不到任何人的私信</div>'
+      +'<div style="display:flex;gap:8px;margin-top:10px">'
+      +'<button class="share-dl" style="background:#fff;color:#5B6FDB;border:1px solid #C9D2E8" data-cqregen>↻ 重新生成</button>'
+      +'<button class="share-dl" data-cqsave>💾 保存二维码</button></div></div>';
+    document.body.appendChild(ov);
+    var qrData="";
+    ov.addEventListener("click", function(e){
+      if(e.target===ov || e.target.closest("[data-cqclose]")){ ov.remove(); return; }
+      if(e.target.closest("[data-cqregen]")){ regen(true); return; }
+      if(e.target.closest("[data-cqsave]")){
+        if(!qrData){ toast("二维码还没生成好"); return; }
+        var a=document.createElement("a"); a.href=qrData; a.download="班级二维码.png";
+        document.body.appendChild(a); a.click(); a.remove(); toast("已开始下载二维码");
+      }
+    });
+    function paint(cp){
+      if(!cp || !cp.code) return;
+      ensureQRLib().then(function(){
+        var url=classQRUrl(cp.code);
+        var cv=makeQRCanvas(url, 300); qrData=cv.toDataURL("image/png");
+        var b=ov.querySelector("#cqBody"); if(!b) return;
+        b.innerHTML='<img class="share-img" style="max-width:250px;margin:0 auto" alt="班级二维码" src="'+qrData+'">'
+          +'<div style="margin-top:10px;font-size:11.5px;color:#9a9aa2;word-break:break-all">'+esc(url)+'</div>';
+      }).catch(function(e){
+        var b=ov.querySelector("#cqBody"); if(b) b.textContent="二维码生成失败："+((e&&e.message)||e);
+      });
+    }
+    function regen(force){
+      var b=ov.querySelector("#cqBody"); if(b) b.textContent=force?"正在重新生成…":"正在准备班级二维码…";
+      ensureClassPass(force).then(function(cp){
+        if(!cp){ if(b) b.innerHTML='<span style="color:#d8453f">创建失败：请先在 Supabase 执行 hr_classpass 建表 SQL（见「⚙️ 成员管理」提示或 deploy/class_qr.sql）</span>'; return; }
+        paint(cp);
+      }).catch(function(e){
+        if(b) b.innerHTML='<span style="color:#d8453f">失败：'+esc((e&&e.message)||String(e))+'</span>';
+      });
+    }
+    regen(false);
+  }
+  /* 扫码入口：URL 带 ?c=<班级码> 且当前无会话 → 自动以班级访客账号登录 */
+  function tryGuestScan(){
+    try{
+      var code=new URLSearchParams(location.search).get("c");
+      if(!code || !db) return;
+      if(sessionStorage.getItem("bzr_guest_tried")==="1") return;   /* 只试一次，失败回到登录页 */
+      sessionStorage.setItem("bzr_guest_tried","1");
+      db.from(tbl("classpass")).select("id,data").eq("data->>code", code).limit(1).then(function(res){
+        var r=(res.data||[])[0]; if(!r || !r.data) return;
+        setStatus("syncing");
+        db.auth.signInWithPassword({ email:r.data.email||"", password:r.data.pwd||"" }).then(function(sr){
+          if(sr.error || !sr.data || !sr.data.user){ setStatus("offline"); return; }
+          onSignedIn(sr.data.user);
+        }).catch(function(){ setStatus("offline"); });
+      }).catch(function(){});
+    }catch(_e){}
+  }
+  /* 访客端：留言板门禁（私信必须本人账号） */
+  function renderGuestMsgGate(){
+    return '<div class="phead"><h3>💬 留言板</h3><span class="hint">私信内容需验证本人身份</span></div>'
+      +'<div class="ph-wrap"><div class="ph-card"><div class="ph-sec-h">🔒 需登录本人账号</div>'
+      +'<div class="ph-empty">您现在是<b>扫码进入的班级视图</b>。留言板是一对一私信，必须用孩子家长的本人账号登录——'
+      +'这样您只看到自己孩子与班主任的往来，其他家长看不到您的，您也看不到别人的。<br>'
+      +'除留言板外，课表 / 作业 / 值日 / 荣誉榜等班级功能无需登录，扫码即可查看。</div>'
+      +'<div style="margin-top:12px"><button class="btn-add" data-guestlogin>用我的账号登录</button></div>'
+      +'</div></div>';
+  }
+  function bindGuestMsgGate(){
+    var b=document.querySelector("[data-guestlogin]");
+    if(b) b.onclick=function(){
+      try{ if(db) db.auth.signOut(); }catch(_e){}
+      try{ sessionStorage.removeItem("bzr_guest_tried"); }catch(_e){}
+      location.href=classSiteURL()+"?role=parent";
+    };
+  }
+  /* 访客端：班级级本周概况（只计数，不显示姓名） */
+  function guestWeekStat(){
+    var late=0, absent=0, nosub=0, honor=0;
+    (DATA.students||[]).forEach(function(st){
+      var nm=String(st["姓名"]||"").trim(); if(!nm) return;
+      var o=parentWeekStat(nm);
+      late+=o.late||0; absent+=o.absent||0; nosub+=o.nosub||0; honor+=o.honor||0;
+    });
+    return late+"/"+absent+"/"+nosub+"/"+honor;
+  }
+  function renderGuestHome(){
+    var cls=(typeof shareClsName==="function"?shareClsName():"班级");
+    var head='<div class="phead"><h3>🏠 '+esc(cls)+' · 班级视图</h3>'
+      +'<span class="hint">扫码进入：班级公开信息可见，学生个人数据需本人账号</span></div>';
+    var html='<div class="ph-wrap">';
+    /* ① 说明 + 登录入口 */
+    html+='<div class="ph-card"><div class="ph-sec-h">👋 扫码进入的班级视图</div>'
+      +'<div class="ph-empty">课表、作业上交、值日安排、荣誉榜、班级制度等与家长端完全一致。'
+      +'涉及个人信息的功能（孩子积分 / 一对一留言）需登录孩子家长的本人账号。</div>'
+      +'<div style="margin-top:10px"><button class="btn-mini" data-guestlogin>用我的账号登录</button></div></div>';
+    /* ② 本周班级概况 */
+    var g=(guestWeekStat()||"").split("/");
+    var cells=[["迟到人次",g[0]||"0","warn"],["缺勤人次",g[1]||"0","danger"],["作业未交",g[2]||"0","warn"],["本周荣誉",g[3]||"0","good"]];
+    html+='<div class="ph-card"><div class="ph-sec-h">📊 本周班级概况<span class="spacer">'
+      +esc(isoWeek(todayStr()).monday.slice(5))+' 起</span></div><div class="ph-grid">'
+      +cells.map(function(c){ return '<div class="ph-stat"><div class="ph-stat-v '+(Number(c[1])?c[2]:"good")+'">'+c[1]+'</div><div class="ph-stat-l">'+c[0]+'</div></div>'; }).join("")
+      +'</div><div class="ph-empty">按全班统计，只显示人次不显示姓名。</div></div>';
+    /* ③ 今日课表 */
+    var cs=todayCoursesOf();
+    html+='<div class="ph-card"><div class="ph-sec-h">📅 今日课表'
+      +'<span class="spacer"><button class="btn-mini" data-phgo="schedule">完整课表 ›</button></span></div>';
+    if(cs.length){
+      html+='<div class="ph-today">'+cs.map(function(c){
+        return '<div class="ph-tc"><span class="ph-tc-n">'+esc(c.name)+'</span>'
+          +'<span class="ph-tc-c">'+esc(c.course)+'</span>'
+          +(c.time?'<span class="ph-tc-t">'+esc(c.time)+'</span>':'')+'</div>';
+      }).join("")+'</div>';
+    } else {
+      html+='<div class="ph-empty">今天没有排课（或班主任尚未录入课表）。</div>';
+    }
+    html+='</div>';
+    html+='<div class="ph-tip">本页面只展示班级整体情况；如需查看自己孩子的积分或给班主任留言，请点上方「用我的账号登录」。</div>';
+    html+='</div>';
+    return head+html;
   }
 
   /* ===== 家长端 · 家校首页 ===== */
@@ -7695,8 +8013,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div style="margin:12px 0 6px;font-weight:800;color:var(--ink);font-size:13.5px">⚡ 批量创建</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +'<button class="btn-mini" data-mcreateall="1">⚡ 一键创建全体家长账号</button>'
+      +'<button class="btn-mini" data-mfixghost="1" title="为缺账号 ID 的家长记录重新生成账号，命名规则与一键创建相同">🧹 只修复空壳账号</button>'
       +'<button class="btn-mini" data-mexport="1" id="memExport" style="display:none">📋 导出账号（CSV）</button></div>'
       +'<div id="memBatchInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 6px;line-height:1.6"></div>'
+      +'<div style="font-size:11px;color:#9a9aa2;margin:0 0 6px;line-height:1.6">若列表里出现「⚠ 无账号」的家长记录（收不到通知），点「🧹 只修复空壳账号」按同一命名规则重建。</div>'
       +'<div style="margin:12px 0 6px;font-weight:800;color:var(--ink);font-size:13.5px">🎖 创建班干部账号（免密进入）</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +'<select id="offPost" style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
@@ -7722,6 +8042,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(e.target.closest("[data-mcreate]")){ createParentAccount(mask); return; }
       if(e.target.closest("[data-mcreateoff]")){ createOneOfficer(mask); return; }
       if(e.target.closest("[data-mcreateall]")){ createAllParents(mask); return; }
+      if(e.target.closest("[data-mfixghost]")){ fixGhostParents(mask); return; }
       if(e.target.closest("[data-mexport]")){ exportAccountsFile(); return; }
       var del=e.target.closest("[data-mdel]");
       if(del){
@@ -7949,6 +8270,41 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     });
   }
   /* 一键为全班尚未建账号的学生创建家长账号（初始密码统一 123456）；已建的跳过，不重复。 */
+  /* 只修复「空壳」家长记录：有学生姓名但缺账号 ID（uid）→ 收不到任何通知。
+     用与「一键创建」同一条链路（createOneParent：拼音 + c19 命名规则）重建账号，
+     成功后删除旧空壳行；已有正常账号的家长一律不动。 */
+  function fixGhostParents(mask){
+    if(!isHead()){ toast("仅班主任可操作"); return; }
+    if(!db){ toast("未连接后端"); return; }
+    var ghost=(DATA.members||[]).filter(function(m){ return m.role==="家长" && m.student && !m["uid"]; });
+    if(!ghost.length){ toast("没有空壳记录，家长账号都正常"); return; }
+    var pwd="123456";
+    if(!confirm("检测到 "+ghost.length+" 条缺账号 ID 的家长记录（收不到通知）。\n"
+      +"将为对应学生按同一规则重新生成账号（初始密码 "+pwd+"），并删除旧的空壳记录。\n"
+      +"已有正常账号的家长不受影响。继续？")) return;
+    var info=mask.querySelector("#memBatchInfo");
+    var i=0, okN=0, errs=[];
+    function done(){
+      loadMembersSafe().then(function(){
+        renderMembersList(mask); render();
+        if(info){
+          info.innerHTML="✅ 已修复 <b>"+okN+"</b> / "+ghost.length+" 条空壳记录（初始密码 "+pwd+"）"
+            +(errs.length ? "<br><span style=\"color:#d8453f\">失败："+esc(errs.slice(0,3).join("；"))+"</span>" : "");
+        }
+        toast("修复完成："+okN+"/"+ghost.length);
+      });
+    }
+    function step(){
+      if(i>=ghost.length){ done(); return; }
+      var g=ghost[i], stu=String(g.student||"").trim();
+      if(info) info.textContent="正在修复 "+(i+1)+"/"+ghost.length+"（"+stu+"）…";
+      createOneParent(stu, pwd).then(function(){
+        return apiDelete("members", g._id).catch(function(){ return null; });   /* 删旧空壳行，失败不阻塞 */
+      }).then(function(){ okN++; i++; setTimeout(step, 250); })
+        .catch(function(e){ var m=(e&&e.message)||String(e||""); errs.push(stu+"："+m); i++; setTimeout(step, 200); });
+    }
+    step();
+  }
   function createAllParents(mask){
     if(!isHead()){ toast("仅班主任可创建家长账号"); return; }
     if(!db){ toast("未连接后端"); return; }
@@ -8569,12 +8925,30 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +"create policy hr_officers_own on hr_officers\n"
       +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);";
   }
+  /* 班级二维码放行表：班主任写，未登录可读（扫码时按 code 取到免登录凭据） */
+  function sqlClassPass(){
+    return "create table if not exists hr_classpass (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists hr_classpass_user_idx on hr_classpass(user_id);\n"
+      +"alter table hr_classpass enable row level security;\n"
+      +"drop policy if exists hr_classpass_own on hr_classpass;\n"
+      +"create policy hr_classpass_own on hr_classpass\n"
+      +"  for all\n  using (auth.uid() = user_id)\n  with check (auth.uid() = user_id);\n"
+      +"drop policy if exists hr_classpass_public_read on hr_classpass;\n"
+      +"create policy hr_classpass_public_read on hr_classpass\n"
+      +"  for select using (true);";
+  }
   function sqlForTable(t){
     if(!/^hr_[a-z0-9_]+$/i.test(t)) return "";
     /* 这几张表的可见范围不是「仅本人」，需专用策略，不能用通用模板 */
     if(t==="hr_messages")  return sqlMessages();
     if(t==="hr_members")   return sqlMembers();
     if(t==="hr_officers")  return sqlOfficers();
+    if(t==="hr_classpass") return sqlClassPass();   /* 班级码：未登录可读（扫码免登录） */
     /* 班级制度公示：班主任写，所有登录用户读（家长端只读） */
     if(t==="hr_regulations") return sqlRegulations();
     return "create table if not exists "+t+" (\n"
@@ -10730,6 +11104,15 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(confirm("给所有在任班委按「职务月度加分值」写入当月积分？\n\n• 已标「不尽责」的本月跳过\n• 当月已加过月度分的跳过（不会重复加分）\n\n月分值可在「⚙️ 规则」中调整（默认：班长3、副班长2、其他1~2、课代表/小组长 0.5）。")) applyCommitteeMonthlyBonus();
       return;
     }
+    var cmbx=e.target.closest("[data-cmbx]");
+    if(cmbx && !e.target.closest("button[data-act]")){
+      var cid=cmbx.getAttribute("data-cmbx");
+      cmbExpanded[cid]=!cmbExpanded[cid];
+      renderList("committee");
+      return;
+    }
+    var cmoff=e.target.closest("[data-cmboff]");
+    if(cmoff){ cmbOffOpen=!cmbOffOpen; renderList("committee"); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
       if(act==="done") doDone(id);
@@ -12006,6 +12389,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   document.getElementById("logoutBtn").onclick=switchIdentity;
   var _shw=document.getElementById("shareBtn"); if(_shw) _shw.onclick=function(){ try{ closeDrawer(); }catch(_e){} openSharePoster(); };
+  var _cq=document.getElementById("clsQrBtn"); if(_cq) _cq.onclick=function(){ try{ closeDrawer(); }catch(_e){} openClassQR(); };
 
   /* 🔄 检查更新：手动触发一次外壳比对（check-now）+ sw.js 更新检查。
      有新版 → 底部弹「🖐 有新版本，点击更新」条，点条即切换；
@@ -12044,6 +12428,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       document.getElementById("logoutBtn").style.display="";
       var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
       var _qtb=document.getElementById("quickTblBtn"); if(_qtb) _qtb.style.display=(curRole===ROLE_HEAD)?"":"none";
+      var _cqb=document.getElementById("clsQrBtn"); if(_cqb) _cqb.style.display=(curRole===ROLE_HEAD)?"":"none";
       var _srb2=document.getElementById("switchRoleBtn"); if(_srb2) _srb2.style.display="";
       var _cub=document.getElementById("checkUpdBtn"); if(_cub) _cub.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
@@ -12135,7 +12520,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parent-repair-2026-09-09";
+  var __APP_VERSION__ = "committee-board-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -12350,6 +12735,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(done) return; done=true;
       showAuth("连接认证服务较慢或失败，请点击登录；如反复出现请强制刷新（Ctrl/Cmd+Shift+R）。");
       var _lr=authLandingRole(); if(_lr) showAuthCard(_lr);
+      tryGuestScan();
     }, 8000);
     db.auth.getSession().then(function(res){
       if(done) return; done=true; clearTimeout(t);
@@ -12358,6 +12744,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       else {
         showAuth();
         var _lr=authLandingRole(); if(_lr) showAuthCard(_lr);   // 无会话：?role=parent 直达家长登录
+        tryGuestScan();   // URL 带 ?c=<班级码>：扫码自动以本班家长视图进入
       }
     }).catch(function(){
       if(done) return; done=true; clearTimeout(t);
