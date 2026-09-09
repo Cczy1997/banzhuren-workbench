@@ -1389,13 +1389,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .msg-bc-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px;flex-wrap:wrap}
   .msg-bc-tip{font-size:11.5px;font-weight:500;color:#8a8a95}
   .auth-err{margin-top:6px;font-size:12.5px;color:var(--danger);min-height:16px;line-height:1.4}
-  /* 班干部免密进入名单 */
-  .officer-item{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 14px;cursor:pointer;text-align:left;box-sizing:border-box;font-size:14px}
-  .officer-item:hover{border-color:#2E8B8B;background:#f4fbfb}
-  .officer-badge{flex:none;width:34px;height:34px;border-radius:10px;background:#2E8B8B;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
-  .officer-nm{font-weight:700;color:var(--ink)}
-  .officer-post{flex:1;font-size:12px;color:var(--ink-soft)}
-  .officer-go{font-size:12.5px;color:#2E8B8B;font-weight:700}
+  /* 班干部免密进入名单（简洁版：浅色圆徽章 + 姓名职务两行 + 轻箭头） */
+  .officer-item{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:9px 14px;cursor:pointer;text-align:left;box-sizing:border-box;transition:border-color .15s ease,box-shadow .15s ease}
+  .officer-item:hover{border-color:#b9d6d6;box-shadow:0 2px 10px rgba(46,139,139,.10)}
+  .officer-badge{flex:none;width:36px;height:36px;border-radius:50%;background:#eaf4f4;color:#2E8B8B;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+  .officer-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .officer-nm{font-weight:700;color:var(--ink);font-size:14px;line-height:1.35}
+  .officer-post{font-size:11.5px;color:var(--ink-soft);line-height:1.35}
+  .officer-go{flex:none;color:#b3c6c6;font-size:18px;line-height:1}
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
   .logout-btn:active{background:#FFF0F6}
@@ -1890,8 +1891,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       </div>
       <p class="auth-roletip" id="authRoleTip" data-page-node-id="6xNhELKOCje4BZXBPRPvMc"></p>
       <div id="officerPick" style="display:none">
-        <div style="font-size:12.5px;color:var(--ink-soft);margin:6px 0 10px;line-height:1.7">由班主任提前关联。点击你的名字即可进入（无需密码），登记当天作业上交情况，结果同步给班主任并展示给家长。</div>
-        <div id="officerList" style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12.5px;color:#9a9aa2">正在加载班干部名单…</span></div>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin:6px 0 10px;line-height:1.7">点击你的名字即可进入（无需密码）</div>
+        <div id="officerList" style="display:flex;flex-direction:column;gap:8px"><span style="display:block;text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2">正在加载名单…</span></div>
       </div>
       <button class="auth-btn" id="authLogin" data-page-node-id="D9san4KJ2zeRd3UZET8Wli">登录</button>
       <button class="auth-btn ghost" id="authSignup" data-page-node-id="3Ic8LeHRmsIjRBdlG7fdrK">注册新账号</button>
@@ -12082,7 +12083,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "officer-role-2026-09-09";
+  var __APP_VERSION__ = "officer-ui-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -12221,21 +12222,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2">正在加载班干部名单…</span>';
         db.from(tbl("officers")).select("id,data").then(function(res){
           if(res.error){
-            box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2;line-height:1.7">暂未关联班干部。请班主任在「留言板 → ⚙️ 成员管理」中创建班干部账号后重试。</span>';
+            box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2;line-height:1.8">暂未关联班干部<br>请班主任在「⚙️ 成员管理」里创建后重试</div>';
             return;
           }
           var rows=(res.data||[]).map(function(r){ return r.data||{}; });
           if(!rows.length){
-            box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2;line-height:1.7">还没有班干部账号。请班主任在「⚙️ 成员管理」里创建（选职务 + 填姓名即可）。</span>';
+            box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2;line-height:1.8">还没有班干部账号<br>请班主任在「⚙️ 成员管理」里创建</div>';
             return;
           }
           box.innerHTML=rows.map(function(o,i){
-            var badge=String(o.post||"班干部").slice(0,3);
+            var p=String(o.post||"班干部");
             return '<button type="button" class="officer-item" data-officer="'+i+'">'
-              +'<span class="officer-badge">'+esc(badge)+'</span>'
-              +'<span class="officer-nm">'+esc(o.name||"")+'</span>'
-              +'<span class="officer-post">'+esc(o.post||"班干部")+'</span>'
-              +'<span class="officer-go">进入 ›</span></button>';
+              +'<span class="officer-badge">'+esc(p.slice(0,1))+'</span>'
+              +'<span class="officer-main"><span class="officer-nm">'+esc(o.name||"")+'</span>'
+              +'<span class="officer-post">'+esc(p)+'</span></span>'
+              +'<span class="officer-go">›</span></button>';
           }).join("");
           box._officers=rows;
           Array.prototype.forEach.call(box.querySelectorAll("[data-officer]"), function(b){
@@ -12253,7 +12254,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
             });
           });
         }).catch(function(){
-          box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2">名单加载失败，请检查网络后重试</span>';
+          box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2">名单加载失败，请检查网络后重试</div>';
         });
       }
       window.__showAuthCard=showAuthCard;
