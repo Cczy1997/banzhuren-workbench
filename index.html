@@ -7309,7 +7309,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var _bound={}; _ps.forEach(function(m){ _bound[m["student"]||""]=1; });
       var _miss=(DATA.students||[]).filter(function(st){ var nm=st["姓名"]||""; return nm && !_bound[nm]; }).length;
       var _tip='发给 '+_pn+' 位家长，每人各收一份，家长之间互相看不到'
-        +(_miss>0 ? '；全班还有 '+_miss+' 名学生未建家长账号，可在「⚙️ 成员管理」一键创建' : '');
+        +(_miss>0 ? '；全班还有 '+_miss+' 名学生没有可收通知的家长账号，可在「⚙️ 成员管理」一键创建/修复' : '');
       form='<div class="msg-form-bc">'
         +'<div class="msg-bc-h">📢 全班通知'
         +'<span class="msg-bc-tip">'+_tip+'</span></div>'
@@ -7747,10 +7747,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     box.innerHTML='<table style="width:100%;font-size:12.5px;border-collapse:collapse">'
       +'<tr style="text-align:left;color:#9a9aa2"><th style="padding:6px 4px">姓名</th><th>身份</th><th>账号 ID</th><th></th></tr>'
       + rows.map(function(r){
-          return '<tr style="border-top:1px solid var(--line)">'
+          var noUid=!r["uid"];
+          return '<tr style="border-top:1px solid var(--line)'+(noUid?';opacity:.62':'')+'">'
             +'<td style="padding:6px 4px">'+esc(r["name"]||"")+'</td>'
-            +'<td>'+esc(r["role"]||"")+'</td>'
-            +'<td style="font-family:ui-monospace,monospace;font-size:11px;color:#888">'+esc(String(r["uid"]||"").slice(0,18))+'…</td>'
+            +'<td>'+esc(r["role"]||"")+(noUid?' <span style="color:#d8453f;font-size:11px" title="此记录缺少账号 ID，收不到通知；对应学生可在「一键创建」中修复">⚠ 无账号</span>':'')+'</td>'
+            +'<td style="font-family:ui-monospace,monospace;font-size:11px;color:#888">'+(noUid?'—':esc(String(r["uid"]||"").slice(0,18))+'…')+'</td>'
             +'<td style="text-align:right"><button class="mini del" data-mdel="'+esc(r._id)+'">移除</button></td></tr>';
         }).join("")
       +'</table>';
@@ -7953,11 +7954,18 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(!db){ toast("未连接后端"); return; }
     var stus=(DATA.students||[]).map(function(s){ return String(s["姓名"]||"").trim(); }).filter(Boolean);
     if(!stus.length){ toast("花名册里还没有学生"); return; }
-    var existing={}; (DATA.members||[]).forEach(function(m){ if(m.role==="家长"&&m.student) existing[String(m.student).trim()]=1; });
-    var todo=stus.filter(function(n){ return !existing[n]; });
-    if(!todo.length){ toast("所有学生都已有家长账号"); return; }
+    /* 只认「有账号 ID(uid)」的家长行；缺 uid 的空壳记录收不到任何通知，其学生允许重建 */
+    var hasUid={}, ghost={};
+    (DATA.members||[]).forEach(function(m){
+      if(m.role!=="家长"||!m.student) return;
+      var k=String(m.student).trim();
+      if(m.uid) hasUid[k]=1; else (ghost[k]=ghost[k]||[]).push(m);
+    });
+    var ghostN=Object.keys(ghost).reduce(function(a,k){ return a+ghost[k].length; },0);
+    var todo=stus.filter(function(n){ return !hasUid[n]; });
+    if(!todo.length){ toast(ghostN?("有 "+ghostN+" 条家长记录缺账号 ID，请把对应学生姓名与角色反馈开发者排查；可先手动删除这些记录"):("所有学生都已有家长账号")); return; }
     var pwd="123456";
-    if(!confirm("将为全班 "+todo.length+" 名尚未建账号的学生，一键创建家长账号，初始密码统一为 123456。\n已建过的不重复创建。继续？")) return;
+    if(!confirm("将为全班 "+todo.length+" 名学生创建/修复家长账号，初始密码统一为 123456。\n已有正常账号的不重复创建。"+(ghostN?("\n检测到 "+ghostN+" 条缺账号 ID 的旧记录，对应学生重建成功后将自动清理。"):"")+"\n继续？")) return;
     var info=mask.querySelector("#memBatchInfo"); if(info) info.textContent="正在创建 0/"+todo.length+" …";
     var created=[]; var firstErr=null; var i=0;
     function done(){
@@ -7980,7 +7988,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var stu=todo[i];
       if(info) info.textContent="正在创建 "+created.length+"/"+todo.length+"（"+stu+"）…";
       createOneParent(stu, pwd).then(function(r){
-        created.push(r); renderMembersList(mask); i++; setTimeout(step, 250);   // 间隔 250ms，避免触发注册频率限制
+        created.push(r);
+        /* 重建成功 → 清理该学生的空壳旧记录（尽力而为，失败不阻塞） */
+        var gs=ghost[stu]||[];
+        return Promise.all(gs.map(function(g){ return apiDelete("members", g._id).catch(function(){ return null; }); }))
+          .then(function(){ return loadMembersSafe().catch(function(){}); })
+          .then(function(){ renderMembersList(mask); i++; setTimeout(step, 250); });   // 间隔 250ms，避免触发注册频率限制
       }).catch(function(e){
         var m=(e&&e.message)||String(e||"");
         if(!firstErr) firstErr=m;
@@ -12122,7 +12135,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "msg-peer-chat-2026-09-09";
+  var __APP_VERSION__ = "parent-repair-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
