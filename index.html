@@ -12083,7 +12083,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "officer-ui-2026-09-09";
+  var __APP_VERSION__ = "officer-sort-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -12216,6 +12216,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         }
       }
       /* 班干部免密进入：未登录状态拉取公开名单（hr_officers），点击即用预置凭据登录 */
+      /* 职务高低：班长 > 副班长 > 各委员 > 课代表 > 小组长；前缀匹配（如「课代表·数学」） */
+      var OFFICER_RANK = ["班长","副班长","学习委员","纪律委员","卫生委员","体育委员","文艺委员","生活委员","劳动委员","宣传委员","电教委员","心理委员","安全委员","课代表","小组长","作业组长"];
+      function officerPostRank(p){
+        p = String(p||"");
+        for(var i=0;i<OFFICER_RANK.length;i++){ if(p.indexOf(OFFICER_RANK[i])===0) return i; }
+        return 99;
+      }
       function loadOfficerList(){
         var box=document.getElementById("officerList"); if(!box) return;
         if(!db){ box.innerHTML='<span style="font-size:12.5px;color:var(--danger)">后端未连接，请刷新重试</span>'; return; }
@@ -12225,7 +12232,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
             box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2;line-height:1.8">暂未关联班干部<br>请班主任在「⚙️ 成员管理」里创建后重试</div>';
             return;
           }
-          var rows=(res.data||[]).map(function(r){ return r.data||{}; });
+          var rows=(res.data||[]).map(function(r){ return r.data||{}; })
+            .sort(function(a,b){
+              var d=officerPostRank(a.post)-officerPostRank(b.post);
+              if(d!==0) return d;
+              return String(a.name||"").localeCompare(String(b.name||""),"zh");
+            });
           if(!rows.length){
             box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2;line-height:1.8">还没有班干部账号<br>请班主任在「⚙️ 成员管理」里创建</div>';
             return;
