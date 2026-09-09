@@ -7305,10 +7305,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(isH){
       /* 班主任：主输入框 = 全班通知。按家长成员每人写一行（owner=该家长 uid），
          于是每位家长只看到属于自己的那一份，家长之间依然互相看不到。 */
-      var _pn=parentMembers().length;
+      var _ps=parentMembers(), _pn=_ps.length;
+      var _bound={}; _ps.forEach(function(m){ _bound[m["student"]||""]=1; });
+      var _miss=(DATA.students||[]).filter(function(st){ var nm=st["姓名"]||""; return nm && !_bound[nm]; }).length;
+      var _tip='发给 '+_pn+' 位家长，每人各收一份，家长之间互相看不到'
+        +(_miss>0 ? '；全班还有 '+_miss+' 名学生未建家长账号，可在「⚙️ 成员管理」一键创建' : '');
       form='<div class="msg-form-bc">'
         +'<div class="msg-bc-h">📢 全班通知'
-        +'<span class="msg-bc-tip">发给 '+_pn+' 位家长，每人各收一份，家长之间互相看不到</span></div>'
+        +'<span class="msg-bc-tip">'+_tip+'</span></div>'
         +'<textarea id="msgText" placeholder="写给全班家长的通知…（如需单独沟通，请在下方对应家长的会话里回复）"></textarea>'
         +'<div class="msg-form-row">'
         +'<button class="btn-add" id="msgSend"'+( _pn ? '' : ' disabled style="opacity:.45"' )+'>📢 发送通知</button>'
@@ -7321,7 +7325,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         +'<button class="btn-add" id="msgSend">发送</button>'
         +'</div></div>';
     }
-    if(!list.length) return head+form+'<div class="empty">还没有留言，来写第一条吧～</div>';
+    if(!list.length && !isH) return head+form+'<div class="empty">还没有留言，来写第一条吧～</div>';
     var body="";
     if(isH){
       /* 班主任：按「对方」分组成会话——成员帖按 authorUid 归组，我的回复按 owner 归到对应成员 */
@@ -7331,6 +7335,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         var other=(m.authorUid && m.authorUid!==curUid) ? m.authorUid : (m.owner||curUid);
         if(!groups[other]){ groups[other]=[]; order.push(other); }
         groups[other].push(m);
+      });
+      /* 「✉️ 单独沟通」新发起的会话置顶；uid 必须仍是家长成员，否则丢弃 */
+      msgNewPeers=msgNewPeers.filter(function(u){
+        return parentMembers().some(function(m){ return m["uid"]===u; });
+      });
+      msgNewPeers.forEach(function(u){
+        if(groups[u]) return;
+        groups[u]=[]; order.unshift(u);
       });
       order.forEach(function(uid){
         var msgs=groups[uid];
@@ -7345,12 +7357,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         }
         body+='</div>';
       });
+      /* 发起单独沟通：选项=尚无会话的家长成员 */
+      body+=msgPeerEntry(order);
     } else {
       body='<div class="msg-thread">';
       list.forEach(function(m){ body+=msgBubble(m); });
       body+='</div>';
     }
-    return head+form+body;
+    return head+form+body+((!body&&isH)?'<div class="empty">还没有留言，来写第一条吧～</div>':'');
   }
   function bindMessages(){
     var cu=document.getElementById("copyUid");
@@ -7385,6 +7399,16 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         if(inp) inp.value="";
       };
     });
+    var np=document.querySelector("[data-msgnewpeer]");
+    if(np) np.onclick=function(){
+      var sel=document.getElementById("msgNewPeer");
+      var uid=(sel&&sel.value)||"";
+      if(!uid){ toast("请先选择家长"); return; }
+      if(msgNewPeers.indexOf(uid)<0) msgNewPeers.push(uid);
+      render();
+      var box=document.querySelector('[data-msgreply="'+uid+'"]');
+      if(box) box.scrollIntoView({behavior:"smooth",block:"center"});
+    };
     Array.prototype.forEach.call(document.querySelectorAll("[data-msgdel]"), function(b){
       b.onclick=function(){
         var id=b.getAttribute("data-msgdel");
@@ -7424,6 +7448,21 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return m && m["uid"] && (m["role"]||"")===ROLE_PARENT;
     });
   }
+  /* 「✉️ 单独沟通」入口：选项=尚无会话（不在 order 中）的家长成员 */
+  function msgPeerEntry(order){
+    var peers=parentMembers().filter(function(m){ return order.indexOf(m["uid"])<0; });
+    if(!peers.length) return "";
+    return '<div class="msg-thread"><div class="msg-thread-h">✉️ 发起单独沟通</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:2px 0 6px">'
+      +'<select id="msgNewPeer" style="flex:2;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +peers.map(function(m){ return '<option value="'+esc(m["uid"])+'">'+esc(m["name"]||"未命名")+(m["student"]?'（'+esc(m["student"])+'）':'')+'</option>'; }).join("")
+      +'</select>'
+      +'<button class="btn-mini" data-msgnewpeer="1">开始对话</button></div>'
+      +'<div style="font-size:11.5px;color:#9a9aa2">选择一位家长发起一对一沟通，只有 TA 能看到；发出第一条后成为固定会话。</div></div>';
+  }
+  /* 「✉️ 单独沟通」班主任主动发起的一对一会话（仅本会话有效；
+     发出第一条回复后即落库为真实会话，刷新后按消息自然归组）。 */
+  var msgNewPeers=[];
   /* 班主任「📢 全班通知」：按家长成员各写一行，owner=该家长 uid。
      家长 A 只能读到 owner=A 的那一行 → 家长之间互相看不见，符合私密会话口径。 */
   function broadcastMessage(content){
@@ -12083,7 +12122,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "officer-sort-2026-09-09";
+  var __APP_VERSION__ = "msg-peer-chat-2026-09-09";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
