@@ -3227,6 +3227,11 @@
      · 扫码访客没有本人身份 → 不做任何过滤，看到的就是整份公示（因此不会出现乱码 / 空白）
      · 已登录且绑定了孩子的家长，自家号数会高亮标注（可选亮点，不认识也完全不影响阅读）
      周切换沿用 parentBriefWeek / parentWeekNav('') */
+  /* 周选择与当前模块：家长端考勤 / 材料公示的视图状态。
+     🔴 这两个 var 必须留在本文件里：之前整段重写家长端时把声明一起删了，
+        导致家长 / 扫码访客一点考勤、材料就 ReferenceError 整块白屏。 */
+  var parentBriefWeek=null;   /* 正在看的周（null = 本周） */
+  var parentBriefMod=null;    /* 正在看的是考勤还是材料（周切换后重渲要用） */
   var PB_PER_ORDER={ "上午":1, "下午":2, "晚自习":3 };
   var PB_ST_ORDER={ "迟到":1, "缺勤":2, "早退":3, "旷课":3, "请假":4, "出勤":9 };
   function parentKidRange(){
@@ -7619,15 +7624,24 @@
      ownerUid 记在 data 里（apiQuery 只回传 _id + data，不会带出 user_id），
      这样成员登录后能读到「我属于哪个班主任的班级」，并据此获得只读查看权与留言对象。 */
   var myMemberRow=null, MSG_OWNER=null, membersTableMissing=false;
+  /* 从成员表里认领「我」这一行：家长 / 科任 / 班干部的只读范围、留言对象、
+     家校首页的孩子卡片、自家号数高亮，全都靠它。
+     🔴 不能只写在 loadMembersSafe 里：老账号（没有 user_metadata.role）第一次拉成员表时
+        curRole 还是默认的「班主任」，会被 isHead() 挡掉；等身份被成员表纠正成家长之后
+        不会再跑一次 loadMembersSafe → myMemberRow 永远是 null，
+        表现为「账号尚未关联学生 / 你还没有加入班级」（成员行其实就在 DATA.members 里）。
+        所以抽成函数，身份纠正后补调一次。 */
+  function pickMyMemberRow(){
+    if(isHead()){ myMemberRow=null; MSG_OWNER=null; return; }
+    var mine=(DATA.members||[]).filter(function(r){ return r && r["uid"]===curUid; })[0]||null;
+    myMemberRow=mine;
+    MSG_OWNER=mine?(mine["ownerUid"]||null):null;
+  }
   function loadMembersSafe(){
     DATA.members=DATA.members||[];
     return apiQuery("members").then(function(res){
       DATA.members=res.results||[];
-      myMemberRow=null;
-      if(!isHead()){
-        var mine=(DATA.members||[]).filter(function(r){ return r["uid"]===curUid; })[0];
-        if(mine){ myMemberRow=mine; MSG_OWNER=mine["ownerUid"]||null; }
-      }
+      pickMyMemberRow();
     }).catch(function(e){
       if(classifyError(e).kind==="schema"){ membersTableMissing=true; DATA.members=[]; return; }
       /* 其它错误不拖垮主流程 */
@@ -8175,6 +8189,21 @@
   var GUEST_CRED_LS="bzr_guest_cred_v1", _guestErr="";
   function loadGuestCred(code){
     try{ var o=JSON.parse(localStorage.getItem(GUEST_CRED_LS)||"{}"); return (o&&o[code])||null; }catch(_e){ return null; }
+  }
+  /* 当前会话是不是「班级码账号」（扫码访客）？
+     两条判据任一命中即可：① 邮箱是 guest_<码>@banzhuren.app（见 createClassPass）；
+     ② 本机缓存的班级凭据里，URL 上这个码对应的邮箱正是它。
+     用途：重复扫码（浏览器里已有会话）时也要认出"这是扫码进入"，否则 _guestScan
+     会保持 false，「切换身份」按钮重新冒出来、公示页脚注退回家长本人版。 */
+  function looksLikeGuestSession(u){
+    try{
+      var em=String((u&&u.email)||"").toLowerCase();
+      if(!em) return false;
+      if(/^guest_/.test(em)) return true;
+      var code=""; try{ code=new URLSearchParams(location.search).get("c")||""; }catch(_e0){}
+      var cred=code?loadGuestCred(code):null;
+      return !!(cred && cred.email && String(cred.email).toLowerCase()===em);
+    }catch(_e){ return false; }
   }
   function saveGuestCred(code, d){
     if(!code || !d || !d.email) return;
@@ -13248,6 +13277,10 @@
             try{ renderSidebar(); }catch(_e){}
           }
         }
+        /* 刚被纠正过身份（老账号）→ 补认一次「我这一行」：
+           上面那次 loadMembersSafe 是在 curRole 还是「班主任」时跑的，认领会整段被跳过。
+           幂等，班主任身份下等价于把 myMemberRow 置空。 */
+        pickMyMemberRow();
         return loadPass(bootCoreKeys());
       });
   }
@@ -13359,7 +13392,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "classview-perf-2026-09-11";
+  var __APP_VERSION__ = "parentview-fix-2026-09-11";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -13591,6 +13624,10 @@
       var sess = res.data && res.data.session;
       if(sess){
         var _mr=(sess.user&&sess.user.user_metadata&&sess.user.user_metadata.role)||"";
+        /* 复用本机已有会话时也要认出「这是扫码进来的」：本机登录的正是班级码账号
+           （重复扫码 / 刷新带 ?c= 的链接）→ 复位 _guestScan，界面与第一次扫码完全一致。
+           真人家长用自己的账号扫码不受影响（邮箱不是班级码账号）。 */
+        if(_hasC && looksLikeGuestSession(sess.user)) _guestScan=true;
         if(_hasC && _mr!==ROLE_PARENT){          /* 扫码但本机登录的是班主任/科任/班干部 → 退出后以班级视图进入 */
           db.auth.signOut().then(function(){ tryGuestScan(); }).catch(function(){ tryGuestScan(); });
         } else { onSignedIn(sess.user); }        // 家长（含本人账号）直接进家校首页
