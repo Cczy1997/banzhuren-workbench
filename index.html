@@ -2794,7 +2794,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       vis.forEach(function(k){
         var m=MODULES[k], cntHtml="";
         if(k==="messages"){ var _un=msgUnread(); if(_un) cntHtml='<span class="cnt msg-unread">'+_un+'</span>'; }
-        else if(k!=="phome"){ cntHtml='<span class="cnt">'+(DATA[k]||[]).length+'</span>'; }
+        // phome 无计数；家长端的考勤/材料已改为只看自己孩子 → 全班条数角标一并隐藏
+        else if(k!=="phome" && !((k==="attendance"||k==="materials") && curRole===ROLE_PARENT)){
+          cntHtml='<span class="cnt">'+(DATA[k]||[]).length+'</span>';
+        }
         sub+='<a class="'+(state.mod===k?'active':'')+'" data-mod="'+k+'">'
           + '<span>'+esc(stripEmoji(m.title))+'</span>'
           + cntHtml+'</a>';
