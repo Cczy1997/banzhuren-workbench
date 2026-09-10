@@ -2843,6 +2843,24 @@
       try{ window.scrollTo(0, snap.y); }catch(_){}
     }
   }
+  /* 网格自己就是滚动容器（.grid-table-wrap 而不是整页），innerHTML 一换 scrollTop/scrollLeft 就归零。
+     renderGrid / renderInlineGrid 是保存流程（refreshModule / refreshModules）直接调用的，
+     不经过 render() → 单独在这里记位置、下一帧落回去，号数快登后视野不会跳走。 */
+  function gridScrollKeep(){
+    var snap=scrollHosts().map(function(h){ return { id:h.id||"", x:h.scrollLeft, y:h.scrollTop }; });
+    if(!snap.length) return;
+    var raf=window.requestAnimationFrame||function(f){ return setTimeout(f,16); };
+    raf(function(){
+      try{
+        snap.forEach(function(h){
+          if(!h.x && !h.y) return;
+          var e=h.id?document.getElementById(h.id):null;
+          if(!e){ var g=document.querySelector(".grid-table-wrap"); e=(g && (!h.id||g.id===h.id))?g:null; }
+          if(e){ e.scrollTop=h.y; e.scrollLeft=h.x; }
+        });
+      }catch(_){}
+    });
+  }
   function render(){
     saveView();
     renderSidebar();
@@ -10743,6 +10761,7 @@
   /* 考勤 / 材料模块：默认在模块页面内直接渲染网格表格（不再只是弹窗） */
   function renderInlineGrid(key){
     var box=document.getElementById("list-"+key); if(!box) return;
+    gridScrollKeep();
     box.innerHTML = '<div class="inl-grid">'
       +'<div class="grid-toolbar" id="igToolbar"></div>'
       +'<div class="grid-banner" id="igBanner" hidden></div>'
@@ -11082,6 +11101,7 @@
     function renderGrid(){
     var mod=gridState.mod;
     if(!mod) return;
+    gridScrollKeep();
     var studs = gridStudents();
     var matSingle = (mod==="materials" && gridState.curType==="材料上交");
     var dates = gridState.dates = matSingle ? [matFixedDate()] : collectDates(mod); // 收材料=单列固定日期；作业类=按查看周 7 天
