@@ -1145,6 +1145,8 @@
   .rf-wk b{color:var(--ink);font-size:15px}
   .rf-done{color:#2E7D32;font-weight:800}
   .rf-btn{font-weight:700}
+  .rf-next{font-weight:600;color:var(--ink-soft)}
+  .rf-next:hover{color:var(--ink)}
   /* 值日表顶部信息条：本周日期（两种身份都显示，纯只读；低调浅色虚线灰底） */
   .duty-meta-bar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:8px 12px;background:#fafbfd;border:1px dashed #d6dbe5;border-radius:10px;font-size:13px;color:#2c3144;margin:6px 0 10px}
   .duty-meta-bar .duty-meta{display:inline-flex;align-items:baseline;gap:6px}
@@ -4094,7 +4096,7 @@
 
   /* ---------- 流动红旗轮值（旧值日看板/并列名单已删，周表 renderDutyTable 为唯一数据源） ---------- */
   var DUTYROT_LS="wb_cls_dutyrot";
-  var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null };
+  var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null, manualWeek:null };
   var redflagAskedThisWeek=false;
   /* 班级制度：可增减的「大方向」分类（本地持久化） */
   var RULECAT_LS = "wb_cls_rulecats";
@@ -4110,7 +4112,7 @@
     try{
       var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
       if(s&&Array.isArray(s.groups)&&s.groups.length){
-        dutyRot={ groups:s.groups.slice(), cursor:Math.max(0,Math.min(s.groups.length-1,s.cursor||0)), servedWeeks:s.servedWeeks||1, checkedWeek:s.checkedWeek||null };
+        dutyRot={ groups:s.groups.slice(), cursor:Math.max(0,Math.min(s.groups.length-1,s.cursor||0)), servedWeeks:s.servedWeeks||1, checkedWeek:s.checkedWeek||null, manualWeek:s.manualWeek||null };
       }
     }catch(e){}
   }
@@ -4787,12 +4789,18 @@
     var cur=currentDutyGroup();
     if(!cur) return "";
     var wkNow=isoWeek().key;
+    var grpsN=getDutyGroups().length;
     var done=dutyRot.checkedWeek===wkNow;
+    var manual=dutyRot.manualWeek===wkNow;   // 本周是手动切换的（不是红旗记录的）
     var info='<span class="rf-cur">本周值日组：<b>'+esc(cur)+'</b></span>'
       +'<span class="rf-wk">已值日 <b>'+dutyRot.servedWeeks+'</b> 周</span>';
+    // 「下一组」按钮：把下一个要接手的组名直接写在按钮上，班主任随时可手动轮换（不加分不扣分）
+    var nextBtn=(isHead() && grpsN>1)
+      ? '<button type="button" class="btn-mini rf-next" data-dutyact="nextgroup" title="不加分也不扣分，直接把值日任务交给下一个小组">⏭ 下一组：'+esc(getDutyGroups()[(Math.max(0,dutyRot.cursor||0)+1)%grpsN])+'</button>'
+      : '';
     var act = done
-      ? '<span class="rf-done">✅ 本周流动红旗已记录</span>'
-      : (isHead() ? '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>' : '');
+      ? '<span class="rf-done">'+(manual?'✅ 本周已手动切换至下一组':'✅ 本周流动红旗已记录')+'</span>'+nextBtn
+      : (isHead() ? '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>'+nextBtn : '');
     return '<div class="duty-rf-bar">'+info+act+'</div>';
   }
   function dutyWeekReset(){
@@ -5012,22 +5020,40 @@
     }).join('');
     return '<div class="ov-duty"><h2>🧹 本周值日生</h2>'+blocks+'</div>';
   }
+  /* 手动切换到下一组值日（不加分也不扣分）。
+     用于：老师想自行排班、上周红旗不适用、轮换顺序需要跳过某组等情况。
+     与「获得红旗」的区别是：不动积分，只换组。 */
+  function rotateDutyGroup(){
+    var grps=getDutyGroups();
+    if(grps.length<2){ toast("至少要有两个值日小组才能切换"); return; }
+    var from=currentDutyGroup();
+    dutyRot.cursor=(Math.max(0,dutyRot.cursor||0)+1)%grps.length;
+    dutyRot.servedWeeks=1;
+    var wkNow=isoWeek().key;
+    dutyRot.checkedWeek=wkNow;   // 本周已处理 → 周一不再追问红旗
+    dutyRot.manualWeek=wkNow;    // 但状态条显示「已手动切换」，不说成"红旗已记录"
+    saveDutyRot();
+    toast("值日小组："+from+" → "+currentDutyGroup()+"（本次不加分不扣分）");
+    renderList("duty"); render();
+  }
   function askRedFlag(){
     var cur=currentDutyGroup();
     if(!cur){ toast("请先设置值日小组"); return; }
     var m=document.getElementById("redflagModal");
     if(!m){ m=document.createElement("div"); m.id="redflagModal"; m.className="mask"; document.body.appendChild(m); }
     m.innerHTML='<div class="sheet"><div class="sheet-h" style="font-weight:800;font-size:17px;margin-bottom:12px">🚩 流动红旗 · 上周值日小组</div>'
-      +'<div style="font-size:14.5px;line-height:1.7;color:var(--ink)">上周值日小组：<b>'+esc(cur)+'</b><br>是否获得流动红旗？获得将切换下一组并为该组全员加 5 分；未获得则该组继续值日并全员扣 5 分。</div>'
+      +'<div style="font-size:14.5px;line-height:1.7;color:var(--ink)">上周值日小组：<b>'+esc(cur)+'</b><br>是否获得流动红旗？获得将切换下一组并为该组全员加 5 分；未获得则该组继续值日并全员扣 5 分。<br>两者都不适用（自行排班 / 需要跳过该组）时，可直接切换下一组，不加分也不扣分。</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">'
       +'<button class="btn-ok" data-rf="won">✅ 获得（切换+全员+5）</button>'
       +'<button class="btn-bad" data-rf="lost">❌ 未获得（继续+全员-5）</button>'
+      +'<button class="btn-mini" data-rf="next" title="不加分也不扣分，直接把值日任务交给下一个小组">⏭ 切换下一组</button>'
       +'<button class="btn-mini" data-rf="cancel">稍后</button></div></div>';
     m.classList.add("show");
     m.querySelectorAll('[data-rf]').forEach(function(b){
       b.onclick=function(){
         var a=b.getAttribute("data-rf"); m.classList.remove("show");
         if(a==="cancel") return;
+        if(a==="next"){ rotateDutyGroup(); return; }
         resolveRedFlag(a==="won");
       };
     });
@@ -5051,6 +5077,7 @@
       if(won){ dutyRot.cursor=(dutyRot.cursor+1)%getDutyGroups().length; dutyRot.servedWeeks=1; }
       else { dutyRot.servedWeeks=(dutyRot.servedWeeks||1)+1; }
       dutyRot.checkedWeek=wkNow;
+      dutyRot.manualWeek=null;     // 走了红旗流程 → 覆盖掉本周的"手动切换"标记
       saveDutyRot();
       toast((won?"已切换至下一组并全员+5分":"该组继续值日并全员-5分")+"（"+members.length+" 人）");
       renderList("duty"); render();
@@ -11807,6 +11834,7 @@
       if(a==="addGroup"){ dutyWeekAddGroup(); return; }
       if(a==="delGroup"){ dutyWeekDelGroup(dact.getAttribute("data-grp")); return; }
       if(a==="redflag"){ askRedFlag(); return; }
+      if(a==="nextgroup"){ rotateDutyGroup(); return; }
       if(a==="swap"){ dutySwapToggle(); return; }
       if(a==="reset"){ dutyWeekReset(); return; }
       if(a==="print"){ printDutyTable(); return; }
@@ -13392,7 +13420,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parentview-fix-2026-09-11";
+  var __APP_VERSION__ = "dutynext-2026-09-11";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
