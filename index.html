@@ -7815,11 +7815,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function loadMyClassPass(){
     if(!db) return Promise.resolve(null);
-    return db.from(tbl("classpass")).select("id,data").eq("data->>headUid", curUid).limit(1).then(function(res){
-      if(res.error){ trySchemaFix(res.error.message||res.error.code||""); return null; }
-      var r=(res.data||[])[0];
-      return r ? Object.assign({ _id:r.id }, r.data||{}) : null;
-    }).catch(function(){ return null; });
+    var ls=loadMyPassLS();
+    function byUid(){
+      return db.from(tbl("classpass")).select("id,data").eq("data->>headUid", curUid).limit(1).then(function(res){
+        if(res.error){ trySchemaFix(res.error.message||res.error.code||""); return null; }
+        var r=(res.data||[])[0];
+        if(!r) return null;
+        var o=Object.assign({ _id:r.id }, r.data||{}); saveMyPassLS(o);
+        return o;
+      }).catch(function(){ return null; });
+    }
+    /* 先按本地记住的班级码找：班主任换了登录账号也能拿回同一张二维码（码固定） */
+    if(ls && ls.code){
+      return db.from(tbl("classpass")).select("id,data").eq("data->>code", ls.code).limit(1).then(function(res){
+        var r=(res.data||[])[0];
+        if(r && r.data){ var o=Object.assign({ _id:r.id }, r.data||{}); saveMyPassLS(o); return o; }
+        return byUid();
+      }).catch(function(){ return byUid(); });
+    }
+    return byUid();
   }
   function removeMemberByUid(uid){
     var row=(DATA.members||[]).filter(function(m){ return m["uid"]===uid; })[0];
@@ -7842,17 +7856,71 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
                    cls:(typeof shareClsName==="function"?shareClsName():"") } }).select("id");
         }).then(function(r3){
           if(r3.error) throw r3.error;
+          saveMyPassLS({ code:code, email:email, pwd:pwd, uid:u.id,
+                         cls:(typeof shareClsName==="function"?shareClsName():"") });
           return loadMembersSafe().then(function(){ return loadMyClassPass(); });
         });
     });
   }
+  /* 班级码 / 凭据的本地存档：二维码固定靠它——即使云端记录丢了、班主任换了登录账号，
+     只要本地还记得原码，就能把同一条记录补回来，已发出的二维码继续有效。 */
+  var MY_PASS_LS="bzr_classpass_v1";
+  function loadMyPassLS(){
+    try{ return JSON.parse(localStorage.getItem(MY_PASS_LS)||"null"); }catch(_e){ return null; }
+  }
+  function saveMyPassLS(cp){
+    try{
+      if(cp && cp.code) localStorage.setItem(MY_PASS_LS, JSON.stringify({
+        code:cp.code, email:cp.email||"", pwd:cp.pwd||"", uid:cp.uid||"", cls:cp.cls||"" }));
+    }catch(_e){}
+  }
+  /* 独立的临时客户端做 signIn：绝不能用主客户端 db，否则会把班主任挤下线换成访客会话 */
+  function scratchClient(){
+    try{
+      return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY,
+        { auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false } });
+    }catch(_e){ return dbGuest || db; }
+  }
+  /* 用本地记住的班级凭据把记录补回来（班级码保持不变） */
+  function restoreClassPass(ls){
+    var cli=scratchClient();
+    return cli.auth.signInWithPassword({ email:ls.email, password:ls.pwd }).then(function(sr){
+      if(sr.error || !sr.data || !sr.data.user) throw new Error("班级凭据已不可用");
+      var u=sr.data.user;
+      var cls=(typeof shareClsName==="function"?shareClsName():"");
+      /* 成员表已加载（知道确实没有这一行）才补成员；没加载就别乱插，免得插出重复的「班级家长（扫码）」 */
+      var ms=DATA.members||[];
+      var needMember=ms.length>0 && !ms.some(function(m){ return m && m["uid"]===u.id; });
+      var p=Promise.resolve(null);
+      if(needMember){
+        p=db.from(tbl("members")).insert({ user_id:curUid,
+          data:{ uid:u.id, name:"班级家长（扫码）", role:"家长", ownerUid:curUid, guest:true, student:"" } })
+          .select("id").then(function(){ return null; }).catch(function(){ return null; });
+      }
+      return p.then(function(){
+        return db.from(tbl("classpass")).insert({ user_id:curUid,
+          data:{ code:ls.code, email:ls.email, pwd:ls.pwd, uid:u.id, headUid:curUid, cls:cls } }).select("id");
+      }).then(function(r4){
+        if(r4.error) throw r4.error;
+        saveMyPassLS({ code:ls.code, email:ls.email, pwd:ls.pwd, uid:u.id, cls:cls });
+        return loadMembersSafe().then(function(){ return loadMyClassPass(); });
+      });
+    });
+  }
   function ensureClassPass(force){
     return loadMyClassPass().then(function(cur){
-      if(cur && !force) return cur;
+      if(cur && !force) return cur;                       /* 已有 → 直接复用，二维码不变 */
       var oldUid=cur?(cur.uid||""):"";
-      return (cur?apiDelete("classpass", cur._id).catch(function(){ return null; }):Promise.resolve(null))
-        .then(function(){ return oldUid?removeMemberByUid(oldUid):Promise.resolve(null); })
-        .then(createClassPass);
+      if(force){                                          /* 只有用户主动「重新生成」才换码 */
+        return (cur?apiDelete("classpass", cur._id).catch(function(){ return null; }):Promise.resolve(null))
+          .then(function(){ return oldUid?removeMemberByUid(oldUid):Promise.resolve(null); })
+          .then(createClassPass);
+      }
+      var ls=loadMyPassLS();
+      if(ls && ls.code && ls.email && ls.pwd){
+        return restoreClassPass(ls).catch(function(){ return createClassPass(); });
+      }
+      return createClassPass();
     });
   }
   function openClassQR(){
@@ -7863,14 +7931,25 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'<div class="share-head"><span>📱 班级二维码</span><button class="share-x" data-cqclose title="关闭">×</button></div>'
       +'<div id="cqBody" style="text-align:center;padding:10px 4px;font-size:12.5px;color:#7A86A8">正在准备班级二维码…</div>'
       +'<div class="share-tip">家长扫码即进入<b>本班家长视图</b>（课表 / 作业 / 值日 / 荣誉榜等与家长端一致）<br>「💬 留言板」需家长用<b>本人账号</b>登录，扫码进入的看不到任何人的私信</div>'
+      +'<div class="share-tip" style="color:#5B6FDB">🔒 这个二维码<b>长期有效</b>：保存到相册或打印张贴后可以一直用，家长也只需存一次，不必反复重发；只有你手动点「重新生成」才会更换。</div>'
       +'<div style="display:flex;gap:8px;margin-top:10px">'
+      +'<button class="share-dl" style="background:#fff;color:#5B6FDB;border:1px solid #C9D2E8" data-cqcopy>🔗 复制链接</button>'
       +'<button class="share-dl" style="background:#fff;color:#5B6FDB;border:1px solid #C9D2E8" data-cqregen>↻ 重新生成</button>'
       +'<button class="share-dl" data-cqsave>💾 保存二维码</button></div></div>';
     document.body.appendChild(ov);
-    var qrData="";
+    var qrData="", qrUrl="";
     ov.addEventListener("click", function(e){
       if(e.target===ov || e.target.closest("[data-cqclose]")){ ov.remove(); return; }
-      if(e.target.closest("[data-cqregen]")){ regen(true); return; }
+      if(e.target.closest("[data-cqregen]")){
+        /* 二次确认：换码会让已经发出去的二维码立即失效，必须让人知道 */
+        if(!window.confirm("确定要重新生成二维码吗？\n\n重新生成后，之前发给家长的二维码会立即失效，需要重新发一遍。\n（平时不需要点它，这个二维码一直有效。）")) return;
+        regen(true); return;
+      }
+      if(e.target.closest("[data-cqcopy]")){
+        if(!qrUrl){ toast("二维码还没生成好"); return; }
+        copyText(qrUrl).then(function(ok){ toast(ok?"已复制家长入口链接 ✓":"复制失败，请长按二维码保存"); });
+        return;
+      }
       if(e.target.closest("[data-cqsave]")){
         if(!qrData){ toast("二维码还没生成好"); return; }
         var a=document.createElement("a"); a.href=qrData; a.download="班级二维码.png";
@@ -7880,11 +7959,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     function paint(cp){
       if(!cp || !cp.code) return;
       ensureQRLib().then(function(){
-        var url=classQRUrl(cp.code);
+        var url=classQRUrl(cp.code); qrUrl=url;
         var cv=makeQRCanvas(url, 300); qrData=cv.toDataURL("image/png");
         var b=ov.querySelector("#cqBody"); if(!b) return;
         b.innerHTML='<img class="share-img" style="max-width:250px;margin:0 auto" alt="班级二维码" src="'+qrData+'">'
-          +'<div style="margin-top:10px;font-size:11.5px;color:#9a9aa2;word-break:break-all">'+esc(url)+'</div>';
+          +'<div style="margin-top:8px;font-size:12.5px;color:#3A4568">班级码 <b style="letter-spacing:1px">'+esc(cp.code)+'</b></div>'
+          +'<div style="margin-top:6px;font-size:11.5px;color:#9a9aa2;word-break:break-all">'+esc(url)+'</div>';
       }).catch(function(e){
         var b=ov.querySelector("#cqBody"); if(b) b.textContent="二维码生成失败："+((e&&e.message)||e);
       });
@@ -7917,25 +7997,64 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     try{ sessionStorage.setItem("bzr_guest_tried","1"); }catch(_e){}
     showAuth(msg?("班级码进入失败："+msg+"。您仍可正常登录，或请班主任重新生成二维码。"):"");
   }
+  /* 扫码凭据本地缓存：命中即省掉一次「查班级码」网络往返。
+     微信弱网下这一趟常常是 0.5~2s，且班级码长期固定，缓存基本不会失效。 */
+  var GUEST_CRED_LS="bzr_guest_cred_v1", _guestErr="";
+  function loadGuestCred(code){
+    try{ var o=JSON.parse(localStorage.getItem(GUEST_CRED_LS)||"{}"); return (o&&o[code])||null; }catch(_e){ return null; }
+  }
+  function saveGuestCred(code, d){
+    if(!code || !d || !d.email) return;
+    try{
+      var o={}; try{ o=JSON.parse(localStorage.getItem(GUEST_CRED_LS)||"{}"); }catch(_e2){ o={}; }
+      o[code]={ email:d.email||"", pwd:d.pwd||"" };
+      var ks=Object.keys(o);                      /* 只留最近 3 个班级码，避免长期堆积 */
+      if(ks.length>3) ks.slice(0,ks.length-3).forEach(function(k){ delete o[k]; });
+      localStorage.setItem(GUEST_CRED_LS, JSON.stringify(o));
+    }catch(_e3){}
+  }
+  /* 用班级凭据登录（写 _guestScan，身份强制家长） */
+  function guestSignIn(cred){
+    setStatus("syncing");
+    _guestScan=true;
+    return db.auth.signInWithPassword({ email:(cred&&cred.email)||"", password:(cred&&cred.pwd)||"" })
+      .then(function(sr){
+        if(sr.error || !sr.data || !sr.data.user){
+          _guestErr=(sr.error&&sr.error.message)||"登录未返回用户信息";
+          return false;
+        }
+        try{ sessionStorage.setItem("bzr_guest_tried","1"); }catch(_e){}
+        removeGuestSplash(); cleanGuestURL();
+        onSignedIn(sr.data.user);
+        return true;
+      }).catch(function(e){ _guestErr=(e&&e.message)||"网络异常"; return false; });
+  }
   function tryGuestScan(){
     if(guestScanDone) return; guestScanDone=true;
     try{
       var code=new URLSearchParams(location.search).get("c");
-      if(!code || !db) return;
+      if(!code || !db){ removeGuestSplash(); return; }   /* 无班级码 / 后端不可用：不留白屏 */
       /* 同一会话只试一次；若已经试过又确实没有会话（例如令牌过期），给出登录入口而不是留白屏 */
       if(sessionStorage.getItem("bzr_guest_tried")==="1"){ removeGuestSplash(); showAuth(""); return; }
-      db.from(tbl("classpass")).select("id,data").eq("data->>code", code).limit(1).then(function(res){
-        var r=(res.data||[])[0];
-        if(!r || !r.data){ failGuestScan("班级码无效或已被重新生成"); return; }
-        setStatus("syncing");
-        _guestScan=true;   /* 扫码进入：身份一律按家长处理，绝不因元数据缺失漏成班主任 */
-        db.auth.signInWithPassword({ email:r.data.email||"", password:r.data.pwd||"" }).then(function(sr){
-          if(sr.error || !sr.data || !sr.data.user){ setStatus("offline"); failGuestScan((sr.error&&sr.error.message)||""); return; }
-          try{ sessionStorage.setItem("bzr_guest_tried","1"); }catch(_e){}
-          removeGuestSplash(); cleanGuestURL();
-          onSignedIn(sr.data.user);
-        }).catch(function(e){ setStatus("offline"); failGuestScan((e&&e.message)||""); });
-      }).catch(function(){ removeGuestSplash(); showAuth(""); });   /* 网络失败不锁死：下次扫码可重试 */
+      var hit=loadGuestCred(code);
+      if(hit && hit.email){
+        /* 先用本地缓存的凭据登录；失败（例如班主任确实重新生成过二维码）再回落到查表 */
+        guestSignIn(hit).then(function(ok){ if(!ok){ try{ sessionStorage.removeItem("bzr_guest_tried"); }catch(_e4){} fromTable(); } });
+        return;
+      }
+      fromTable();
+      function fromTable(){
+        db.from(tbl("classpass")).select("id,data").eq("data->>code", code).limit(1).then(function(res){
+          var r=(res.data||[])[0];
+          if(!r || !r.data){ failGuestScan("班级码无效或已被重新生成"); return; }
+          saveGuestCred(code, r.data);
+          guestSignIn(r.data).then(function(ok){
+            if(ok) return;
+            setStatus("offline");
+            failGuestScan("班级视图账号登录失败"+(_guestErr?("（"+_guestErr+"）"):"")+"，请让班主任在「📱 班级二维码」里点重新生成后重发");
+          });
+        }).catch(function(){ removeGuestSplash(); showAuth(""); });   /* 网络失败不锁死：下次扫码可重试 */
+      }
     }catch(_e){ removeGuestSplash(); }
   }
   /* 访客端：留言板门禁（私信必须本人账号） */
@@ -7975,7 +8094,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     html+='<div class="ph-card"><div class="ph-sec-h">👋 扫码进入的班级视图</div>'
       +'<div class="ph-empty">课表、作业上交、值日安排、荣誉榜、班级制度等与家长端完全一致。'
       +'涉及个人信息的功能（孩子积分 / 一对一留言）需登录孩子家长的本人账号。</div>'
-      +'<div style="margin-top:10px"><button class="btn-mini" data-guestlogin>用我的账号登录</button></div></div>';
+      +'<div style="margin-top:10px"><button class="btn-mini" data-guestlogin>用我的账号登录</button></div>'
+      +'<div class="ph-empty" style="margin-top:8px">💡 建议把本页<b>加入微信收藏</b>（或添加到桌面），以后直接点开就能看，不必再扫码。</div></div>';
     /* ② 本周班级概况 */
     var g=(guestWeekStat()||"").split("/");
     var cells=[["迟到人次",g[0]||"0","warn"],["缺勤人次",g[1]||"0","danger"],["作业未交",g[2]||"0","warn"],["本周荣誉",g[3]||"0","good"]];
@@ -12813,6 +12933,9 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var _srb=document.getElementById("switchRoleBtn"); if(_srb) _srb.onclick=switchIdentity;
   function onSignedIn(user){
     try{
+      removeGuestSplash();   /* 扫码进入的「正在进入班级视图…」动画：登录成功就一定撤掉。
+                                本机已有家长 / 访客会话时走的正是这条路径（getSession→onSignedIn），
+                                以前这里不撤 → 动画 z-index:4000 盖住整页，表现为一直加载。 */
       curUid=user.id;
       _modLoaded={};   /* 换身份 = 换数据归属，所有模块重新按需加载 */
       /* 身份来自注册时写入的 user_metadata.role；老账号没有该字段 → 先按班主任渲染，
@@ -13009,7 +13132,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "scanfast-rolehome-2026-09-10";
+  var __APP_VERSION__ = "qrcode-fixed-2026-09-10";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -13222,7 +13345,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var done=false;
     var _hasC=false;
     try{ _hasC=!!new URLSearchParams(location.search).get("c"); }catch(_e){}
-    if(_hasC){ hideAuth(); showGuestSplash(); }   /* 扫码进入：不闪登录封面，直接显示进入动画 */
+    if(_hasC){                                    /* 扫码进入：不闪登录封面，直接显示进入动画 */
+      hideAuth(); showGuestSplash();
+      /* 看门狗：弱网 / 令牌异常 / 后端报错等任何原因，超过 12 秒还没进去就撤掉动画露出界面，
+         绝不把用户永远留在「正在进入班级视图…」 */
+      setTimeout(function(){
+        if(document.getElementById("guestSplash")){ removeGuestSplash(); showAuth(""); }
+      }, 12000);
+    }
     var t=setTimeout(function(){
       if(done) return; done=true;
       if(!_hasC) showAuth("连接认证服务较慢或失败，请点击登录；如反复出现请强制刷新（Ctrl/Cmd+Shift+R）。");
