@@ -5964,41 +5964,41 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     colSeq.reverse();
 
-    /* 表头：列号自教师左手边起（= 屏幕端从右往左） */
-    var head='<tr><th class="corner">排＼列</th>';
-    colSeq.forEach(function(x){ head += x.aisle ? '<th class="aisle">走廊</th>' : '<th>'+x.c+'</th>'; });
+    /* 表头：只留一行窄的「列号」条（教师视角从左到右 = 屏幕端从右往左），像纸质样例一样无底色纯网格 */
+    var head='<tr class="numrow">';
+    colSeq.forEach(function(x){ head += x.aisle ? '<td class="aisle"></td>' : '<td class="no">'+x.c+'</td>'; });
     head+='</tr>';
 
-    /* 行：第 R 排（离讲台最远）在最上 → 第 1 排（贴讲台）在最下 */
+    /* 行：第 R 排（离讲台最远）在最上 → 第 1 排（贴讲台）在最下；单元格只放姓名，空位留白 */
     var rowsHtml="";
     for(var r=R;r>=1;r--){
-      var tr='<tr><th class="rowh">'+r+'</th>';
+      var tr='<tr>';
       colSeq.forEach(function(x){
         if(x.aisle){ tr+='<td class="aisle"></td>'; return; }
         var rec=map[r+"_"+x.c];
-        tr+='<td>'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
+        tr+='<td class="seat">'+(rec?esc(rec["学生姓名"]||""):"")+'</td>';
       });
       tr+='</tr>';
       rowsHtml+=tr;
     }
 
-    /* 讲台行（纸的最底部）：左右以站在讲台上的老师为准。
+    /* 讲台条（纸的最底部）+ 两侧座位：左右以站在讲台上的老师为准。
        屏幕端 1列 在平面图左侧（西）= 老师的右手边；2列（东）= 老师的左手边。 */
     var fL=flank["2"], fR=flank["1"];
-    var footHtml='<tr>'
-      +'<td class="lbl">讲台左<br><span class="lbl2">老师左手边</span></td>'
-      +'<td class="fl">'+(fL?esc(fL["学生姓名"]||""):"（空）")+'</td>'
-      +'<td class="lbl">讲台右<br><span class="lbl2">老师右手边</span></td>'
-      +'<td class="fl">'+(fR?esc(fR["学生姓名"]||""):"（空）")+'</td>'
-      +'<td colspan="'+Math.max(1,colSeq.length-3)+'"></td></tr>';
+    var footHtml='<tr class="podium"><td colspan="'+Math.max(1,colSeq.length)+'">讲　台　·　老师面向此方向</td></tr>'
+      +'<tr class="flankrow"><td colspan="'+Math.max(1,colSeq.length)+'">'
+      +'讲台左（老师左手边）：<b>'+(fL?esc(fL["学生姓名"]||""):"（空）")+'</b>　｜　'
+      +'讲台右（老师右手边）：<b>'+(fR?esc(fR["学生姓名"]||""):"（空）")+'</b></td></tr>';
 
-    var css='table{border-collapse:collapse;margin-top:8px}'
-      +'td,th{border:1px solid #888;padding:6px 12px;text-align:center;font-size:12px;min-width:54px}'
-      +'th{background:#FFF0F6;font-weight:700}.corner{background:#FDE2EC}.rowh{background:#FFF7FA;font-weight:700}'
-      +'.lbl{background:#FDE2EC;font-weight:700;white-space:nowrap;font-size:11px;line-height:1.35}'
-      +'.lbl2{font-weight:500;color:#a06;font-size:10px}.fl{background:#fff;font-weight:700}'
+    var css='table{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:8px}'
+      +'td{border:1px solid #000;text-align:center;vertical-align:middle;color:#111;padding:2px 4px;word-break:keep-all}'
+      +'.seat{height:34px;font-size:14px}'
+      +'.numrow td{height:15px;font-size:10.5px;color:#333}'
+      +'.podium td{background:#ECECEC;font-weight:700;letter-spacing:3px;height:22px;font-size:13px}'
+      +'.flankrow td{font-size:11px;color:#333;height:18px}'
+      +'.aisle{background:#F2F2F2}'
       +'.ttl{font-size:17px;font-weight:800;margin:0}.sub{font-size:12px;color:#555;margin:4px 0 0}'
-      +'.aisle{background:#F3F3F3;color:#999;font-size:11px}.tip{font-size:11px;color:#888;margin-top:6px;line-height:1.8}';
+      +'.tip{font-size:11px;color:#888;margin-top:6px;line-height:1.8}';
     var body='<h3 class="ttl">'+esc(clsName)+' 座位表 · 讲台视角（'+todayStr()+'）</h3>'
       +'<p class="sub">📐 按站在讲台上的老师方向排布 · 共 '+R+' 排 × '+C+' 列</p>'
       +'<table>'+head+rowsHtml+footHtml+'</table>'
@@ -8623,6 +8623,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function syncBanner(){ return; }
   function refreshAll(){
     return loadPass(ALLKEYS).then(function(failed1){
+      ALLKEYS.forEach(function(k){ _modLoaded[k]=1; });
       var retryable = failed1.filter(function(f){ return classifyError(f.e).kind==="transient"; }).map(function(f){return f.k;});
       // 仅重试"瞬时"失败：结构性失败（schema/RLS 缺失）重试无意义，立即呈现给用户
       if(retryable.length && retryable.length<ALLKEYS.length){
@@ -11839,6 +11840,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(typeof dutySwap!=="undefined"){ dutySwap.on=false; dutySwap.sel=null; }
     if(state.cat!=="overview") state.open[state.cat]=true;
     render();
+    ensureModule(mod);   /* 该表若还没加载完（懒加载），拉回来后自动重渲 */
   }
 
   /* ---------- 导入 / 导出 ---------- */
@@ -12761,6 +12763,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function onSignedIn(user){
     try{
       curUid=user.id;
+      _modLoaded={};   /* 换身份 = 换数据归属，所有模块重新按需加载 */
       /* 身份来自注册时写入的 user_metadata.role；老账号没有该字段 → 按班主任（全权限）处理 */
       var _r=(user&&user.user_metadata&&user.user_metadata.role)||"";
       curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT||_r===ROLE_OFFICER) ? _r : ROLE_HEAD;
@@ -12807,6 +12810,63 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }catch(e){}
     return false;
   }
+  /* ---------- 启动分层加载：先拉首屏必用的表，立即渲染；其余表后台补齐 ----------
+     原先 bootLoad 等 17 张表全部到位才显示（约 22 个请求），弱网下要转圈好几秒。
+     现在：① refreshBootCore 只拉当前角色首屏要用的表 → 渲染；
+           ② refreshBootRest 在后台把剩余表补齐，完成后无感重渲一次。 */
+  var _modLoaded={};   /* 模块数据是否已至少加载过一次（懒加载守卫） */
+  /* 班主任首屏落在「总览」：聚合需要 学生/积分/待办/材料/考勤/荣誉/值日；其它角色按各自可见模块取 */
+  var CORE_HEAD=["students","committee","points","attendance","materials","honor","affairs","duty"];
+  function bootCoreKeys(){
+    var mods=ROLE_MODS[curRole];
+    if(!mods) return CORE_HEAD.slice();
+    var ks=[];
+    mods.forEach(function(m){ if(ALLKEYS.indexOf(m)>=0 && ks.indexOf(m)<0) ks.push(m); });
+    ["students","points"].forEach(function(k){ if(ks.indexOf(k)<0) ks.push(k); });
+    return ks;
+  }
+  /* 首屏必拉：课表 / 成员 / 留言（家长首页留言卡要用）；非班主任还要班级制度 */
+  function refreshBootCore(){
+    var pre=[loadSchedulesSafe(), loadMembersSafe(), loadMessagesSafe()];
+    if(curRole!==ROLE_HEAD) pre.push(loadRegulationsSafe());
+    return Promise.all(pre.map(function(p){ return p.catch(function(){}); }))
+      .then(function(){ return loadPass(bootCoreKeys()); });
+  }
+  /* 后台补齐：剩余表 + 附属数据，完成后再整体重渲一次（用户此时已在用，无感） */
+  function refreshBootRest(){
+    var core=bootCoreKeys();
+    var rest=ALLKEYS.filter(function(k){ return core.indexOf(k)<0; });
+    return loadPass(rest).then(function(){
+      return (curRole===ROLE_HEAD ? loadRegulationsSafe().catch(function(){}) : Promise.resolve());
+    }).then(function(){
+      ALLKEYS.forEach(function(k){ _modLoaded[k]=1; });
+      pruneOldOverrides().catch(function(){});
+      loadDutyRot();
+      loadRuleCats();
+      loadMeetings();
+      loadWeekly();
+      checkMondayRedFlag();
+      loadAllFiles().catch(function(){});
+      // 后台预热 Excel 解析库：浏览器空闲时才注入，绝不与首屏渲染抢资源
+      if(typeof window.__xlsxPreload==="undefined"){
+        window.__xlsxPreload=null;
+        var warm=function(){ ensureXLSX().catch(function(e){ console.warn("xlsx 预加载失败，导入时将重试", e); }); };
+        if(window.requestIdleCallback) requestIdleCallback(warm, {timeout:4000});
+        else setTimeout(warm, 2500);
+      }
+      return loadSettingsSafe();
+    }).then(function(){
+      try { render(); loadOverviewAffairs(); } catch(e){ console.error(e); }
+    }).catch(function(e){ console.warn("后台补齐失败（不影响已显示的数据）", e); });
+  }
+  /* 懒加载守卫：点到尚未加载完的模块时先拉该表，回来后重渲 */
+  function ensureModule(key){
+    if(ALLKEYS.indexOf(key)<0 || _modLoaded[key]) return Promise.resolve();
+    return loadPass([key]).then(function(){
+      _modLoaded[key]=1;
+      if(state.mod===key) render();
+    }).catch(function(e){ console.warn("模块加载失败", key, e); });
+  }
   function bootLoad(){
     setStatus("syncing");
     // 先用上次的缓存瞬出界面（不依赖网络），再后台刷新
@@ -12817,10 +12877,17 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     }
     probeBackend().then(function(up){
       if(!up){ setStatus("offline"); toast("网络不可用，已切换到离线模式（显示上次数据），恢复后会自动同步"); }
-      return refreshAll().then(function(failed){
-        var allDown = failed && failed.length===ALLKEYS.length;
+      return refreshBootCore().then(function(failed){
+        var core=bootCoreKeys();
+        var allDown = failed && failed.length>=core.length;
         setStatus(allDown ? "offline" : "ok");
-        if(!allDown) saveBootCache();   // 仅在非全失败时落缓存
+        /* 核心表到位即渲染首屏（无缓存冷启动时尤其关键，不能等后台补齐） */
+        try{ render(); if(state.mod) renderList(state.mod); loadOverviewAffairs(); }catch(e){ console.warn("首屏渲染失败", e); }
+        if(!allDown){
+          saveBootCache();      // 首屏数据可用即落缓存（下次冷启动秒开）
+          refreshBootRest();    // 其余表后台补齐，不阻塞
+        }
+        return failed;
       });
     }).catch(function(e){
       console.error(e); setStatus("offline");
@@ -12860,7 +12927,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "opt-turbo-2026-09-10";
+  var __APP_VERSION__ = "seatprint-lazy-2026-09-10";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
