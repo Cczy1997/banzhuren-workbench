@@ -1,0 +1,16 @@
+{
+  "id": "/banzhuren-workbench/",
+  "name": "初一(1)班 · 班主任小台",
+  "short_name": "班主任小台",
+  "description": "班级管理工作台：考勤、作业、积分、值日、课表、家校留言",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#5B6FDB",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

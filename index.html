@@ -7,6 +7,9 @@
 <meta http-equiv="Pragma" content="no-cache" data-page-node-id="xgu4JXB4JEEZMMAROWXs5g">
 <meta http-equiv="Expires" content="0" data-page-node-id="IikNb2S4kiE3wO84QftTqM">
 <title>初一(1)班 · 班主任小台</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#5B6FDB">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <!-- Supabase 客户端：完整 inline 进 HTML（不依赖任何独立 .js 文件，绕过 GitHub Pages / 浏览器全部缓存层）-->
 <script>
 /* ===== 兼容 polyfill：补齐旧版 Safari 等浏览器缺失的 API，否则 supabase-js 的 createClient 会抛错拖崩整页 ===== */
@@ -625,6 +628,22 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   .matnew-btns{display:flex;gap:8px;justify-content:flex-end}
   .matnew-btn{border:none;cursor:pointer;font-size:13px;font-weight:700;border-radius:999px;padding:8px 16px;background:#F6F0F4;color:var(--ink-soft)}
   .matnew-btn.primary{background:var(--pink);color:#fff}
+  .qno-card{width:min(430px,94vw);max-height:88vh;overflow:auto}
+  .qno-line{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .qno-lab{font-size:12.5px;font-weight:700;color:var(--ink-soft);min-width:34px}
+  .qno-fix{font-size:12.5px;color:var(--ink);font-weight:600}
+  .qno-sel{padding:7px 10px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;background:#fff;color:var(--ink);outline:none}
+  .qno-types{display:flex;gap:6px}
+  .qno-type{border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;user-select:none}
+  .qno-type.on{border-color:var(--pink);background:#F3F7FF;color:var(--ink)}
+  .qno-input{width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;outline:none;resize:vertical;line-height:1.55;font-family:inherit}
+  .qno-input:focus{border-color:var(--pink)}
+  .qno-pre{font-size:12px;color:var(--ink-soft);line-height:1.55;margin:2px 0 10px;min-height:18px}
+  .qno-pre.has{background:#F7F8FC;border-radius:9px;padding:8px 10px}
+  .qno-hit{color:var(--mint-d);font-weight:600}
+  .qno-miss{color:#C95B3F;font-weight:600;margin-top:3px}
+  .qno-chk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;cursor:pointer}
+  .pts-row.pts-mat .pts-name{color:#2F5FB8}
   /* 家长端 · 考勤/材料每日摘要 */
   .pb-wrap{display:flex;flex-direction:column;gap:10px}
   .pb-nav{display:flex;align-items:center;gap:8px}
@@ -6296,6 +6315,29 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +(warn.length?'<div class="ptsa-line"><span class="ptsa-k warn">⚠️ 预警（低于'+PTS_WARN+'分）· '+warn.length+' 人</span>'+chips(warn,"warn")+'</div>':'')
       +'</div>';
   }
+  /* 材料类加减分：取出「材料（文件）名称」；非材料记录返回 ""。
+     识别依据：来源==="材料"，或原因以「[材料]」开头（兼容早期数据）。 */
+  function ptsMatName(r){
+    var src=String(r["来源"]||"");
+    var rs=String(r["原因"]||"").trim();
+    if(src!=="材料" && rs.indexOf("[材料]")!==0) return "";
+    var nm=String(r["事项"]||"").trim();
+    if(!nm){
+      nm=rs.replace(/^\[材料\]/,"")
+           .replace(/(未按时上交[：:]?|未交|迟交|已交)\s*$/,"")
+           .replace(/[（(][^）)]*[）)]\s*$/,"")
+           .replace(/\d+次\s*$/,"").trim();
+    }
+    return nm||"材料";
+  }
+  /* 材料记录的动作后缀（未交 / 迟交 / 奖励…） */
+  function ptsMatAct(r){
+    var rs=String(r["原因"]||"").trim();
+    var m=rs.match(/(未按时上交|未交|迟交|已交)\s*$/);
+    if(m) return m[1]==="未按时上交"?"未交":m[1];
+    if(rs.indexOf("连续已交奖励")>=0) return "奖励";
+    return "";
+  }
   function renderPointsView(){
     var rows=(DATA.points||[]).slice();
     var groups=[
@@ -6335,26 +6377,73 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         +'</div>';
       if(open){
         html+='<div class="pts-list">';
-        /* 相同「日期+原因+分值」合并为一行（同批操作如全班扣分不再铺满整页） */
+        /* 相同「日期+原因+分值」合并为一行（同批操作如全班扣分不再铺满整页）；
+           材料类记录改按「材料名」归类：同一份材料的所有学生并成一行，日期取该份材料的收取日，
+           这样多份材料并行时各归各的，不会因为它们日期相同就混成一条看不出所以然的合计。 */
         var subOpen=pointsView.subOpen||(pointsView.subOpen={});
         var gmap={}, items=[];
         gr.forEach(function(r){
-          var k=String(r["日期"]||"")+"\u0001"+String(r["原因"]||"").trim()+"\u0001"+String(r["分值"]);
-          if(gmap[k]){ gmap[k].list.push(r); }
-          else{ gmap[k]={date:String(r["日期"]||""), reason:String(r["原因"]||"").trim()||"（无原因）", sc:ptsSigned(r), list:[r]}; items.push(k); }
+          var _d=String(r["日期"]||"");
+          var _m=ptsMatName(r);
+          var k=_m ? ("\u0002"+_m+"\u0001"+ptsMatAct(r)+"\u0001"+String(r["分值"]))
+                   : (_d+"\u0001"+String(r["原因"]||"").trim()+"\u0001"+String(r["分值"]));
+          var _hit=gmap[k];
+          if(_hit){ _hit.list.push(r); if(_d) _hit.dates[_d]=1; return; }
+          var _dd={}; if(_d) _dd[_d]=1;
+          gmap[k]={date:_d, dates:_dd, reason:String(r["原因"]||"").trim()||"（无原因）", sc:ptsSigned(r), list:[r], mat:_m, act:ptsMatAct(r)};
+          items.push(k);
         });
         var lastD=null;
         items.forEach(function(k){
           var g=gmap[k];
-          /* 日期分段：换天就插一条日期分隔（含星期），最新在上 */
+          /* 日期分段：换天就插一条日期分隔（含星期），最新在上；
+             材料分组自带日期（显示在行尾），不再按日期切段，免得同一份材料被切成两截 */
           var dstr=String(g.date||"");
-          if(dstr!==lastD){
+          if(!g.mat && dstr!==lastD){
             lastD=dstr;
             var wd="";
             if(/^\d{4}-\d{2}-\d{2}$/.test(dstr)) wd=" 周"+"日一二三四五六"[new Date(dstr+"T00:00:00").getDay()];
             html+='<div class="pts-dsep">'+esc(fmtDate(dstr)||"（无日期）")+wd+'</div>';
           }
           var reason=g.reason; if(reason.length>26) reason=reason.slice(0,26)+"…";
+          if(g.mat){
+            /* 📎 材料分组：一份材料一行，日期 = 该份材料的收取日（跨多天显示起止） */
+            var isOpenM=!!subOpen[k];
+            var dks=Object.keys(g.dates).sort();
+            var dlab=dks.length?fmtDate(dks[0]):"";
+            if(dks.length>1) dlab=fmtDate(dks[0])+"~"+fmtDate(dks[dks.length-1]);
+            var mnm=g.mat; if(mnm.length>16) mnm=mnm.slice(0,16)+"…";
+            var tot=g.sc*g.list.length;
+            var memM=g.list.slice().sort(function(a,b){
+              var na=parseFloat(a["学号"]), nb=parseFloat(b["学号"]);
+              if(!isNaN(na)&&!isNaN(nb)&&na!==nb) return na-nb;
+              return String(a["学生姓名"]||"").localeCompare(String(b["学生姓名"]||""), "zh");
+            });
+            var who=(memM.length===1)?String(memM[0]["学生姓名"]||("学号"+String(memM[0]["学号"]||""))):(memM.length+" 人");
+            html+='<div class="pts-row pts-grow pts-mat" data-ptsgroup="'+esc(k)+'">'
+              +'<span class="pts-no g" title="'+g.list.length+' 人同一份材料">×'+g.list.length+'</span>'
+              +'<span class="pts-name">📎 '+esc(mnm)+'</span>'
+              +'<span class="pts-reason pts-gcnt">'+(g.act?esc(g.act)+' · ':'')+esc(who)+'</span>'
+              +'<span class="pts-date">'+esc(dlab)+'</span>'
+              +'<span class="pts-sc '+(tot>=0?'pos':'neg')+'">'+fmtPts(tot)+'</span>'
+              +'<span class="pts-caret2">'+(isOpenM?'▾':'▸')+'</span>'
+              +'</div>';
+            if(isOpenM){
+              html+='<div class="pts-sub">';
+              memM.forEach(function(r){
+                var sc=ptsSigned(r), no=String(r["学号"]||"");
+                var nm=String(r["学生姓名"]||"（未填写）");
+                html+='<div class="pts-row" data-ptsdetail="'+esc(r._id)+'">'
+                  +'<span class="pts-no">'+esc(no)+'</span>'
+                  +'<span class="pts-name">'+esc(nm)+'</span>'
+                  +'<span class="pts-date">'+esc(fmtDate(r["日期"]))+'</span>'
+                  +'<span class="pts-sc '+(sc>=0?'pos':'neg')+'">'+fmtPts(sc)+'</span>'
+                  +'</div>';
+              });
+              html+='</div>';
+            }
+            return;
+          }
           if(g.list.length===1){
             var r=g.list[0], sc=g.sc, no=String(r["学号"]||"");
             var nm=String(r["学生姓名"]||"（未填写）");
@@ -7721,21 +7810,40 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     regen(false);
   }
   /* 扫码入口：URL 带 ?c=<班级码> 且当前无会话 → 自动以班级访客账号登录 */
+  var guestScanDone=false;   /* 本页只跑一次：防 8s 兜底与 getSession 双触发 */
+  function showGuestSplash(){
+    if(document.getElementById("guestSplash")) return;
+    var d=document.createElement("div"); d.id="guestSplash";
+    d.style.cssText="position:fixed;inset:0;z-index:4000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px";
+    d.innerHTML='<div style="font-size:15px;color:#5B6FDB;font-weight:600">正在进入班级视图…</div>'
+      +'<div style="font-size:12px;color:#9a9aa2">无需登录，可直接查看班级公开信息</div>';
+    document.body.appendChild(d);
+  }
+  function removeGuestSplash(){ var q=document.getElementById("guestSplash"); if(q) q.remove(); }
+  function cleanGuestURL(){ try{ history.replaceState(null,"",location.origin+location.pathname); }catch(_e){} }
+  function failGuestScan(msg){
+    removeGuestSplash();
+    try{ sessionStorage.setItem("bzr_guest_tried","1"); }catch(_e){}
+    showAuth(msg?("班级码进入失败："+msg+"。您仍可正常登录，或请班主任重新生成二维码。"):"");
+  }
   function tryGuestScan(){
+    if(guestScanDone) return; guestScanDone=true;
     try{
       var code=new URLSearchParams(location.search).get("c");
       if(!code || !db) return;
-      if(sessionStorage.getItem("bzr_guest_tried")==="1") return;   /* 只试一次，失败回到登录页 */
-      sessionStorage.setItem("bzr_guest_tried","1");
+      if(sessionStorage.getItem("bzr_guest_tried")==="1"){ removeGuestSplash(); return; }   /* 同一会话只试一次 */
       db.from(tbl("classpass")).select("id,data").eq("data->>code", code).limit(1).then(function(res){
-        var r=(res.data||[])[0]; if(!r || !r.data) return;
+        var r=(res.data||[])[0];
+        if(!r || !r.data){ failGuestScan("班级码无效或已被重新生成"); return; }
         setStatus("syncing");
         db.auth.signInWithPassword({ email:r.data.email||"", password:r.data.pwd||"" }).then(function(sr){
-          if(sr.error || !sr.data || !sr.data.user){ setStatus("offline"); return; }
+          if(sr.error || !sr.data || !sr.data.user){ setStatus("offline"); failGuestScan((sr.error&&sr.error.message)||""); return; }
+          try{ sessionStorage.setItem("bzr_guest_tried","1"); }catch(_e){}
+          removeGuestSplash(); cleanGuestURL();
           onSignedIn(sr.data.user);
-        }).catch(function(){ setStatus("offline"); });
-      }).catch(function(){});
-    }catch(_e){}
+        }).catch(function(e){ setStatus("offline"); failGuestScan((e&&e.message)||""); });
+      }).catch(function(){ removeGuestSplash(); showAuth(""); });   /* 网络失败不锁死：下次扫码可重试 */
+    }catch(_e){ removeGuestSplash(); }
   }
   /* 访客端：留言板门禁（私信必须本人账号） */
   function renderGuestMsgGate(){
@@ -7767,7 +7875,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   function renderGuestHome(){
     var cls=(typeof shareClsName==="function"?shareClsName():"班级");
-    var head='<div class="phead"><h3>🏠 '+esc(cls)+' · 班级视图</h3>'
+    var head='<div class="phead"><h3>🏠 家校首页 · '+esc(cls)+'</h3>'
       +'<span class="hint">扫码进入：班级公开信息可见，学生个人数据需本人账号</span></div>';
     var html='<div class="ph-wrap">';
     /* ① 说明 + 登录入口 */
@@ -9443,7 +9551,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     existing.forEach(function(p){ chain=chain.then(function(){ return apiDelete("points", p._id); }); });
     deducts.forEach(function(r){
       chain=chain.then(function(){
-        return apiAdd("points", {日期:String(r["日期"]||todayStr()), 学生姓名:name, 学号:String(r["学号"]||""), 类型:"减分", 分值:1, 时间:nowHMS(), 原因:"[材料]未按时上交："+String(r["事项"]||"材料")});
+        var _it2=String(r["事项"]||"材料");
+        return apiAdd("points", {日期:String(r["日期"]||todayStr()), 学生姓名:name, 学号:String(r["学号"]||""), 类型:"减分", 分值:1, 时间:nowHMS(), 原因:"[材料]"+_it2+(String(r["状态"]||"")==="迟交"?" 迟交":" 未交"), 来源:"材料", 事项:_it2});
       });
     });
     awardDates.forEach(function(d, i){
@@ -9528,15 +9637,24 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         });
         var recs=Object.keys(byKey).map(function(k){ return byKey[k]; })
           .sort(function(a,b){ return a.date.localeCompare(b.date); });
-        var streak=0, bonus=0, late=0, none=0;
+        var streak=0, bonus=0, lateRecs=[], noneRecs=[];
         recs.forEach(function(r){
           if(r.status==="已交"){ streak++; if(streak>0 && streak%cons===0) bonus++; }
-          else if(r.status==="迟交"){ late++; streak=0; }
-          else { none++; streak=0; }   // 未交（含空状态）中断连续，并单独计次扣分
+          else if(r.status==="迟交"){ lateRecs.push(r); streak=0; }
+          else { noneRecs.push(r); streak=0; }   // 未交（含空状态）中断连续，并单独计次扣分
         });
         if(bonus>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"加分", 分值:bonus, 时间:nowHMS(), 原因:"[材料]"+type+"连续已交奖励（"+bonus*cons+"次）", 来源:"材料"});
-        if(late>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(late*lateP).toFixed(2), 时间:nowHMS(), 原因:"[材料]"+type+"迟交"+late+"次（每次−"+lateP+"）", 来源:"材料"});
-        if(none>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"减分", 分值:+(none*noP).toFixed(2), 时间:nowHMS(), 原因:"[材料]"+type+"未交"+none+"次（每次−"+noP+"）", 来源:"材料"});
+        /* 迟交 / 未交：改为「一份材料一条」，日期取该份材料的收取日、原因带材料名称。
+           这样「加减分管理」可以按材料（文件名）归类显示各自日期，而不是把多份材料
+           合并成同一天的一条「未交 N 次」合计——多份材料并行时看不出是哪一份。 */
+        lateRecs.forEach(function(r){
+          var _it=String(r.item||type||"材料");
+          out.push({日期:r.date, 学生姓名:nm, 学号:no, 类型:"减分", 分值:lateP, 时间:nowHMS(), 原因:"[材料]"+_it+" 迟交", 来源:"材料", 事项:_it});
+        });
+        noneRecs.forEach(function(r){
+          var _it=String(r.item||type||"材料");
+          out.push({日期:r.date, 学生姓名:nm, 学号:no, 类型:"减分", 分值:noP, 时间:nowHMS(), 原因:"[材料]"+_it+" 未交", 来源:"材料", 事项:_it});
+        });
       });
     });
     return out;
@@ -10408,7 +10526,187 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       +'</div>';
   }
 
-  function renderGrid(){
+  /* ---------- 材料收集 · 号数快登 ----------
+     老师手里的纸条通常只记「没交的号数」：这里直接输入号数一次标记，
+     不必在 50 多人的表里逐个找人。支持空格 / 逗号 / 顿号 / 分号 / 换行分隔，也支持「3-8」号段。 */
+  var quickNoState={ mod:"materials", date:"", status:"未交", restYes:false };
+  function parseNos(text){
+    var out=[];
+    String(text||"").split(/[\s,，、;；]+/).forEach(function(seg){
+      seg=String(seg||"").trim(); if(!seg) return;
+      var m=seg.match(/^(\d+)\s*[-~－—]\s*(\d+)$/);
+      if(m){
+        var a=parseInt(m[1],10), b=parseInt(m[2],10);
+        if(b<a){ var t=a; a=b; b=t; }
+        for(var i=a;i<=b && i<=a+300;i++) out.push(String(i));
+        return;
+      }
+      out.push(seg);
+    });
+    return out;
+  }
+  function normNo(v){ return String(v==null?"":v).trim().replace(/^0+(?=\d)/,""); }
+  function quickNoMatch(rawList){
+    var byNo={};
+    gridStudents().forEach(function(s){ var k=normNo(s["学号"]); if(k) byNo[k]=s; });
+    var hit=[], miss=[];
+    (rawList||[]).forEach(function(t){
+      var k=normNo(t);
+      if(k && byNo[k]) hit.push(byNo[k]); else miss.push(t);
+    });
+    return {hit:hit, miss:miss};
+  }
+  /* 号数快登的模块配置：状态选项 / 时段 / 「其余同学」默认状态 / 文案 */
+  function quickNoCfg(mod){
+    if(mod==="attendance"){
+      var night=(gridState.curItem==="晚自习");
+      return {
+        title:"考勤记录",
+        opts:["缺勤","迟到","请假","出勤"],
+        def:"缺勤",
+        fixedPeriod: night?"晚自习":"",
+        periodPick: night?[]:["全天","上午","下午"],
+        periodDef:"全天",
+        rest:"出勤",
+        ph:"输入缺勤 / 迟到的号数：3 7 12　或　3,7,12　或　3-8",
+        tip:"输入缺勤或迟到的号数即可，支持空格 / 逗号 / 顿号分隔，也支持 3-8 连续号段。"
+      };
+    }
+    return {
+      title: gridState.curItem||"材料收集",
+      opts:["未交","迟交","已交"],
+      def:"未交",
+      fixedPeriod:"",
+      periodPick:[],
+      periodDef:"",
+      rest:"已交",
+      ph:"输入没交的号数：3 7 12　或　3,7,12　或　3-8",
+      tip:"直接输入号数即可，支持空格 / 逗号 / 顿号分隔，也支持 3-8 连续号段。"
+    };
+  }
+  function openQuickNo(mod){
+    if(mod!=="materials" && mod!=="attendance"){ toast("号数快登当前用于材料收集与考勤记录"); return; }
+    if(!canMarkMat()){ toast("当前身份仅可查看，不能修改"); return; }
+    if(mod==="materials" && !gridState.curItem){ toast("请先打开一个材料文件夹"); return; }
+    var old=document.getElementById("qnoMask"); if(old) old.remove();
+    var cfg=quickNoCfg(mod);
+    var matSingle=(mod==="materials" && gridState.curType==="材料上交");
+    var dates=matSingle?[matFixedDate()]:((gridState.dates&&gridState.dates.length)?gridState.dates:[todayStr()]);
+    var defDate=(dates.indexOf(todayStr())>=0)?todayStr():dates[dates.length-1];
+    quickNoState={mod:mod, date:defDate, status:cfg.def, period:cfg.periodDef, restYes:false};
+    var ov=document.createElement("div"); ov.className="stu-picker-mask"; ov.id="qnoMask"; ov.style.zIndex=3000;
+    ov.innerHTML='<div class="matnew-card qno-card">'
+      +'<div class="matnew-title">🔢 号数快登 · '+esc(cfg.title)+'</div>'
+      +'<div class="qno-line"><span class="qno-lab">日期</span>'
+        + (matSingle
+            ? '<span class="qno-fix">📦 单次收齐 · '+esc(defDate)+'</span>'
+            : '<select id="qnoDate" class="qno-sel">'+dates.map(function(d){ return '<option value="'+esc(d)+'"'+(d===defDate?' selected':'')+'>'+esc(d)+'</option>'; }).join("")+'</select>')
+      +'</div>'
+      + (cfg.periodPick.length
+          ? '<div class="qno-line"><span class="qno-lab">时段</span><span class="qno-types">'
+            + cfg.periodPick.map(function(p){ return '<span class="qno-type'+(p===cfg.periodDef?" on":"")+'" data-qnoper="'+p+'">'+p+'</span>'; }).join("")
+            + '</span></div>'
+          : (cfg.fixedPeriod
+              ? '<div class="qno-line"><span class="qno-lab">时段</span><span class="qno-fix">🌙 '+esc(cfg.fixedPeriod)+'</span></div>'
+              : ''))
+      +'<div class="qno-line"><span class="qno-lab">标为</span><span class="qno-types">'
+        + cfg.opts.map(function(o){ return '<span class="qno-type'+(o===cfg.def?" on":"")+'" data-qnostat="'+o+'">'+o+'</span>'; }).join("")
+      +'</span></div>'
+      +'<textarea id="qnoNos" class="qno-input" rows="3" placeholder="'+esc(cfg.ph)+'"></textarea>'
+      +'<div class="qno-pre" id="qnoPre">'+esc(cfg.tip)+'</div>'
+      +'<label class="qno-chk"><input type="checkbox" id="qnoRest"> 同时把其余同学标为「'+esc(cfg.rest)+'」</label>'
+      +'<div class="matnew-btns"><button class="matnew-btn" id="qnoCancel">取消</button><button class="matnew-btn primary" id="qnoOk">确定标记</button></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    var ta=ov.querySelector("#qnoNos");
+    setTimeout(function(){ try{ ta.focus(); }catch(_){} },60);
+    function refresh(){
+      var raw=parseNos(String(ta.value||""));
+      var m=quickNoMatch(raw);
+      var pre=ov.querySelector("#qnoPre");
+      if(!raw.length){ pre.className="qno-pre"; pre.textContent=cfg.tip; return; }
+      var names=m.hit.map(function(s){ return String(s["姓名"]||s["学号"]||""); });
+      pre.className="qno-pre has";
+      pre.innerHTML='<div class="qno-hit">已匹配 '+names.length+' 人：'+(names.length?esc(names.slice(0,20).join("、"))+(names.length>20?" 等":""):"—")+'</div>'
+        +(m.miss.length?'<div class="qno-miss">⚠️ 未找到对应学生：'+esc(m.miss.join("、"))+'</div>':'');
+    }
+    ta.addEventListener("input", refresh);
+    ta.addEventListener("keydown", function(e){
+      if(e.key==="Enter" && (e.metaKey||e.ctrlKey)){ e.preventDefault(); var b=ov.querySelector("#qnoOk"); if(b) b.click(); }
+    });
+    ov.addEventListener("click", function(e){
+      var ts=e.target.closest("[data-qnostat]");
+      if(ts){
+        quickNoState.status=ts.getAttribute("data-qnostat");
+        Array.prototype.forEach.call(ov.querySelectorAll("[data-qnostat]"), function(el){ el.classList.toggle("on", el===ts); });
+        return;
+      }
+      var tp=e.target.closest("[data-qnoper]");
+      if(tp){
+        quickNoState.period=tp.getAttribute("data-qnoper");
+        Array.prototype.forEach.call(ov.querySelectorAll("[data-qnoper]"), function(el){ el.classList.toggle("on", el===tp); });
+        return;
+      }
+      if(e.target===ov || e.target.id==="qnoCancel"){ ov.remove(); return; }
+      if(e.target.id==="qnoOk"){
+        var sel=ov.querySelector("#qnoDate");
+        var date=sel?String(sel.value||""):quickNoState.date;
+        if(!date) date=quickNoState.date;
+        var rest=ov.querySelector("#qnoRest");
+        var txt=String(ta.value||""), stt=quickNoState.status, ry=!!(rest&&rest.checked), per=quickNoState.period;
+        ov.remove();
+        applyQuickNo(mod, date, txt, stt, ry, per);
+      }
+    });
+  }
+  function applyQuickNo(mod, date, text, status, restYes, period){
+    if(mod!=="materials" && mod!=="attendance") return;
+    if(!canMarkMat()){ toast("当前身份仅可查看，不能修改"); return; }
+    var raw=parseNos(text);
+    if(!raw.length){ toast("请先输入号数"); return; }
+    var m=quickNoMatch(raw);
+    if(!m.hit.length){ toast("这些号数没有匹配到学生："+m.miss.join("、")); return; }
+    var cfg=quickNoCfg(mod);
+    /* 考勤：晚自习=单节；常规可选 全天（上午+下午各一条）/ 上午 / 下午 */
+    var pers;
+    if(mod==="attendance") pers=(gridState.curItem==="晚自习")?["晚自习"]:(period==="全天"?["上午","下午"]:[period||"上午"]);
+    else pers=[null];
+    var set={}; m.hit.forEach(function(s){ set[normNo(s["学号"])]=1; });
+    var studs=gridStudents();
+    setStatus("syncing");
+    var chain=Promise.resolve(), nHit=0, nRest=0;
+    studs.forEach(function(s){
+      var no=String(s["学号"]||""), nm=String(s["姓名"]||"");
+      var isHit=!!set[normNo(no)];
+      var tgt = isHit ? status : (restYes?cfg.rest:"");
+      if(!tgt) return;
+      if(isHit) nHit++; else nRest++;
+      pers.forEach(function(per){
+        var rec=gridFindRecord(mod, no, date, per);
+        if(rec && String(rec["状态"]||"")===tgt) return;      // 已是目标状态：不必重复写
+        var props={ 日期:date, 学号:no, 学生姓名:nm, 状态:tgt };
+        if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
+        else if(per){ props.时段=per; }
+        chain=chain.then(function(){
+          if(mod==="materials") return rec?apiUpdMat(rec._id, props):apiAddMat(props);
+          if(rec) return apiUpdate("attendance", rec._id, props).then(function(o){
+            DATA.attendance=(DATA.attendance||[]).map(function(r){ return r._id===rec._id?Object.assign({},r,props,{_id:rec._id}):r; });
+            return o;
+          });
+          return apiAdd("attendance", props).then(function(o){
+            (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id}, props));
+          });
+        });
+      });
+    });
+    chain.then(function(){
+      var unit=(mod==="attendance" && pers.length>1)?" 人（"+pers.length+" 个时段）":" 人";
+      toast("已标记「"+status+"」"+nHit+unit+(nRest?("，其余「"+cfg.rest+"」"+nRest+unit):"")+" ✓");
+      return refreshModule(mod);
+    }).then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
+  }
+    function renderGrid(){
     var mod=gridState.mod;
     if(!mod) return;
     var studs = gridStudents();
@@ -10436,6 +10734,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
        +'<span style="font-size:12.5px;color:var(--ink-soft)">共 '+dates.length+' 日 / '+studs.length+' 人</span>'
        +'<span class="gt-sep"></span>'
        +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为已交（只补当天）">🪄 一键补齐已交</button>'
+       +(canMarkMat()?'<button class="gt-btn primary" data-quickno="'+mod+'" title="直接输入没交的号数，一次标记到位">🔢 号数快登</button>':'')
        +(off?''
           :'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
            +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
@@ -10460,6 +10759,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
          ?'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="晚自习" title="把今日尚未手动点击的学生标记为 '+st.yes+'（只补当天晚自习）">🪄 一键补齐晚自习 '+st.yes+'</button>'
          :'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="上午" title="把今日上午尚未手动点击的学生标记为 '+st.yes+'（只补当天；已手动点过的时段不动）">🪄 一键补齐上午 '+st.yes+'</button>'
           +'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="下午" title="把今日下午尚未手动点击的学生标记为 '+st.yes+'（只补当天；已手动点过的时段不动）">🪄 一键补齐下午 '+st.yes+'</button>')
+       +'<button class="gt-btn primary" data-quickno="'+mod+'" title="直接输入缺勤 / 迟到的号数，一次标记到位">🔢 号数快登</button>'
        +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
        +'<button class="gt-btn" data-rulecfg="'+mod+'" title="规则设置">⚙️</button>';
@@ -11332,6 +11632,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     // 一键补齐当天（出勤/已交）+ 保存并计算积分
     var ft=e.target.closest("[data-filltoday]");
     if(ft){ gridFillToday(ft.getAttribute("data-filltoday"), ft.getAttribute("data-fillPeriod")); return; }
+    var qn=e.target.closest("[data-quickno]");
+    if(qn){ openQuickNo(qn.getAttribute("data-quickno")); return; }
     var sc=e.target.closest("[data-savecompute]");
     if(sc){ gridSaveCompute(sc.getAttribute("data-savecompute")); return; }
     var rc=e.target.closest("[data-rulecfg]");
@@ -12520,7 +12822,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "committee-board-2026-09-09";
+  var __APP_VERSION__ = "qno-attendance-2026-09-10";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -12731,25 +13033,31 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       return null;
     }
     var done=false;
+    var _hasC=false;
+    try{ _hasC=!!new URLSearchParams(location.search).get("c"); }catch(_e){}
+    if(_hasC){ hideAuth(); showGuestSplash(); }   /* 扫码进入：不闪登录封面，直接显示进入动画 */
     var t=setTimeout(function(){
       if(done) return; done=true;
-      showAuth("连接认证服务较慢或失败，请点击登录；如反复出现请强制刷新（Ctrl/Cmd+Shift+R）。");
-      var _lr=authLandingRole(); if(_lr) showAuthCard(_lr);
+      if(!_hasC) showAuth("连接认证服务较慢或失败，请点击登录；如反复出现请强制刷新（Ctrl/Cmd+Shift+R）。");
+      var _lr=(!_hasC)?authLandingRole():null; if(_lr) showAuthCard(_lr);
       tryGuestScan();
     }, 8000);
     db.auth.getSession().then(function(res){
       if(done) return; done=true; clearTimeout(t);
       var sess = res.data && res.data.session;
-      if(sess){ onSignedIn(sess.user); }   // 有会话直接进应用
-      else {
-        showAuth();
-        var _lr=authLandingRole(); if(_lr) showAuthCard(_lr);   // 无会话：?role=parent 直达家长登录
+      if(sess){
+        var _mr=(sess.user&&sess.user.user_metadata&&sess.user.user_metadata.role)||"";
+        if(_hasC && _mr!==ROLE_PARENT){          /* 扫码但本机登录的是班主任/科任/班干部 → 退出后以班级视图进入 */
+          db.auth.signOut().then(function(){ tryGuestScan(); }).catch(function(){ tryGuestScan(); });
+        } else { onSignedIn(sess.user); }        // 家长（含本人账号）直接进家校首页
+      } else {
+        if(!_hasC){ showAuth(); var _lr=authLandingRole(); if(_lr) showAuthCard(_lr); }   // 无会话：?role=parent 直达家长登录
         tryGuestScan();   // URL 带 ?c=<班级码>：扫码自动以本班家长视图进入
       }
     }).catch(function(){
       if(done) return; done=true; clearTimeout(t);
-      showAuth("认证失败，请重新登录。");
-      var _lr2=authLandingRole(); if(_lr2) showAuthCard(_lr2);
+      if(_hasC){ failGuestScan("网络异常"); }
+      else { showAuth("认证失败，请重新登录。"); var _lr2=authLandingRole(); if(_lr2) showAuthCard(_lr2); }
     });
   }
   /* Service Worker：把应用外壳（index.html）缓存到本地，刷新时秒开、弱网/离线也能用。

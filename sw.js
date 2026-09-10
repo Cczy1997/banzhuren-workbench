@@ -98,7 +98,7 @@ self.addEventListener("fetch", function(e){
   var isShell = req.mode === "navigate" || p.endsWith("/") || p.endsWith("index.html") || p.endsWith(".html");
   /* 惰性库（xlsx.full.min.js / pinyin.min.js / qrcode.min.js）：缓存优先 + 后台更新。
      首屏不再内联这 1.25MB，改为按需加载；缓存后第二次使用秒开、离线可用。 */
-  if(!isShell && p.endsWith(".js")){
+  if(!isShell && (p.endsWith(".js") || p.endsWith(".webmanifest") || p.endsWith(".svg"))){
     e.respondWith((async function(){
       var cache = await caches.open(CACHE);
       var hit = await cache.match(req);
@@ -110,7 +110,7 @@ self.addEventListener("fetch", function(e){
       var fresh = await net;
       if(fresh) return fresh;
       var fb = await cache.match(req);
-      return fb || new Response("", { status:504, headers:{ "Content-Type":"application/javascript" } });
+      return fb || new Response("", { status:504 });
     })());
     return;
   }
