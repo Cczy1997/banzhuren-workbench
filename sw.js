@@ -140,29 +140,34 @@ self.addEventListener("fetch", function(e){
     return;
   }
 
+  /* 缓存键规范化：导航请求统一用 origin+pathname 作键，**忽略查询串**。
+     扫码进入的地址是 ?c=<班级码>，班级码一变、或页面进去后把地址洗成干净路径，
+     键就跟着变 —— 以前每次扫码都被当成"第一次访问"，重新下载整个外壳（1MB）。
+     规范化后：任何扫码地址 / 干净地址共用同一份缓存，第二次起直接秒开。 */
+  var canonReq = new Request(url.origin + url.pathname);
+
   e.respondWith((async function(){
     var cache = await caches.open(CACHE);
-    var cached = await cache.match(req);
+    var cached = await cache.match(canonReq);
 
-    /* 后台更新：拉新版 → 与缓存内容比对 → 有变化才写缓存并通知页面 */
-    var updating = null;
-    var now = Date.now();
-    if(!cached || now - lastCheck > CHECK_INTERVAL){
-      lastCheck = now;
-      updating = checkShell(req, cache);
-    }
-
-    if(cached){                       // 秒开：直接用缓存，不等网络
-      if(updating) e.waitUntil(updating);
+    if(cached){
+      /* 秒开：直接用缓存，不等网络；顺便按节流后台比对是否有新版 */
+      var now = Date.now();
+      if(now - lastCheck > CHECK_INTERVAL){
+        lastCheck = now;
+        e.waitUntil(checkShell(canonReq, cache));
+      }
       return cached;
     }
 
-    /* 无缓存：等网络（首次访问 / 缓存被清） */
+    /* 无缓存（首次访问 / 缓存被清）：只拉一次，顺手写缓存。
+       以前这里是 fetch(req) 与 checkShell 并发 → 首访白下两份外壳。 */
     try{
-      return await fetch(req);
+      var res = await fetch(req);
+      if(res && res.status === 200){ try{ await cache.put(canonReq, res.clone()); }catch(_){} }
+      return res;
     }catch(err){
-      if(updating) await updating.catch(function(){});
-      var fb = await cache.match(req);
+      var fb = await cache.match(canonReq);
       if(fb) return fb;
       return new Response("离线且无缓存", { status:503, headers:{ "Content-Type":"text/plain; charset=utf-8" } });
     }

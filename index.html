@@ -10,6 +10,10 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#5B6FDB">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
+<!-- 提前建连 Supabase：扫码 / 首屏要连发十几个 REST 请求，先把 DNS + TLS 握手做掉，
+     微信内置浏览器弱网下能省下几百毫秒的第一个来回 -->
+<link rel="preconnect" href="https://ffuslbsknqqsjqjbvpjr.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://ffuslbsknqqsjqjbvpjr.supabase.co">
 <!-- Supabase 客户端：完整 inline 进 HTML（不依赖任何独立 .js 文件，绕过 GitHub Pages / 浏览器全部缓存层）-->
 <script>
 /* ===== 兼容 polyfill：补齐旧版 Safari 等浏览器缺失的 API，否则 supabase-js 的 createClient 会抛错拖崩整页 ===== */
@@ -2011,7 +2015,28 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
      老账号（没有 role 元数据）一律按「班主任」处理，保证原有用法完全不受影响。 */
   var ROLE_HEAD="班主任", ROLE_SUBJECT="科任老师", ROLE_PARENT="家长", ROLE_OFFICER="班干部";
   var curRole = ROLE_HEAD;           // 当前身份，默认班主任
+  var curUser = null;                // 当前登录的 auth 用户（老账号身份兜底要用）
+  var _roleFromMeta = false;         // 该账号的 user_metadata 里是否带了可识别的 role
+  var _guestScan = false;            // 本次进入是否为「扫班级二维码」
+  function isGuestScan(){ return !!_guestScan; }
   function isHead(){ return curRole===ROLE_HEAD; }
+  /* 身份解析：优先 user_metadata.role；早期创建的家长 / 班干部账号没有这个字段，
+     以前会退化成「班主任」——于是家长登录后看到的是班主任总览（全部功能 + 8 张核心表，
+     又慢又不对）。这里改用成员表（hr_members.role / guest 标记）兜底，最后才回落到班主任。 */
+  function resolveRole(user){
+    var r=(user&&user.user_metadata&&user.user_metadata.role)||"";
+    if(r===ROLE_HEAD||r===ROLE_SUBJECT||r===ROLE_PARENT||r===ROLE_OFFICER) return r;
+    var uid=user&&user.id;
+    if(uid){
+      var row=(DATA.members||[]).filter(function(m){ return m&&m["uid"]===uid; })[0];
+      if(row){
+        if(row["guest"]) return ROLE_PARENT;                    // 扫码访客账号
+        var mr=row["role"];
+        if(mr===ROLE_SUBJECT||mr===ROLE_PARENT||mr===ROLE_OFFICER) return mr;
+      }
+    }
+    return ROLE_HEAD;                                           // 老班主任账号：全权限
+  }
   /* 班干部：只可登记材料收集（当天作业上交情况），其余全部只读 */
   function isOfficer(){ return curRole===ROLE_OFFICER; }
   function canMarkMat(){ return isHead()||isOfficer(); }
@@ -2834,23 +2859,47 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 
   /* 视图持久化：把当前栏目+模块存到 localStorage，iOS Safari 原生下拉刷新(location.reload)后仍能回到当前页 */
   var __VIEW_KEY = "bzr_view_v1";
+  /* 视图持久化按身份隔离：以前全班身份共用一个键，换了身份就会被上一身份记下的位置带走
+     （比如家长进来停在别人留下的「总览」）。现在每个身份各记各的。 */
+  function viewKey(){ return __VIEW_KEY + "_" + (curRole || "x"); }
+  /* 各身份的默认落地页：家长 = 家校首页、班干部 = 材料收集（各自唯一主入口）；
+     班主任 = 总览、科任 = 材料收集（有记忆时回到上次位置）。 */
+  function defaultViewFor(role){
+    if(role===ROLE_PARENT)  return { cat:"phome", mod:"phome" };
+    if(role===ROLE_OFFICER) return { cat:"aff",   mod:"materials" };
+    if(role===ROLE_SUBJECT) return { cat:"aff",   mod:"materials" };
+    return { cat:"overview", mod:"students" };
+  }
   function saveView(){
-    try{ localStorage.setItem(__VIEW_KEY, JSON.stringify({ cat: state.cat, mod: state.mod, open: state.open })); }catch(e){}
+    try{ localStorage.setItem(viewKey(), JSON.stringify({ cat: state.cat, mod: state.mod, open: state.open })); }catch(e){}
   }
   function restoreView(){
-    var raw;
-    try{ raw = localStorage.getItem(__VIEW_KEY); }catch(e){ return; }
-    if(!raw) return;
+    /* ① 先落到该身份的默认页：任何异常路径下都不会停在上一个身份的视图上 */
+    var d=defaultViewFor(curRole);
+    state.cat=d.cat; state.mod=d.mod;
+    if(d.cat!=="overview") state.open[d.cat]=true;
+    /* ② 家长 / 班干部：主入口唯一，每次进入都固定落这里，不做位置记忆 */
+    if(curRole===ROLE_PARENT || curRole===ROLE_OFFICER) return;
+    /* ③ 班主任 / 科任：回到上次所在的栏目与模块（按身份分别记忆） */
+    var v=null;
     try{
-      var v = JSON.parse(raw);
-      if(!v || !v.cat || !CAT_META[v.cat]) return;            // 连栏目都不认识：保持默认总览
+      var raw=localStorage.getItem(viewKey());
+      if(!raw && curRole===ROLE_HEAD){                       // 迁移旧版共用的单键记录给班主任
+        raw=localStorage.getItem(__VIEW_KEY);
+        if(raw){ try{ localStorage.setItem(viewKey(), raw); }catch(_e0){} }
+      }
+      if(!raw) return;
+      v=JSON.parse(raw);
+    }catch(e){ return; }
+    if(!v || !v.cat || !CAT_META[v.cat]) return;              // 连栏目都不认识：保持默认页
+    try{
       // 先还原侧边栏展开状态：任何栏目都先展开，否则刷新后该栏目会折叠「消失」，只剩一个收起的标题
       if(v.open && typeof v.open==="object"){ for(var _k in v.open){ if(v.open[_k]) state.open[_k]=true; } }
       if(v.cat==="overview"){ state.cat="overview"; state.mod=v.mod||"students"; return; }
-      if(!ORDER[v.cat]) return;                               // 栏目已不存在：保持默认总览
+      if(!ORDER[v.cat]) return;                               // 栏目已不存在：保持默认页
+      state.cat=v.cat;
       // 关键修复：模块必须属于该栏目；若已失效（如旧版字段被删/改名、或 mod 为空），
       // 落到该栏目「首个模块」而不是跳回总览——避免下拉刷新后整列「消失 / 数据看不见」。
-      state.cat=v.cat;
       state.mod = (v.mod && ORDER[v.cat].indexOf(v.mod)>=0) ? v.mod : ORDER[v.cat][0];
     }catch(e){}
   }
@@ -7873,11 +7922,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     try{
       var code=new URLSearchParams(location.search).get("c");
       if(!code || !db) return;
-      if(sessionStorage.getItem("bzr_guest_tried")==="1"){ removeGuestSplash(); return; }   /* 同一会话只试一次 */
+      /* 同一会话只试一次；若已经试过又确实没有会话（例如令牌过期），给出登录入口而不是留白屏 */
+      if(sessionStorage.getItem("bzr_guest_tried")==="1"){ removeGuestSplash(); showAuth(""); return; }
       db.from(tbl("classpass")).select("id,data").eq("data->>code", code).limit(1).then(function(res){
         var r=(res.data||[])[0];
         if(!r || !r.data){ failGuestScan("班级码无效或已被重新生成"); return; }
         setStatus("syncing");
+        _guestScan=true;   /* 扫码进入：身份一律按家长处理，绝不因元数据缺失漏成班主任 */
         db.auth.signInWithPassword({ email:r.data.email||"", password:r.data.pwd||"" }).then(function(sr){
           if(sr.error || !sr.data || !sr.data.user){ setStatus("offline"); failGuestScan((sr.error&&sr.error.message)||""); return; }
           try{ sessionStorage.setItem("bzr_guest_tried","1"); }catch(_e){}
@@ -12764,9 +12815,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     try{
       curUid=user.id;
       _modLoaded={};   /* 换身份 = 换数据归属，所有模块重新按需加载 */
-      /* 身份来自注册时写入的 user_metadata.role；老账号没有该字段 → 按班主任（全权限）处理 */
+      /* 身份来自注册时写入的 user_metadata.role；老账号没有该字段 → 先按班主任渲染，
+         成员表到位后由 refreshBootCore → resolveRole 纠正（见那里的注释）。
+         扫码进入一律按家长处理。 */
+      curUser = user;
       var _r=(user&&user.user_metadata&&user.user_metadata.role)||"";
-      curRole = (_r===ROLE_SUBJECT||_r===ROLE_PARENT||_r===ROLE_OFFICER) ? _r : ROLE_HEAD;
+      _roleFromMeta = (_r===ROLE_HEAD||_r===ROLE_SUBJECT||_r===ROLE_PARENT||_r===ROLE_OFFICER);
+      curRole = _roleFromMeta ? _r : resolveRole(user);
+      if(isGuestScan()) curRole = ROLE_PARENT;
       hideAuth();
       document.getElementById("logoutBtn").style.display="";
       var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
@@ -12776,12 +12832,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var _cub=document.getElementById("checkUpdBtn"); if(_cub) _cub.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
-      restoreView();       // 下拉刷新/重开后回到上次所在的栏目与模块
-      /* 家长每次进入 / 下拉刷新都落在「🏠 家校首页」：那是家长端的主入口，
-         其余模块（考勤 / 材料 / 课表 / 留言板…）仍可从侧边栏照常进入。 */
-      if(curRole===ROLE_PARENT){ state.cat="phome"; state.mod="phome"; state.open["phome"]=true; }
-      /* 班干部每次进入都落在「材料收集」：唯一的登记入口 */
-      if(curRole===ROLE_OFFICER){ state.cat="aff"; state.mod="materials"; state.open["aff"]=true; }
+      /* 落地页按身份决定（见 restoreView / defaultViewFor）：
+         家长 = 家校首页、班干部 = 材料收集（每次进入都固定落这里，是各自的主入口）；
+         班主任 / 科任 = 回到上次所在的栏目与模块（按身份分别记忆）。 */
+      restoreView();
       renderSidebar();
       render();            // 立即渲染外壳，避免数据加载失败时整页空白
       bootLoad();
@@ -12817,7 +12871,12 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   var _modLoaded={};   /* 模块数据是否已至少加载过一次（懒加载守卫） */
   /* 班主任首屏落在「总览」：聚合需要 学生/积分/待办/材料/考勤/荣誉/值日；其它角色按各自可见模块取 */
   var CORE_HEAD=["students","committee","points","attendance","materials","honor","affairs","duty"];
+  /* 家长 / 扫码访客首屏只落在家校首页：只拉该页真正要用的 5 张表
+     （孩子卡片 = 学生+积分，本周概况 = 考勤+材料+荣誉，今日课表走课表接口）。
+     值日 / 班级制度 / 留言板等交给后台补齐——扫码进入能少等好几个来回。 */
+  var CORE_PARENT=["students","points","attendance","materials","honor"];
   function bootCoreKeys(){
+    if(curRole===ROLE_PARENT) return CORE_PARENT.slice();
     var mods=ROLE_MODS[curRole];
     if(!mods) return CORE_HEAD.slice();
     var ks=[];
@@ -12827,17 +12886,29 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 首屏必拉：课表 / 成员 / 留言（家长首页留言卡要用）；非班主任还要班级制度 */
   function refreshBootCore(){
+    /* 班级制度不再挤进首屏：它在后台层拉（家长首页用不到它），点侧栏时 ensureModule 也会兜底 */
     var pre=[loadSchedulesSafe(), loadMembersSafe(), loadMessagesSafe()];
-    if(curRole!==ROLE_HEAD) pre.push(loadRegulationsSafe());
     return Promise.all(pre.map(function(p){ return p.catch(function(){}); }))
-      .then(function(){ return loadPass(bootCoreKeys()); });
+      .then(function(){
+        /* 老账号（无 role 元数据）到这一步才拿得到成员表 → 用它纠正身份，
+           再决定拉哪些表 / 落哪个首页。否则家长会按班主任的 8 张核心表去拉，又慢又进错页。 */
+        if(!_roleFromMeta && curUser){
+          var r=resolveRole(curUser);
+          if(r!==curRole){
+            curRole=r;
+            restoreView();                 // 换成该身份的默认落地页
+            try{ renderSidebar(); }catch(_e){}
+          }
+        }
+        return loadPass(bootCoreKeys());
+      });
   }
   /* 后台补齐：剩余表 + 附属数据，完成后再整体重渲一次（用户此时已在用，无感） */
   function refreshBootRest(){
     var core=bootCoreKeys();
     var rest=ALLKEYS.filter(function(k){ return core.indexOf(k)<0; });
     return loadPass(rest).then(function(){
-      return (curRole===ROLE_HEAD ? loadRegulationsSafe().catch(function(){}) : Promise.resolve());
+      return loadRegulationsSafe().catch(function(){});   // 所有身份都在后台补上班级制度
     }).then(function(){
       ALLKEYS.forEach(function(k){ _modLoaded[k]=1; });
       pruneOldOverrides().catch(function(){});
@@ -12862,6 +12933,13 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   /* 懒加载守卫：点到尚未加载完的模块时先拉该表，回来后重渲 */
   function ensureModule(key){
     if(ALLKEYS.indexOf(key)<0 || _modLoaded[key]) return Promise.resolve();
+    /* 班级制度走的是 REG_CACHE 而不是 DATA 行，必须单独分支，否则点进去是空白 */
+    if(key==="regulations"){
+      return loadRegulationsSafe().then(function(){
+        _modLoaded[key]=1;
+        if(state.mod===key) render();
+      }).catch(function(e){ console.warn("班级制度加载失败", e); });
+    }
     return loadPass([key]).then(function(){
       _modLoaded[key]=1;
       if(state.mod===key) render();
@@ -12875,9 +12953,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     if(cached){
       try{ render(); if(state.mod) renderList(state.mod); setStatus("ok"); }catch(e){ console.warn("boot cache render 失败，转网络加载", e); }
     }
-    probeBackend().then(function(up){
-      if(!up){ setStatus("offline"); toast("网络不可用，已切换到离线模式（显示上次数据），恢复后会自动同步"); }
-      return refreshBootCore().then(function(failed){
+    /* 网络探测与首屏数据并行：以前要等探测回来（最多 3.5s）才发第一个数据请求，
+       弱网 / 扫码时等于白等一个来回。探测结果只影响状态灯与离线提示。 */
+    try{
+      probeBackend().then(function(up){
+        if(!up){ setStatus("offline"); toast("网络不可用，已切换到离线模式（显示上次数据），恢复后会自动同步"); }
+      }).catch(function(){});
+    }catch(_e0){}
+    refreshBootCore().then(function(failed){
         var core=bootCoreKeys();
         var allDown = failed && failed.length>=core.length;
         setStatus(allDown ? "offline" : "ok");
@@ -12888,7 +12971,6 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
           refreshBootRest();    // 其余表后台补齐，不阻塞
         }
         return failed;
-      });
     }).catch(function(e){
       console.error(e); setStatus("offline");
     }).then(function(){
@@ -12927,7 +13009,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "seatprint-lazy-2026-09-10";
+  var __APP_VERSION__ = "scanfast-rolehome-2026-09-10";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
