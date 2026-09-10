@@ -2926,7 +2926,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var items=list.map(function(r){
       var url=r.url || (r.path?modFileUrl(r.path):"");
       return '<span class="att-chip">'
-        + (url?'<a class="att-thumb" href="'+esc(url)+'" target="_blank" rel="noopener"><img src="'+esc(url)+'" alt="'+esc(r.name||"截图")+'"></a>'
+        + (url?'<a class="att-thumb" href="'+esc(url)+'" target="_blank" rel="noopener"><img src="'+esc(url)+'" alt="'+esc(r.name||"截图")+'" loading="lazy" decoding="async"></a>'
                :'<span class="att-name">'+esc(r.name||"截图")+'</span>')
         + '<button class="att-del" data-attdel="'+esc(r._id)+'" data-attpath="'+esc(r.path||"")+'" title="删除">×</button>'
         + '</span>';
@@ -5067,7 +5067,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var ol=(m.outline||[]).map(function(o){return '<li>'+esc(o)+'</li>';}).join("");
     var files=(m.files||[]).map(function(f){
       var isImg=/^image\//.test(f.mime||"");
-      var prev=isImg? '<img class="meet-thumb" src="'+esc(f.data)+'" alt="'+esc(f.name)+'">' : '<span class="meet-file-ico">📄</span>';
+      var prev=isImg? '<img class="meet-thumb" src="'+esc(f.data)+'" alt="'+esc(f.name)+'" loading="lazy" decoding="async">' : '<span class="meet-file-ico">📄</span>';
       var ext=(f.name.split(".").pop()||"文件").toUpperCase();
       var sz=(f.size||0)>=1048576?((f.size/1048576).toFixed(1)+" MB"):((f.size||0)>=1024?((f.size/1024).toFixed(0)+" KB"):(f.size||0)+" B");
       return '<div class="meet-file">'
@@ -5263,7 +5263,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   function weekCard(w){
     var files=(w.files||[]).map(function(f){
       var isImg=/^image\//.test(f.mime||"");
-      var prev=isImg? '<img class="meet-thumb" src="'+esc(f.data)+'" alt="'+esc(f.name)+'">' : '<span class="meet-file-ico">📄</span>';
+      var prev=isImg? '<img class="meet-thumb" src="'+esc(f.data)+'" alt="'+esc(f.name)+'" loading="lazy" decoding="async">' : '<span class="meet-file-ico">📄</span>';
       var ext=(f.name.split(".").pop()||"文件").toUpperCase();
       var sz=(f.size||0)>=1048576?((f.size/1048576).toFixed(1)+" MB"):((f.size||0)>=1024?((f.size/1024).toFixed(0)+" KB"):(f.size||0)+" B");
       return '<div class="meet-file">'
@@ -5379,7 +5379,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         if(!files.length) return "";
         var fl=files.map(function(url){
           var u=String(url), isImg=/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(u);
-          if(isImg) return '<a class="fimg" href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt=""></a>';
+          if(isImg) return '<a class="fimg" href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy" decoding="async"></a>';
           var nm=decodeURIComponent(u.split('?')[0].split('/').pop());
           var ic=/\.pptx?$/i.test(nm)?'📊':(/\.pdf$/i.test(nm)?'📕':/\.docx?$/i.test(nm)?'📄':/\.xlsx?$/i.test(nm)?'📈':'📎');
           return '<a class="flnk" href="'+esc(u)+'" target="_blank" rel="noopener">'+ic+' '+esc(nm)+'</a>';
@@ -5392,7 +5392,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         if(!ph.length) return "";
         var imgs=ph.map(function(p){
           var u=p&&p.url; if(!u) return "";
-          return '<a class="fimg" href="'+esc(u)+'" target="_blank" rel="noopener" title="点击查看原图"><img src="'+esc(u)+'" alt="'+esc(f.name)+'"></a>';
+          return '<a class="fimg" href="'+esc(u)+'" target="_blank" rel="noopener" title="点击查看原图"><img src="'+esc(u)+'" alt="'+esc(f.name)+'" loading="lazy" decoding="async"></a>';
         }).join("");
         return '<div class="row"><span class="lbl">'+esc(f.name)+'</span><span class="files">'+imgs+'</span></div>';
       }
@@ -5503,7 +5503,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(r["学习小组"]) sub.push(r["学习小组"]);
       var tags=(r["关注标签"]&&(Array.isArray(r["关注标签"])?r["关注标签"]:[r["关注标签"]]).filter(Boolean))||[];
       return '<div class="stu-card" data-profile="'+esc(name)+'">'
-        +'<div class="'+(photo?"stu-av stu-av-img":"stu-av")+'"'+(photo?'':' style="background:'+col.bg+';color:'+col.fg+'"')+'>'+(photo?'<img src="'+esc(photo)+'" alt="">':esc(name.slice(0,1)||"?"))+'</div>'
+        +'<div class="'+(photo?"stu-av stu-av-img":"stu-av")+'"'+(photo?'':' style="background:'+col.bg+';color:'+col.fg+'"')+'>'+(photo?'<img src="'+esc(photo)+'" alt="" loading="lazy" decoding="async">':esc(name.slice(0,1)||"?"))+'</div>'
         +'<div class="stu-name">'+esc(name)+'</div>'
         + (sub.length?'<div class="stu-sub">'+sub.map(function(s){return esc(s);}).join(" · ")+'</div>':'')
         + (tags.length?'<div class="stu-tags">'+tags.map(function(t){return '<i class="chip lav">'+esc(t)+'</i>';}).join("")+'</div>':'')
@@ -5512,7 +5512,10 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 取学生最新年份的照片（按年份降序、同年按上传时间降序）；无照片返回 null */
   function studentPhoto(r){
-    var ph=(r&&r["照片"]); if(!Array.isArray(ph)||!ph.length) return null;
+    var ph=(r&&r["照片"]);
+    /* 兼容旧数据：早期照片以「逗号分隔的 URL 字符串」存储 */
+    if(ph && typeof ph==="string"){ return (ph.split(/[,，]/).map(function(x){return x.trim();}).filter(Boolean)[0])||null; }
+    if(!Array.isArray(ph)||!ph.length) return null;
     var arr=ph.slice().sort(function(a,b){
       var ya=Number(a&&a.year||0), yb=Number(b&&b.year||0);
       if(ya!==yb) return yb-ya;
@@ -5542,7 +5545,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var listHtml = sorted.length ? sorted.map(function(s){
       var ph=studentPhoto(s);
       return '<button type="button" class="sp-item" data-spick="'+esc(s["姓名"]||"")+'">'
-        +'<span class="sp-av">'+(ph?'<img src="'+esc(ph)+'">':esc((s["姓名"]||"?").slice(0,1)))+'</span>'
+        +'<span class="sp-av">'+(ph?'<img src="'+esc(ph)+'" loading="lazy" decoding="async">':esc((s["姓名"]||"?").slice(0,1)))+'</span>'
         +'<span class="sp-name">'+esc(s["姓名"]||"（未填）")+'</span>'
         + (s["学号"]?'<span class="sp-no">'+esc(s["学号"])+'</span>':'')
         +'</button>';
@@ -5581,7 +5584,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var ph=studentPhoto(s);
       return '<button type="button" class="sp-item sp-multi" data-smulti="'+esc(s["姓名"]||"")+'">'
         +'<span class="sp-chk" aria-hidden="true"></span>'
-        +'<span class="sp-av">'+(ph?'<img src="'+esc(ph)+'">':esc((s["姓名"]||"?").slice(0,1)))+'</span>'
+        +'<span class="sp-av">'+(ph?'<img src="'+esc(ph)+'" loading="lazy" decoding="async">':esc((s["姓名"]||"?").slice(0,1)))+'</span>'
         +'<span class="sp-name">'+esc(s["姓名"]||"（未填）")+'</span>'
         + (s["学号"]?'<span class="sp-no">'+esc(s["学号"])+'</span>':'')
         +'</button>';
@@ -6577,7 +6580,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       var used=Number(p["已兑换"])||0, cap=Number(p["兑换上限"])||0;
       var photo=prizePhoto(p);
       html+='<div class="mall-card'+(sold?' sold':'')+'">';
-      html+='<div class="mall-pic">'+(photo?'<img src="'+esc(photo)+'" alt="'+esc(p["名称"]||"")+'">':'<span class="mall-pic-ph">🎁</span>')+'</div>';
+      html+='<div class="mall-pic">'+(photo?'<img src="'+esc(photo)+'" alt="'+esc(p["名称"]||"")+'" loading="lazy" decoding="async">':'<span class="mall-pic-ph">🎁</span>')+'</div>';
       html+='<div class="mall-body">';
       html+='<div class="mall-name">'+esc(p["名称"]||"（未命名）")+'</div>';
       if(p["描述"]) html+='<div class="mall-desc">'+esc(p["描述"])+'</div>';
@@ -7192,6 +7195,45 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       if(state.mod==="points") renderList("points");
       if(state.mod==="honorboard") render();
       if(state.mod==="overview") loadOverviewAffairs();
+      return failed;
+    });
+  }
+  /* 一次写操作会影响哪些表：保存 / 删除后只重载这些表，
+     不必每次都整表重载 17 张（members / messages / settings / schedule 与单条记录无关）。
+     这是「改一条记录后要转圈两三秒」的主因。 */
+  var SAVE_DEPS = {
+    students:["students","committee","parents"],
+    committee:["committee","students"],
+    parents:["parents","students"],
+    attendance:["attendance","points"],
+    materials:["materials","points"],
+    honor:["honor","points"],
+    points:["points"],
+    mall:["mall","points"],
+    grades:["grades","students"],
+    seats:["seats","students"],
+    duty:["duty"],
+    affairs:["affairs"],
+    rules:["rules"],
+    talk:["talk"],
+    comm:["comm","students"],
+    comment:["comment","students"]
+  };
+  function saveDeps(key){ return SAVE_DEPS[key] || [key]; }
+  /* 定向重载：只拉 keys 涉及的表，并按当前所在视图重渲 */
+  function refreshModules(keys){
+    var seen={}, ks=[];
+    (keys||[]).forEach(function(k){ if(!seen[k] && ALLKEYS.indexOf(k)>=0){ seen[k]=1; ks.push(k); } });
+    if(!ks.length) return Promise.resolve([]);
+    return loadPass(ks).then(function(failed){
+      try{
+        var hit=function(k){ return !!seen[k]; };
+        if(gridState.mod && hit(gridState.mod)) renderGrid();
+        if(state.mod && hit(state.mod)) renderList(state.mod);
+        if(state.mod==="honorboard" && (hit("honor")||hit("points"))) render();
+        if(state.mod==="overview") loadOverviewAffairs();
+        renderSidebar();   /* 侧栏计数角标随数据变化 */
+      }catch(e){ console.warn("refreshModules 渲染失败", e); }
       return failed;
     });
   }
@@ -7915,12 +7957,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var n=parentChildName(); if(!n) return null;
     return (DATA.students||[]).filter(function(s){ return String(s["姓名"]||"")===n; })[0]||null;
   }
-  function studentPhoto(row){
-    var ph=(row&&row["照片"])||"";
-    if(!ph) return "";
-    var first=String(ph).split(/[,，]/).map(function(x){return x.trim();}).filter(Boolean)[0]||"";
-    return first;
-  }
+  /* studentPhoto 已统一在「学生档案」区定义（同时兼容数组与旧字符串格式）。
+     此处曾有一份旧版重复定义，同作用域下它会覆盖新版，导致照片全部显示成 [object Object]。 */
   /* 今日课程（从家长可见的同一份班级课表取，含本周临时课表覆盖） */
   function todayCoursesOf(){
     var b=schedActiveBase("class");
@@ -8599,14 +8637,14 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       }
       return failed1;
     }).then(function(failed){
-      return loadSchedulesSafe().then(function(){ return failed; });
+      /* 课表 / 班级制度 / 成员三者互不依赖 → 并发拉取（原先三段串行，多等两个网络往返） */
+      return Promise.all([
+        loadSchedulesSafe().catch(function(e){ console.warn("课表加载失败", e); }),
+        loadRegulationsSafe().catch(function(e){ console.warn("班级制度加载失败", e); }),
+        loadMembersSafe().catch(function(e){ console.warn("成员加载失败", e); })
+      ]).then(function(){ return failed; });
     }).then(function(failed){
-      // 班级制度公示（班主任写、家长读）独立拉一份
-      return loadRegulationsSafe().then(function(){ return failed; });
-    }).then(function(failed){
-      // 成员先加载：留言板要按成员表把 uid 解析成姓名
-      return loadMembersSafe().then(function(){ return failed; });
-    }).then(function(failed){
+      // 留言板：成员已在上面并发加载完，此处按 uid 解析姓名
       return loadMessagesSafe().then(function(){ return failed; });
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
@@ -9207,11 +9245,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
       formFiles={};
       formPhotos=[];
       toast("已保存 ✓");
-      // 整表重载：用 .catch 隔离——重载偶发失败不应把「已成功的保存」误报成失败
-      return refreshAll().catch(function(e){ console.warn("reload 部分失败（记录已保存）", e); });
+      // 定向重载：只刷新受影响的表（原为整表重载 17 张，保存后要等 2~3 秒）
+      return refreshModules(saveDeps(key)).catch(function(e){ console.warn("reload 部分失败（记录已保存）", e); });
     }).then(function(){
       // 班委成员增删改后，把职务+任职时间回写学生档案的「班干部」字段并维护「关注标签」
-      if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshAll().catch(function(e){ console.warn(e); }); }); }
+      if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshModules(["committee","students"]).catch(function(e){ console.warn(e); }); }); }
       // 材料收集：保存后由教师点「✅ 应用规则」统一计算加减分（手动，避免误算）
      }).then(function(){ setStatus("ok"); })
      .catch(function(e){
@@ -9243,7 +9281,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     setStatus("syncing");
     apiUpdate("committee", id, recordProps("committee", id, {卸任时间: rec["卸任时间"]}))
       .then(function(){ return regenAllCommittee(); })
-      .then(function(){ return refreshAll(); })
+      .then(function(){ return refreshModules(["committee","students"]); })
       .then(function(){ setStatus("ok"); toast("已记录卸任 ✓"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败，请重试"); });
   }
@@ -9252,8 +9290,8 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     var delRec=(DATA[key]||[]).filter(function(r){return r._id===id;})[0];
     setStatus("syncing");
     (key==="materials"?apiDelMat(id):apiDelete(key,id))
-      .then(function(){ toast("已删除"); return refreshAll(); })
-      .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshAll(); }); })
+      .then(function(){ toast("已删除"); return refreshModules(saveDeps(key)); })
+      .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshModules(["committee","students"]); }); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败"); });
   }
@@ -9269,7 +9307,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     setStatus("syncing");
     var props=recordProps("affairs", id, {状态:"已完成", 完成时间:todayStr()});
     apiUpdate("affairs", id, props)
-      .then(function(){ toast("已完成 🎉 已归档，可在上方「已完成归档」里查看"); return refreshAll(); })
+      .then(function(){ toast("已完成 🎉 已归档，可在上方「已完成归档」里查看"); return refreshModules(["affairs"]); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败"); });
   }
@@ -9278,7 +9316,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     setStatus("syncing");
     var props=recordProps("affairs", id, {状态:"待办", 完成时间:""});
     apiUpdate("affairs", id, props)
-      .then(function(){ toast("已恢复为待办 ↺"); return refreshAll(); })
+      .then(function(){ toast("已恢复为待办 ↺"); return refreshModules(["affairs"]); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("恢复失败"); });
   }
@@ -9292,7 +9330,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
     setStatus("syncing");
     var props=recordProps("honor", id, toShow ? {家长可见:true, 家长可见时间: todayStr()} : {家长可见:false, 家长可见时间:""});
     apiUpdate("honor", id, props)
-      .then(function(){ toast(toShow?"已展示给家长 👁（家长端只读可见）":"已对家长隐藏 🙈"); return refreshAll(); })
+      .then(function(){ toast(toShow?"已展示给家长 👁（家长端只读可见）":"已对家长隐藏 🙈"); return refreshModules(["honor","points"]); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败"); });
   }
@@ -12822,7 +12860,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "qno-attendance-2026-09-10";
+  var __APP_VERSION__ = "opt-turbo-2026-09-10";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
