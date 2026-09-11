@@ -294,6 +294,19 @@
   .bday-chip.today{background:#FFF3E2;border-color:#E7A33C;font-weight:700}
   .stu-bday{margin-left:4px;font-size:12px}
   .pf-bday{background:#FFF9F2;border-color:#F0D9B8;color:#8A5A18;font-weight:600}
+  /* ---------- 生日导入预览（bday-imp：抓取表格生日 → 合并进档案） ---------- */
+  .bday-imp{padding:10px 12px;margin:8px 0 10px;background:#FFF9F2;border:1px dashed #F0D9B8;border-radius:12px;font-size:13px}
+  .bday-imp-t{font-weight:600;margin-bottom:6px;color:#8A5A18}
+  .bday-imp-s{margin-bottom:2px}
+  .bday-chip{display:inline-block;margin:0 6px 4px 0;padding:2px 9px;border-radius:999px;background:#fff;border:1px solid #F0D9B8;font-size:12px;white-space:nowrap}
+  .bday-chip b{font-weight:600}
+  .bday-chip.more{opacity:.65}
+  .bday-chip.bad{border-color:#E8B4B4;background:#FDF3F3;color:#8A3030}
+  .bday-imp-ow{display:block;margin:6px 0 0;font-size:12px;color:#8A5A18;cursor:pointer;user-select:none}
+  .bday-imp-ow input{margin-right:6px;vertical-align:-1px}
+  .bday-imp-note{margin-top:6px;font-size:12px;color:#6B5A3E;line-height:1.5}
+  .bday-imp-bad{margin-top:6px;font-size:12px;color:#8A3030;line-height:1.7}
+
   .stu-picker-mask{position:fixed;inset:0;background:rgba(40,46,78,.42);display:flex;align-items:center;justify-content:center;z-index:80;padding:18px}
   .stu-picker{width:min(440px,100%);max-height:78vh;background:#fff;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(40,46,78,.3)}
   .sp-head{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px}
@@ -2161,7 +2174,7 @@
   /* 只读身份点到的「写操作」入口，统一拦截（隐藏按钮之外的兜底） */
   var RO_MUT_SEL = "[data-add],[data-imp],[data-clear],[data-ocr],[data-ruleapply],[data-rulecfg],"
     + "[data-edit],[data-del],[data-edit-mall],[data-del-mall],[data-attdel],[data-seat],[data-sched],"
-    + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-comMonthly],.seatcell,[contenteditable=true],"
+    + "[data-addCol],[data-addColFor],[data-stuGroupBatch],[data-stuBirth],[data-comMonthly],.seatcell,[contenteditable=true],"
     + "[data-regadd],[data-regdel],[data-regmove],[data-regsave],[data-regseed],[data-reg2rules],[data-reginit]";
   function blockIfReadOnly(e){
     if(canEdit()) return false;
@@ -2181,7 +2194,7 @@
       fields:[
         {name:"姓名",type:"text",required:true,ph:"学生姓名"},
         {name:"性别",type:"select",options:["男","女"]},
-        {name:"生日",type:"date",ph:"如 2013-05-20（用于星座显示与生日提醒）"},
+        {name:"生日",type:"date",ph:"如 2013-05-20（用于星座显示与生日提醒，可从表格批量补全）"},
         {name:"学号",type:"text",ph:"01"},
         {name:"座位号",type:"text",ph:"1排1"},
         {name:"学习小组",type:"select",options:["第1组","第2组","第3组","第4组","第5组","第6组","第7组","第8组"]},
@@ -3093,9 +3106,11 @@
     var tableBtn = (key==="attendance"||key==="materials") ? '<button class="btn-grid-table" data-gridtoggle="'+key+'">'+(attMatGrid(key)?'📋 列表':'📊 表格')+'</button>' : '';
     var ruleBtn = (key==="attendance"||key==="materials") ? '<button class="btn-rule" data-ruleapply="'+key+'">✅ 应用规则</button><button class="btn-rule" data-rulecfg="'+key+'" title="规则设置">⚙️</button>' : '';
     var stuGroupBtn = (key==="students") ? '<button class="btn-rule" data-stuGroupBatch title="批量分小组（每组人数均衡）">👥 批量分小组</button>' : '';
+
+    var stuBirthBtn = (key==="students") ? '<button class="btn-rule" data-stuBirth title="从 Excel / CSV 表格抓取「姓名 + 出生日期」两列，按姓名合并进现有学生档案（自动识别 5/20/13、2013年5月20日 等写法）">🎂 补生日</button>' : '';
     var comMonthlyBtn = (key==="committee") ? '<button class="btn-rule" data-comMonthly title="按职务加分值批量给所有在任班委写入当月积分（已标「不尽责」或当月已加的跳过）">🎖 班委月度加分</button>' : '';
     /* 只读身份（科任老师 / 家长）：隐藏一切写操作入口，只留视图切换与导出 */
-    if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; comMonthlyBtn="";
+    if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; stuBirthBtn=""; comMonthlyBtn="";
       if(key==="attendance"||key==="materials"){ gridBtn=""; tableBtn=""; } }
     var roAdd = canEdit()
       ? '<button class="btn-imp" data-imp="'+key+'">导入</button>'
@@ -3114,6 +3129,7 @@
       + ruleBtn
       + ocrBtn
       + stuGroupBtn
+      + stuBirthBtn
       + comMonthlyBtn
       +((!canEdit() && (key==="honor"||key==="attendance"||key==="materials")) ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
       + roAdd
@@ -6208,19 +6224,61 @@
     ["金牛座","♉",5,20],["双子座","♊",6,21],["巨蟹座","♋",7,22],["狮子座","♌",8,22],
     ["处女座","♍",9,22],["天秤座","♎",10,23],["天蝎座","♏",11,22],["射手座","♐",12,21]
   ];
-  /* 解析出生日 → {y,m,d}（y 可能为 null，如只填了 5-20） */
+  /* 解析出生日 → {y,m,d}（y 可为 null，如只填了 5-20）
+     兼容来源：手工日期控件值 / Excel 日期单元格（序列号 或 美式 m/d/yy）/ 中文年月日 /
+               多段任意顺序（y-m-d、m-d-y、d-m-y）/ 两位年份 / 8 位数字 / ISO 时间戳（含 Z，按本地时区取日） */
   function birthdayOf(raw){
-    var t=String(raw==null?"":raw).trim();
+    if(raw==null) return null;
+    if(raw instanceof Date){ if(isNaN(raw.getTime())) return null; return { y:raw.getFullYear(), m:raw.getMonth()+1, d:raw.getDate() }; }
+    var t=String(raw).trim();
     if(!t) return null;
-    /* Excel 的日期单元格偶尔会带时间或「2013-05-20 00:00:00」，先截掉时间部分 */
+    /* ISO 时间戳（Excel cellDates / 接口返回）：按本地时区取年月日，避免 UTC 跨日差一天 */
+    if(/^\d{4}-\d{2}-\d{2}T/.test(t)){
+      var dt0=new Date(t);
+      if(!isNaN(dt0.getTime())) return { y:dt0.getFullYear(), m:dt0.getMonth()+1, d:dt0.getDate() };
+    }
+    /* 纯 8 位：20130520 */
+    if(/^\d{8}$/.test(t)){
+      var y8=parseInt(t.slice(0,4),10), m8=parseInt(t.slice(4,6),10), d8=parseInt(t.slice(6,8),10);
+      if(m8>=1&&m8<=12&&d8>=1&&d8<=31) return { y:y8, m:m8, d:d8 };
+    }
+    /* Excel 日期序列号（1900 日期系统；基准 1899-12-30 与 Excel 自带的闰年错误一致） */
+    if(/^\d{5}(\.\d+)?$/.test(t)){
+      var n=Math.floor(parseFloat(t));
+      if(n>=10000 && n<=80000){
+        var dt1=new Date(Date.UTC(1899,11,30)+n*86400000);
+        return { y:dt1.getUTCFullYear(), m:dt1.getUTCMonth()+1, d:dt1.getUTCDate() };
+      }
+    }
     t=t.replace(/[T\s].*$/,"");
     t=t.replace(/[年月]/g,"-").replace(/日/g,"").replace(/[.\/]/g,"-");
-    var m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if(!m){ var m2=t.match(/^(\d{1,2})-(\d{1,2})$/); if(m2) m={1:null,2:m2[1],3:m2[2]}; }
-    if(!m) return null;
-    var mm=parseInt(m[2],10), dd=parseInt(m[3],10);
+    var parts=t.split("-").filter(function(x){ return x!==""; });
+    if(parts.length===2){
+      var a2=parseInt(parts[0],10), b2=parseInt(parts[1],10);
+      if(isNaN(a2)||isNaN(b2)) return null;
+      if(!(a2>=1&&a2<=12&&b2>=1&&b2<=31)) return null;
+      return { y:null, m:a2, d:b2 };
+    }
+    if(parts.length!==3) return null;
+    var p0=parseInt(parts[0],10), p1=parseInt(parts[1],10), p2=parseInt(parts[2],10);
+    if(isNaN(p0)||isNaN(p1)||isNaN(p2)) return null;
+    var yy,mm,dd;
+    if(parts[0].length>=4){
+      yy=p0; mm=p1; dd=p2;                        /* y-m-d */
+    } else {
+      yy=p2;                                      /* 年份在后 */
+      if(yy<100) yy=(yy<50?2000+yy:1900+yy);      /* 两位年份：13 → 2013 */
+      if(p0>12 && p1<=12){ mm=p1; dd=p0; }        /* d/m/y（如 20/5/2013） */
+      else { mm=p0; dd=p1; }                      /* m/d/y（Excel 默认短日期 5/20/13） */
+    }
     if(!(mm>=1&&mm<=12&&dd>=1&&dd<=31)) return null;
-    return { y:(m[1]==null?null:parseInt(m[1],10)), m:mm, d:dd };
+    return { y:yy, m:mm, d:dd };
+  }
+  /* 把任意可识别的日期写法归一化成 YYYY-MM-DD（只给月日则为 MM-DD）；认不出返回 null */
+  function normDateVal(v){
+    var bd=birthdayOf(v); if(!bd) return null;
+    var mm=(bd.m<10?"0":"")+bd.m, dd=(bd.d<10?"0":"")+bd.d;
+    return (bd.y!=null) ? (bd.y+"-"+mm+"-"+dd) : (mm+"-"+dd);
   }
   /* 星座（按「该月及以前的最后一个星座」判定；12/22 之后环回摩羯） */
   function zodiacOf(raw){
@@ -12230,6 +12288,8 @@
     var pw=e.target.closest("[data-pweek]"); if(pw){ parentWeekNav(pw.getAttribute("data-pweek")); return; }
     var exp=e.target.closest("[data-exp]"); if(exp){ exportModule(exp.getAttribute("data-exp")); return; }
     var imp=e.target.closest("[data-imp]"); if(imp){ openImport(imp.getAttribute("data-imp")); return; }
+
+    var sb=e.target.closest("[data-stuBirth]"); if(sb){ openImport("students", true); return; }
     var add=e.target.closest("[data-add]"); if(add){
       var ak=add.getAttribute("data-add");
       if(ak==="materials"||ak==="attendance"){ if(attMatGrid(ak) && gridState.mod===ak) gridAddDate(); else openGrid(ak); }
@@ -12784,6 +12844,9 @@
 
   /* ---------- 导入 / 导出 ---------- */
   var impKey=null, impData=null, impImgFile=null, impGradeSubj="", impParsed=null;
+
+  var impBirthOnly=false;      /* 「🎂 补生日」入口专用：只改标题与空态文案，不改变导入语义 */
+  var impBdayOverwrite=false;  /* 生日合并：是否以表格值覆盖档案里已有的生日 */
   // 成绩导入：本次所属「考试」(文件夹) 与考试时间；impGradeMulti 表示检测到多科成绩表
   var impGradeExam="", impGradeExamName="", impGradeExamTime="", impGradeMulti=false, impGradeSubjCols=[];
   var FIELD_ALIAS = {
@@ -12878,13 +12941,18 @@
     if(!v) return null;
     if(f.type==="multi_select") return [v];
     if(f.type==="number"){ var n=Number(v); if(isNaN(n)) return null; return n; }
+    /* 日期字段：归一化成 YYYY-MM-DD 再入库（Excel 序列号 / 5-20-13 / 中文年月日都能吃）；查不出日期的丢弃，预览里会列原值提示 */
+    if(f.type==="date"){ return normDateVal(v); }
     /* 文本字段：把「1.0」「3.00」这类整数化小数规整为「1」「3」，更适合号数/学号 */
     if(/^-?\d+(\.0+)?$/.test(v)) return v.replace(/\.0+$/,"");
     return v;
   }
-  function openImport(key){
+
+  function openImport(key, birthOnly){
     impKey=key; impData=null; impParsed=null; impGradeSubj=""; impGradeExam=""; impGradeExamTime=""; impGradeMulti=false;
-    document.getElementById("impTitle").textContent="导入 · "+stripEmoji(MODULES[key].title);
+    impBirthOnly=!!birthOnly; impBdayOverwrite=false;
+
+    document.getElementById("impTitle").textContent=(impBirthOnly?"🎂 补全生日 · ":"导入 · ")+stripEmoji(MODULES[key].title);
     // 成绩模块导入：先选「考试」(可新建) 与（单科时）学科
     var gbar=document.getElementById("impGradeBar");
     if(key==="grades"){
@@ -12905,7 +12973,10 @@
     } else {
       gbar.style.display="none";
     }
-    document.getElementById("impPreview").innerHTML='<div class="imp-empty">请选择 Excel / Word / PDF / CSV 文件，预览会自动出现在下方。</div>';
+
+    document.getElementById("impPreview").innerHTML=impBirthOnly
+      ? '<div class="imp-empty">选择一份含 <b>姓名</b> 与 <b>出生日期</b> 两列的表格（Excel / CSV），日期会自动识别并合并进现有学生档案。<br><span style="opacity:.7">日期支持 2013-05-20、5/20/13、2013年5月20日、20130520 等写法。</span></div>'
+      : '<div class="imp-empty">请选择 Excel / Word / PDF / CSV 文件，预览会自动出现在下方。</div>';
     document.getElementById("impFile").value="";
     document.getElementById("impDo").disabled=true;
     document.getElementById("impMask").classList.add("show");
@@ -13317,6 +13388,60 @@
     if(btn) btn.onclick=function(){ copyText(diag).then(function(ok){ toast(ok?"已复制诊断信息 ✓":"复制失败，请手动截图"); }); };
     document.getElementById("impDo").disabled=true;
   }
+  /* 学生导入 · 生日专项预览：抓到了什么、会落到谁头上、哪些认不出来、哪些会新建档案。
+     表格里带「生日 / 出生日期」列时自动出现（补生日入口与普通学生导入都适用）。 */
+  function renderBdayPreview(){
+    if(!impData || !impData.map || !impData.map["生日"]) return "";
+    var col=impData.map["生日"], nameCol=impData.map["学生姓名"];
+    var seen={}, ok=[], bad=[];
+    /* 按姓名去重（与 confirmImportStudents 的合并口径一致：同名多行只取首个非空生日） */
+    impData.rows.forEach(function(r){
+      var raw=(r[col]==null?"":String(r[col])).trim();
+      if(!raw) return;
+      var nm=(nameCol?String(r[nameCol]||""):"").trim();
+      if(seen[nm]) return; seen[nm]=1;
+      var iso=normDateVal(raw);
+      if(iso) ok.push({name:nm, raw:raw, iso:iso}); else bad.push({name:nm, raw:raw});
+    });
+    if(!ok.length && !bad.length) return "";
+    var fill=0, has=0, brandNew=0;
+    ok.forEach(function(o){
+      var ex=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"").trim()===o.name; })[0];
+      if(!ex) brandNew++;
+      else if(String(ex["生日"]||"").trim()) has++;
+      else fill++;
+    });
+    var chip=function(o){
+      var z=zodiacOf(o.iso);
+      return '<span class="bday-chip">'+esc(o.name||"（姓名为空）")+' <b>'+esc(o.iso)+'</b>'+(z?(' '+z.icon+esc(z.name)):"")+'</span>';
+    };
+    var h='<div class="bday-imp">';
+    h+='<div class="bday-imp-t">🎂 已抓取到 <b>'+ok.length+'</b> 个生日';
+    if(fill) h+=' · 补全 <b>'+fill+'</b> 人';
+    if(has)  h+=' · <b>'+has+'</b> 人已有生日';
+    if(brandNew) h+=' · 新建 <b>'+brandNew+'</b> 人档案';
+    h+='</div>';
+    if(ok.length){
+      h+='<div class="bday-imp-s">'+ok.slice(0,3).map(chip).join("")
+        +(ok.length>3?('<span class="bday-chip more">…还有 '+(ok.length-3)+' 个</span>'):'')+'</div>';
+    }
+    if(has){
+      h+='<label class="bday-imp-ow"><input type="checkbox" id="impBdayOverwrite"'+(impBdayOverwrite?" checked":"")+'>'
+        +' 以表格为准，覆盖这 '+has+' 人已有的生日</label>';
+    }
+    if(brandNew){
+      h+='<div class="bday-imp-note">ℹ️ 有 <b>'+brandNew+'</b> 个姓名在现有档案里找不到，保存后会<b>新建</b>这些学生。'
+        +'若只想补生日、不想新增，请先核对姓名是否与档案一致（或删掉表格里多出的行）。</div>';
+    }
+    if(bad.length){
+      h+='<div class="bday-imp-bad">⚠️ <b>'+bad.length+'</b> 条日期认不出来，将<b>原样跳过</b>（不写入档案）：'
+        +bad.slice(0,4).map(function(o){ return '<span class="bday-chip bad">'+esc(o.name||"（姓名为空）")+' <b>'+esc(o.raw)+'</b></span>'; }).join("")
+        +(bad.length>4?('<span class="bday-chip bad">…</span>'):'')+'</div>';
+    }
+    h+='</div>';
+    return h;
+  }
+
   function showPreview(parsed){
     parsed=parsed||{headers:[],rows:[]};
     impParsed=parsed;
@@ -13371,12 +13496,22 @@
       }
       gradeNote+='</div>';
     }
+
+    var bdayNote="";
+    if(impKey==="students"){
+      if(impData.map["生日"]) bdayNote=renderBdayPreview();
+      else if(impBirthOnly) bdayNote='<div class="bday-imp"><div class="bday-imp-t">🎂 未在表格中找到生日列</div><div class="bday-imp-bad">需要一列表头为 <b>生日</b> / <b>出生日期</b> / <b>出生年月</b>。<br>本次识别到的表头：'+esc((impData.headers||[]).filter(function(h){return h&&!/^列\d+$/.test(h);}).slice(0,10).join(" · ")||"（无）")+'</div></div>';
+    }
     document.getElementById("impPreview").innerHTML=
       gradeNote
+      + bdayNote
       +'<div class="imp-stats">共识别 <b>'+valid.length+'</b> 行 · 匹配字段 <b>'+fieldNames.length+'/'+parsed.headers.length+'</b>'+(parsed.sheetNote?("<br>"+esc(parsed.sheetNote)):"")+(parsed.pdfNote?("<br>"+esc(parsed.pdfNote)):"")+'</div>'
       +'<div class="imp-map">'+mapHtml+'</div>'
       +'<div class="imp-head">'+headHtml+'</div>'
       +'<div class="imp-samp"><div class="srow head">'+fieldNames.map(function(fn){return '<span>'+esc(fn)+'</span>';}).join("")+'</div>'+samp+'</div>';
+
+    var _bdcb=document.getElementById("impBdayOverwrite");
+    if(_bdcb) _bdcb.onchange=function(){ impBdayOverwrite=!!this.checked; };
     document.getElementById("impDo").disabled=(valid.length===0);
   }
   function parseAndPreview(file){
@@ -13525,13 +13660,17 @@
       .catch(function(err){ setImpBusy(false); console.error(err); setStatus("offline"); toast("导入失败，请重试"); });
   }
   /* 合并两条学生记录：以现有记录为底，遇空字段用新值补齐；多值字段（关注标签）取并集；单值字段两者都有值时保留已有（DB 权威、不覆盖） */
-  function mergeStudentRecords(key, existing, incoming){
+
+  function mergeStudentRecords(key, existing, incoming, forceFields){
+    var frc={}; (forceFields||[]).forEach(function(f){ frc[f]=1; });
     var out = existing ? Object.assign({}, existing) : Object.assign({}, incoming);
     Object.keys(incoming).forEach(function(f){
       if(f==="_id") return;
       var nv=incoming[f];
       if(nv==null || nv==="") return;
       var ev = (existing && existing[f]!=null) ? existing[f] : undefined;
+
+      if(frc[f] && ev!=null && ev!==""){ out[f]=nv; return; }   /* 指定字段：以表格值覆盖旧值 */
       if(ev==null || ev===""){
         out[f]=nv;                                   // 填空：把另一份里有的信息补进来
       } else {
@@ -13570,7 +13709,9 @@
       var props=batch[nm];
       var ex=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"").trim()===nm; })[0];
       if(ex){
-        var merged=mergeStudentRecords(key, ex, props);
+
+        var mergeForce=(impBdayOverwrite && props["生日"]) ? ["生日"] : [];
+        var merged=mergeStudentRecords(key, ex, props, mergeForce);
         var data={}; Object.keys(merged).forEach(function(k){ if(k!=="_id") data[k]=merged[k]; });
         upJobs.push(apiUpdate(key, ex._id, data).then(function(){ n++; }));
       } else {
@@ -13951,7 +14092,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "behavior-2026-09-11";
+  var __APP_VERSION__ = "bday-merge-2026-09-11";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
