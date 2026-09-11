@@ -1150,6 +1150,10 @@
   .duty-next-btn:hover{background:#EAF1FF}
   /* 表格里「本周值日组」那一行 */
   .dw-cur-badge{display:inline-block;margin-left:5px;padding:0 6px;border-radius:999px;background:#E8F0FF;color:var(--pink-d);font-size:10.5px;font-weight:800;vertical-align:middle}
+  /* 流动红旗星标：小组名最前面的 ⭐（班主任点它可取消标记） */
+  .dw-star{display:inline-block;margin-right:3px;font-size:13px;line-height:1;vertical-align:middle;color:#E0A03A}
+  .dw-star[data-dutyact]{cursor:pointer}
+  .dw-star[data-dutyact]:hover{color:#C97F17}
   tr.dw-row-cur .dw-row-th{background:#EAF1FF;box-shadow:inset 3px 0 0 var(--pink-d)}
   @media print{tr.dw-row-cur .dw-row-th{background:#EAF1FF !important;box-shadow:none !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   /* 值日表顶部信息条：本周日期（两种身份都显示，纯只读；低调浅色虚线灰底） */
@@ -4101,7 +4105,7 @@
 
   /* ---------- 流动红旗轮值（旧值日看板/并列名单已删，周表 renderDutyTable 为唯一数据源） ---------- */
   var DUTYROT_LS="wb_cls_dutyrot";
-  var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null, manualWeek:null };
+  var dutyRot={ groups:[], cursor:0, servedWeeks:1, checkedWeek:null, manualWeek:null, stars:{} };
   var redflagAskedThisWeek=false;
   /* 班级制度：可增减的「大方向」分类（本地持久化） */
   var RULECAT_LS = "wb_cls_rulecats";
@@ -4117,7 +4121,7 @@
     try{
       var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
       if(s&&Array.isArray(s.groups)&&s.groups.length){
-        dutyRot={ groups:s.groups.slice(), cursor:Math.max(0,Math.min(s.groups.length-1,s.cursor||0)), servedWeeks:s.servedWeeks||1, checkedWeek:s.checkedWeek||null, manualWeek:s.manualWeek||null };
+        dutyRot={ groups:s.groups.slice(), cursor:Math.max(0,Math.min(s.groups.length-1,s.cursor||0)), servedWeeks:s.servedWeeks||1, checkedWeek:s.checkedWeek||null, manualWeek:s.manualWeek||null, stars:(s.stars&&typeof s.stars==="object")?s.stars:{} };
       }
     }catch(e){}
   }
@@ -4782,6 +4786,7 @@
     Promise.all(ids.map(function(id){ return apiDelete("duty",id); })).then(function(){
       DATA.duty=(DATA.duty||[]).filter(function(r){ return (r["值日小组"]||"")!==g; });
       setDutyGroups(getDutyGroups().filter(function(x){ return x!==g; }));
+      delete dutyStars()[g];   // 组没了，星标一并清掉（避免将来同名新组继承旧荣誉）
       if(dutyRot.cursor>=getDutyGroups().length) dutyRot.cursor=Math.max(0,getDutyGroups().length-1);
       saveDutyRot();
       setStatus("ok"); toast("已删除 "+g+" ✓"); renderList("duty"); render();
@@ -4792,6 +4797,28 @@
     var g=getDutyGroups();
     if(g.length<2) return "";
     return g[(Math.max(0,dutyRot.cursor||0)+1)%g.length];
+  }
+  /* ---------- 流动红旗星标 ----------
+     记录「获得过流动红旗」的小组：组名 → 获得次数。只在值日表的小组名最前面显示一个 ⭐，
+     多次获得不堆星（次数记在 title 里）。星只由「记录流动红旗 → ✅ 获得」写入，
+     「⏭ 下一组 / 未获得 / 清空本周」都不写 —— 星代表荣誉，不代表轮换。 */
+  function dutyStars(){ if(!dutyRot.stars||typeof dutyRot.stars!=="object") dutyRot.stars={}; return dutyRot.stars; }
+  function dutyStarCount(g){ if(!g) return 0; return dutyStars()[g]||0; }
+  function dutyStarHTML(g){
+    var n=dutyStarCount(g);
+    if(!n) return "";
+    var tip=(n>1?("曾获流动红旗 "+n+" 次"):"曾获流动红旗");
+    if(isHead()) return '<span class="dw-star" data-dutyact="rmstar" data-grp="'+esc(g)+'" title="'+esc(tip)+' · 点击取消该标记">⭐</span>';
+    return '<span class="dw-star" title="'+esc(tip)+'">⭐</span>';
+  }
+  function addDutyStar(g){ if(!g) return; var st=dutyStars(); st[g]=(st[g]||0)+1; saveDutyRot(); }
+  function dutyStarRemoveAsk(g){
+    if(!isHead()||!g) return;
+    if(dutyStarCount(g)<=0) return;
+    if(!confirm("取消「"+g+"」的流动红旗星标？\n\n仅去掉小组名前的 ⭐ 标记，不会改动任何积分记录。")) return;
+    var st=dutyStars(); delete st[g]; saveDutyRot();
+    toast("已取消 "+g+" 的星标");
+    renderList("duty"); render();
   }
   /* 「⏭ 下一组」按钮 —— 值日安排页工具条里的正式按钮（班主任 + 至少两个组才渲染）。
      与「记录流动红旗」完全解耦：点它只把值日任务交给下一组，不加分也不扣分。 */
@@ -4933,7 +4960,7 @@
       }).join('');
       var grpDel = isHead() ? '<button type="button" class="dw-grp-del" data-dutyact="delGroup" data-grp="'+esc(g)+'" title="删除该值日小组（含其分工与负责人）">✕</button>' : '';
       var isCur=(g===curGrpNow);
-      return '<tr'+(isCur?' class="dw-row-cur"':'')+'><th class="dw-row-th">'+esc(g)
+      return '<tr'+(isCur?' class="dw-row-cur"':'')+'><th class="dw-row-th">'+dutyStarHTML(g)+esc(g)
         +(isCur?'<span class="dw-cur-badge" title="本周由该组值日">本周</span>':'')
         +grpDel+'</th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
     }).join('');
@@ -4993,6 +5020,7 @@
       +'.dw-row-th{background:#FFF7E6;font-weight:700;width:80px}'
       +'tr.dw-row-cur .dw-row-th{background:#EAF1FF}'
       +'.dw-cur-badge{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:#EAF1FF;color:#3D6FE0;font-size:10px;font-weight:700}'
+      +'.dw-star{display:inline-block;margin-right:3px;font-size:13px;color:#B8860B;vertical-align:middle}'
       +'.dw-th-group{background:#FFE9D6;width:80px}'
       +'.dw-th-leader{background:#E0F5E0;width:96px}'
       +'.dw-leader-cell{background:#F4FFF4;text-align:center}'
@@ -5098,7 +5126,7 @@
       });
     });
     Promise.all(jobs).then(function(){
-      if(won){ dutyRot.cursor=(dutyRot.cursor+1)%getDutyGroups().length; dutyRot.servedWeeks=1; }
+      if(won){ addDutyStar(cur); dutyRot.cursor=(dutyRot.cursor+1)%getDutyGroups().length; dutyRot.servedWeeks=1; }
       else { dutyRot.servedWeeks=(dutyRot.servedWeeks||1)+1; }
       dutyRot.checkedWeek=wkNow;
       dutyRot.manualWeek=null;     // 走了红旗流程 → 覆盖掉本周的"手动切换"标记
@@ -11859,6 +11887,7 @@
       if(a==="delGroup"){ dutyWeekDelGroup(dact.getAttribute("data-grp")); return; }
       if(a==="redflag"){ askRedFlag(); return; }
       if(a==="nextgroup"){ rotateDutyGroup(); return; }
+      if(a==="rmstar"){ dutyStarRemoveAsk(dact.getAttribute("data-grp")); return; }
       if(a==="swap"){ dutySwapToggle(); return; }
       if(a==="reset"){ dutyWeekReset(); return; }
       if(a==="print"){ printDutyTable(); return; }
@@ -13444,7 +13473,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "dutybtn-2026-09-11";
+  var __APP_VERSION__ = "duty-star-2026-09-11";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
