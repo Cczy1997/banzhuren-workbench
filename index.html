@@ -1145,8 +1145,13 @@
   .rf-wk b{color:var(--ink);font-size:15px}
   .rf-done{color:#2E7D32;font-weight:800}
   .rf-btn{font-weight:700}
-  .rf-next{font-weight:600;color:var(--ink-soft)}
-  .rf-next:hover{color:var(--ink)}
+  /* 工具条里的「⏭ 下一组」：常规动作按钮，淡蓝描边（不做成醒目警示色） */
+  .duty-next-btn{color:var(--pink-d);border-color:#C7D6F7;font-weight:700}
+  .duty-next-btn:hover{background:#EAF1FF}
+  /* 表格里「本周值日组」那一行 */
+  .dw-cur-badge{display:inline-block;margin-left:5px;padding:0 6px;border-radius:999px;background:#E8F0FF;color:var(--pink-d);font-size:10.5px;font-weight:800;vertical-align:middle}
+  tr.dw-row-cur .dw-row-th{background:#EAF1FF;box-shadow:inset 3px 0 0 var(--pink-d)}
+  @media print{tr.dw-row-cur .dw-row-th{background:#EAF1FF !important;box-shadow:none !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   /* 值日表顶部信息条：本周日期（两种身份都显示，纯只读；低调浅色虚线灰底） */
   .duty-meta-bar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:8px 12px;background:#fafbfd;border:1px dashed #d6dbe5;border-radius:10px;font-size:13px;color:#2c3144;margin:6px 0 10px}
   .duty-meta-bar .duty-meta{display:inline-flex;align-items:baseline;gap:6px}
@@ -4782,6 +4787,21 @@
       setStatus("ok"); toast("已删除 "+g+" ✓"); renderList("duty"); render();
     }).catch(function(e){ setStatus("offline"); toast("删除失败："+(e&&e.message||e)); });
   }
+  /* 下一个接手值日的小组（环回；少于两组返回空串）。只换组，不涉及积分。 */
+  function nextDutyGroupName(){
+    var g=getDutyGroups();
+    if(g.length<2) return "";
+    return g[(Math.max(0,dutyRot.cursor||0)+1)%g.length];
+  }
+  /* 「⏭ 下一组」按钮 —— 值日安排页工具条里的正式按钮（班主任 + 至少两个组才渲染）。
+     与「记录流动红旗」完全解耦：点它只把值日任务交给下一组，不加分也不扣分。 */
+  function dutyNextBtnHTML(){
+    if(!isHead()) return "";
+    var nxt=nextDutyGroupName();
+    if(!nxt) return "";
+    return '<button type="button" class="btn-mini duty-next-btn" data-dutyact="nextgroup"'
+      +' title="不加分也不扣分，直接把值日任务交给下一个小组">⏭ 下一组：'+esc(nxt)+'</button>';
+  }
   // 值日表页内的流动红旗状态条 + 记录入口（与周表同源）
   function renderDutyRedFlagBar(){
     var grps=getDutyGroups();
@@ -4789,18 +4809,15 @@
     var cur=currentDutyGroup();
     if(!cur) return "";
     var wkNow=isoWeek().key;
-    var grpsN=getDutyGroups().length;
     var done=dutyRot.checkedWeek===wkNow;
     var manual=dutyRot.manualWeek===wkNow;   // 本周是手动切换的（不是红旗记录的）
     var info='<span class="rf-cur">本周值日组：<b>'+esc(cur)+'</b></span>'
       +'<span class="rf-wk">已值日 <b>'+dutyRot.servedWeeks+'</b> 周</span>';
-    // 「下一组」按钮：把下一个要接手的组名直接写在按钮上，班主任随时可手动轮换（不加分不扣分）
-    var nextBtn=(isHead() && grpsN>1)
-      ? '<button type="button" class="btn-mini rf-next" data-dutyact="nextgroup" title="不加分也不扣分，直接把值日任务交给下一个小组">⏭ 下一组：'+esc(getDutyGroups()[(Math.max(0,dutyRot.cursor||0)+1)%grpsN])+'</button>'
-      : '';
+    /* 「⏭ 下一组」按钮已移到本页右上角工具条（dutyNextBtnHTML），状态条只做状态展示，
+       避免同一屏出现两个一模一样的按钮。 */
     var act = done
-      ? '<span class="rf-done">'+(manual?'✅ 本周已手动切换至下一组':'✅ 本周流动红旗已记录')+'</span>'+nextBtn
-      : (isHead() ? '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>'+nextBtn : '');
+      ? '<span class="rf-done">'+(manual?'✅ 本周已手动切换至下一组':'✅ 本周流动红旗已记录')+'</span>'
+      : (isHead() ? '<button type="button" class="btn-mini rf-btn" data-dutyact="redflag" title="记录上周该组是否获得流动红旗">🚩 记录流动红旗</button>' : '');
     return '<div class="duty-rf-bar">'+info+act+'</div>';
   }
   function dutyWeekReset(){
@@ -4874,6 +4891,7 @@
       +DUTY_WEEK_DIVISIONS.map(function(d){ return '<th class="dw-th-div">'+esc(d)+'</th>'; }).join('')
       +'<th class="dw-th-leader">负责人<br><span style="font-size:11px;font-weight:500;opacity:.65">（每组组长）</span></th>'
       +'</tr>';
+    var curGrpNow=currentDutyGroup();   // 本周值日组：表格里高亮该行，切换后标记跟着走
     var rows=groups.map(function(g){
       var leader=dutyLeaderOf(g);
       var leaderCell;
@@ -4914,7 +4932,10 @@
         return '<td class="dw-cell '+(persons.length?'dw-filled':'dw-empty')+(dutySwap.on?' dw-swapable':'')+(swapSel?' dw-swap-sel':'')+'" data-dwcell="'+esc(g)+'|'+esc(div)+'">'+inner+'</td>';
       }).join('');
       var grpDel = isHead() ? '<button type="button" class="dw-grp-del" data-dutyact="delGroup" data-grp="'+esc(g)+'" title="删除该值日小组（含其分工与负责人）">✕</button>' : '';
-      return '<tr><th class="dw-row-th">'+esc(g)+grpDel+'</th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
+      var isCur=(g===curGrpNow);
+      return '<tr'+(isCur?' class="dw-row-cur"':'')+'><th class="dw-row-th">'+esc(g)
+        +(isCur?'<span class="dw-cur-badge" title="本周由该组值日">本周</span>':'')
+        +grpDel+'</th>'+cells+'<td class="dw-leader-cell">'+leaderCell+'</td></tr>';
     }).join('');
     var html='';
     html+='<div class="duty-page">';
@@ -4922,6 +4943,7 @@
     html+='    <div><h2 class="duty-title">📋 值日表</h2><div class="duty-sub">一周一变 · 全班统一；每个格子可关联多名学生，点 + 即可批量选人。</div></div>';
     if(isHead()){
       html+='    <div class="duty-tools">';
+      html+=dutyNextBtnHTML();   // ⏭ 下一组：值日安排最常用的动作，放在工具条第一位
       html+='      <button type="button" class="btn-mini" data-dutyact="addGroup">＋ 添加新组</button>';
       html+='      <button type="button" class="btn-mini" data-dutyact="reset">🧹 清空本周</button>';
       html+='      <button type="button" class="btn-mini'+(dutySwap.on?' duty-swap-btn-on':'')+'" data-dutyact="swap" title="依次点两个格子，两格值日生整组互换">🔄 快速交换</button>';
@@ -4969,6 +4991,8 @@
       +'.duty-week-table th,.duty-week-table td{border:1px solid #555;padding:8px 6px;text-align:center;vertical-align:middle}'
       +'.duty-week-table thead th{background:#EEF2FF;font-weight:700}'
       +'.dw-row-th{background:#FFF7E6;font-weight:700;width:80px}'
+      +'tr.dw-row-cur .dw-row-th{background:#EAF1FF}'
+      +'.dw-cur-badge{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;background:#EAF1FF;color:#3D6FE0;font-size:10px;font-weight:700}'
       +'.dw-th-group{background:#FFE9D6;width:80px}'
       +'.dw-th-leader{background:#E0F5E0;width:96px}'
       +'.dw-leader-cell{background:#F4FFF4;text-align:center}'
@@ -13420,7 +13444,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "dutynext-2026-09-11";
+  var __APP_VERSION__ = "dutybtn-2026-09-11";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
