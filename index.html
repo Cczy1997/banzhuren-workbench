@@ -213,6 +213,87 @@
   .rstat.sel[data-v="未交"],.rstat.sel[data-v="缺勤"]{background:#fdecec;color:#d8453f;border-color:#f6b6b2}
   .rstat.sel[data-v="请假"]{background:#eef2ff;color:#4a6cf7;border-color:#c2d0ff}
   /* 关联学生选择器弹层 */
+  /* ---------- 行为观察（behavior） ---------- */
+  .beh-page{display:flex;flex-direction:column;gap:10px}
+  .beh-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .beh-title{font-size:18px;font-weight:800;margin:0 0 3px}
+  .beh-sub{font-size:12.5px;color:var(--ink-soft);line-height:1.65;max-width:660px}
+  .beh-key{font-weight:700;padding:0 5px;border-radius:6px;font-size:11.5px}
+  .beh-key.guide{background:#FFF3DC;color:#9A6A22}
+  .beh-key.good{background:#E9F7EA;color:#2E7D32}
+  .beh-tools{display:flex;gap:8px;flex-wrap:wrap}
+  .beh-quick{font-weight:700}
+  .beh-kpis{display:flex;gap:8px;flex-wrap:wrap}
+  .beh-kpi{display:inline-flex;align-items:baseline;gap:5px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px 11px;font-size:12.5px;color:var(--ink-soft)}
+  .beh-kpi b{font-size:15px;color:var(--ink)}
+  .beh-kpi.guide b{color:#C08A2E}
+  .beh-kpi.good b{color:#2E7D32}
+  .beh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+  .beh-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:10px 11px;cursor:pointer}
+  .beh-card:hover{border-color:#C7D6F7;box-shadow:0 2px 10px rgba(70,90,150,.08)}
+  .beh-card.beh-empty{opacity:.75}
+  .beh-c-h{display:flex;align-items:center;gap:7px}
+  .beh-av{width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#3D6FE0;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;overflow:hidden;flex:0 0 auto}
+  .beh-av img{width:100%;height:100%;object-fit:cover}
+  .beh-no{font-size:11.5px;color:var(--ink-soft)}
+  .beh-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .beh-tag{display:inline-flex;align-items:center;gap:3px;font-style:normal;font-size:11.5px;border-radius:999px;padding:1px 8px;border:1px solid}
+  .beh-tag.guide{background:#FFF8EC;border-color:#F0DCB8;color:#8A5A18}
+  .beh-tag.good{background:#F1FAF1;border-color:#C7E7C8;color:#2E7D32}
+  .beh-tag.other{background:#F5F6FA;border-color:#E2E5EE;color:#5B6172}
+  .beh-tag em{font-style:normal;font-weight:800;opacity:.75}
+  .beh-last{margin-top:7px;font-size:11.5px;color:var(--ink-soft)}
+  .beh-none{color:var(--ink-soft);font-size:12px}
+  .beh-tl{display:flex;flex-direction:column;gap:8px}
+  .beh-item{border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 11px}
+  .beh-i-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .beh-i-h b{cursor:pointer}
+  .beh-i-h b:hover{color:var(--pink-d)}
+  .beh-date{font-size:11.5px;color:var(--ink-soft)}
+  .beh-kind{font-size:11px;font-weight:700;border-radius:999px;padding:0 7px}
+  .beh-kind.guide{background:#FFF3DC;color:#8A5A18}
+  .beh-kind.good{background:#E9F7EA;color:#2E7D32}
+  .beh-del{margin-left:auto;border:none;background:transparent;color:#c9bccf;font-size:12px;cursor:pointer;padding:2px 5px;font-family:inherit}
+  .beh-del:hover{color:#e0584f}
+  .beh-i-b{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:6px}
+  .beh-note{font-size:12px;color:var(--ink-soft);width:100%}
+  /* 快速标记弹层 */
+  .beh-f{margin-bottom:11px}
+  .beh-f>label{display:block;font-size:13px;font-weight:700;margin-bottom:5px}
+  .beh-fhint{font-weight:400;color:var(--ink-soft);font-size:11.5px;margin-left:6px}
+  .beh-f2{display:flex;gap:10px;flex-wrap:wrap}
+  .beh-f2 .beh-f{flex:1;min-width:132px}
+  .beh-sel{width:100%;border:1px solid var(--line);border-radius:10px;padding:7px 9px;font:inherit;font-size:13.5px;background:#fff;box-sizing:border-box}
+  .beh-pick{display:flex;flex-wrap:wrap;gap:7px}
+  .beh-pick-tag{border:1px solid #E2E5EE;background:#fff;border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;cursor:pointer;color:#5B6172}
+  .beh-pick-tag.guide{border-color:#F0DCB8}
+  .beh-pick-tag.good{border-color:#C7E7C8}
+  .beh-pick-tag.on{font-weight:800;border-color:var(--pink-d);background:#EAF1FF;color:var(--pink-d)}
+  #behNote{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 9px;font:inherit;font-size:13.5px;box-sizing:border-box;resize:vertical}
+  .beh-stu-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .beh-picked{font-size:12.5px;color:var(--ink-soft)}
+  .beh-picked.on{color:var(--pink-d);font-weight:700}
+  .beh-foot{margin-top:4px}
+  .beh-cnt{font-size:12px;font-weight:600;color:var(--ink-soft);margin-left:8px}
+  .beh-d-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .beh-d-act{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .beh-d-list{display:flex;flex-direction:column;gap:7px}
+  .beh-d-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:7px;font-size:12.5px}
+  .beh-d-date{color:var(--ink-soft);font-size:11.5px;min-width:78px}
+  .beh-d-tags{display:flex;gap:4px;flex-wrap:wrap}
+  .beh-d-scene{font-size:11.5px;color:var(--ink-soft)}
+  .beh-d-note{width:100%;color:var(--ink-soft);font-size:12px}
+
+  .bday-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;background:#FFF9F2;border:1px dashed #F0D9B8;border-radius:12px;font-size:13px}
+  .bday-lab{color:#9A6A22;font-weight:700;font-size:12.5px}
+  .bday-items{display:flex;gap:6px;flex-wrap:wrap}
+  .bday-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid #F0D9B8;background:#fff;border-radius:999px;padding:2px 9px;font:inherit;font-size:12.5px;color:#4A3A22;cursor:pointer}
+  .bday-chip:hover{background:#FFF3E2}
+  .bday-chip i{font-style:normal;color:#A98A5C;font-size:11.5px}
+  .bday-chip em{font-style:normal;font-size:11px;font-weight:800;color:#fff;background:#E7A33C;border-radius:999px;padding:0 5px}
+  .bday-chip.today{background:#FFF3E2;border-color:#E7A33C;font-weight:700}
+  .stu-bday{margin-left:4px;font-size:12px}
+  .pf-bday{background:#FFF9F2;border-color:#F0D9B8;color:#8A5A18;font-weight:600}
   .stu-picker-mask{position:fixed;inset:0;background:rgba(40,46,78,.42);display:flex;align-items:center;justify-content:center;z-index:80;padding:18px}
   .stu-picker{width:min(440px,100%);max-height:78vh;background:#fff;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(40,46,78,.3)}
   .sp-head{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px}
@@ -2100,6 +2181,7 @@
       fields:[
         {name:"姓名",type:"text",required:true,ph:"学生姓名"},
         {name:"性别",type:"select",options:["男","女"]},
+        {name:"生日",type:"date",ph:"如 2013-05-20（用于星座显示与生日提醒）"},
         {name:"学号",type:"text",ph:"01"},
         {name:"座位号",type:"text",ph:"1排1"},
         {name:"学习小组",type:"select",options:["第1组","第2组","第3组","第4组","第5组","第6组","第7组","第8组"]},
@@ -2108,6 +2190,18 @@
         {name:"备注",type:"text",multiline:true,ph:"性格 / 特长 / 注意事项（选填）"},
         {name:"班干部",type:"text",multiline:true,ph:"由「班委成员」自动记录，无需手填"},
         {name:"照片",type:"photos",label:"学生照片（每年可更换，保留历史）"}
+      ]
+    },
+    behavior:{
+      title:"📝 行为观察", cat:"stu", unit:"条", main:"学生姓名",
+      fields:[
+        {name:"日期",type:"date"},
+        {name:"学生姓名",type:"text",required:true,ph:"学生姓名",link:"students"},
+        {name:"学号",type:"text",ph:"关联学生后自动填入"},
+        {name:"行为标签",type:"multi_select",options:["话唠","好动","走神","插嘴","打闹","拖延","情绪波动","小动作","积极发言","主动助人","专注认真","守纪律","热心班级","进步明显"]},
+        {name:"倾向",type:"select",options:["需引导","值得肯定"]},
+        {name:"场合",type:"select",options:["课堂","课间","自习","集会","课后","其它"]},
+        {name:"备注",type:"text",multiline:true,ph:"具体情境 / 处理方式（选填）"}
       ]
     },
     committee:{
@@ -2332,7 +2426,7 @@
   };
 
   var ORDER = {
-    stu:["students","committee","parents"],
+    stu:["students","behavior","committee","parents"],
     aff:["affairs","rules","regulations","attendance","materials","seats","duty","grades","points","honor","honorboard","mall"],
     mor:["talk","comm","comment"],
     mine:["schedule"],
@@ -2352,7 +2446,7 @@
     ai:{icon:"🤖",label:"AI 小助手"},
     board:{icon:"📝",label:"留言板"}
   };
-  var ALLKEYS = ["students","committee","parents","affairs","rules","regulations","attendance","materials","seats","duty","grades","points","honor","talk","comm","comment","mall"];
+  var ALLKEYS = ["students","behavior","committee","parents","affairs","rules","regulations","attendance","materials","seats","duty","grades","points","honor","talk","comm","comment","mall"];
 
   // 前端排序（避免在 query 中传 sorts，满足 SDK 自检）
   var SORTS = {
@@ -2360,7 +2454,7 @@
     affairs:["截止日期","asc"], rules:["类别","asc"], attendance:["日期","desc"],
     seats:["排号","asc"], duty:["星期","asc"], grades:["考试","asc"],
     points:["日期","desc"], honor:["日期","desc"], talk:["日期","desc"],
-    comm:["日期","desc"], comment:["学生姓名","asc"]
+    comm:["日期","desc"], comment:["学生姓名","asc"], behavior:["日期","desc"]
   };
   function sortData(key){
     var s=SORTS[key]; if(!s||!DATA[key]) return;
@@ -2381,7 +2475,7 @@
   Object.keys(ORDER).forEach(function(cat){
     (ORDER[cat]||[]).forEach(function(k){ if(!DATA.hasOwnProperty(k)) DATA[k]=[]; });
   });
-  var state = { cat:"overview", mod:"students", grid:{seats:true, students:true, parents:true}, open:{}, stuQ:"", parQ:"" };
+  var state = { cat:"overview", mod:"students", grid:{seats:true, students:true, parents:true}, open:{}, stuQ:"", parQ:"", behMode:"stu" };
   /* 座位布局：行×列（默认 8×7=56，可容纳 55 人），本地持久化 */
   var SEAT_LS_KEY = "wb_cls_seat_layout";
   function loadSeatLayout(){
@@ -3496,6 +3590,12 @@
       box.innerHTML = renderPointsView();
       return;
     }
+    // 行为观察：班主任专属的「学生 × 行为标签」看板（点卡片看明细；工具条可快速标记）
+    if(key==="behavior"){
+      if(cnt) cnt.textContent="共 "+(DATA.behavior||[]).length+" "+m.unit;
+      box.innerHTML=renderBehaviorView();
+      return;
+    }
     // 成绩管理：按「考试」分文件夹收纳，展开为 学生×科目 透视表，支持按成绩排序
     if(key==="grades"){
       if(cnt) cnt.textContent="";
@@ -3506,7 +3606,7 @@
     }
     // 网格视图优先：座位表（含空位）直接画出；学生档案 / 家长通讯则画「一格一格」的卡片墙，方便快速浏览
     if(m.grid && state.grid[key]){
-      if(key==="students"){ box.innerHTML=attStrip + renderStudentCards(rows); return; }
+      if(key==="students"){ box.innerHTML=attStrip + renderBirthdayBar() + renderStudentCards(rows); return; }
       if(key==="parents"){ box.innerHTML=attStrip + renderParentCards(rows); return; }
       box.innerHTML=renderSeatGrid(key);
       return;
@@ -5806,14 +5906,362 @@
       if(r["学号"]) sub.push("学号 "+r["学号"]);
       if(r["性别"]) sub.push(r["性别"]);
       if(r["学习小组"]) sub.push(r["学习小组"]);
+      var _z=zodiacOf(r["生日"]); if(_z) sub.push(_z.icon+_z.name);
+      var _d2b=daysToBirthday(r["生日"]);
+      var _bday=(_d2b!=null && _d2b<=7) ? '<span class="stu-bday" title="'+esc(_d2b===0?"今天生日":"还有 "+_d2b+" 天生日")+'">🎂</span>' : '';
       var tags=(r["关注标签"]&&(Array.isArray(r["关注标签"])?r["关注标签"]:[r["关注标签"]]).filter(Boolean))||[];
       return '<div class="stu-card" data-profile="'+esc(name)+'">'
         +'<div class="'+(photo?"stu-av stu-av-img":"stu-av")+'"'+(photo?'':' style="background:'+col.bg+';color:'+col.fg+'"')+'>'+(photo?'<img src="'+esc(photo)+'" alt="" loading="lazy" decoding="async">':esc(name.slice(0,1)||"?"))+'</div>'
-        +'<div class="stu-name">'+esc(name)+'</div>'
+        +'<div class="stu-name">'+esc(name)+_bday+'</div>'
         + (sub.length?'<div class="stu-sub">'+sub.map(function(s){return esc(s);}).join(" · ")+'</div>':'')
         + (tags.length?'<div class="stu-tags">'+tags.map(function(t){return '<i class="chip lav">'+esc(t)+'</i>';}).join("")+'</div>':'')
         +'</div>';
     }).join("")+'</div>';
+  }
+  /* ---------- 行为观察（behavior） ----------
+     轻量标记学生的课堂 / 课间行为：「话唠」「好动」这类用「需引导」标，
+     「积极发言」「主动助人」这类用「值得肯定」标 —— 不贴"好坏学生"的标签，只记行为。
+     ⚠️ 本模块只对班主任开放：ROLE_MODS 里没有 "behavior"，
+        家长 / 科任 / 班干部都看不到（描述性标签属于教师内部记录，不宜直接推到家长端）。 */
+  var BEH_TAGS_GUIDE=["话唠","好动","走神","插嘴","打闹","拖延","情绪波动","小动作"];
+  var BEH_TAGS_GOOD=["积极发言","主动助人","专注认真","守纪律","热心班级","进步明显"];
+  var BEH_SCENES=["课堂","课间","自习","集会","课后","其它"];
+  /* 标签选项 = 内置 + 历史数据里出现过的（导入 / 旧数据里的自定义标签不丢） */
+  function behaviorTagOptions(){
+    var out=BEH_TAGS_GUIDE.concat(BEH_TAGS_GOOD);
+    (DATA.behavior||[]).forEach(function(r){
+      behaviorRowTags(r).forEach(function(t){ if(out.indexOf(t)<0) out.push(t); });
+    });
+    return out;
+  }
+  function behaviorTagKind(t){
+    if(BEH_TAGS_GUIDE.indexOf(t)>=0) return "guide";
+    if(BEH_TAGS_GOOD.indexOf(t)>=0) return "good";
+    return "other";
+  }
+  /* 行为标签兼容：数组（正常）/「、」「,」分隔字符串（导入或手填） */
+  function behaviorRowTags(r){
+    var v=r?r["行为标签"]:null;
+    if(v==null||v==="") return [];
+    if(Array.isArray(v)) return v.map(function(x){ return String(x==null?"":x).trim(); }).filter(Boolean);
+    return String(v).split(/[、,，/;；\s]+/).map(function(x){ return x.trim(); }).filter(Boolean);
+  }
+  function behKindByTags(tags){
+    var g=(tags||[]).filter(function(t){ return behaviorTagKind(t)==="guide"; }).length;
+    return g? "需引导" : "值得肯定";
+  }
+  /* 汇总：每个学生的标签次数 / 总条数 / 本周条数 / 最近一次 */
+  function behaviorStat(){
+    var map={}, wk=isoWeek();
+    (DATA.behavior||[]).forEach(function(r){
+      var nm=String(r["学生姓名"]||"").trim(); if(!nm) return;
+      if(!map[nm]) map[nm]={ name:nm, tags:{}, total:0, week:0, last:"", lastScene:"" };
+      var o=map[nm];
+      o.total++;
+      var d=String(r["日期"]||"");
+      if(d>=wk.monday && d<=wk.sunday) o.week++;
+      behaviorRowTags(r).forEach(function(t){ o.tags[t]=(o.tags[t]||0)+1; });
+      if(d>=o.last){ o.last=d; o.lastScene=String(r["场合"]||""); }
+    });
+    return map;
+  }
+  function behKpiHTML(){
+    var rows=DATA.behavior||[], wk=isoWeek();
+    var wkN=rows.filter(function(r){ var d=String(r["日期"]||""); return d>=wk.monday && d<=wk.sunday; }).length;
+    var names={}; rows.forEach(function(r){ var n=String(r["学生姓名"]||"").trim(); if(n) names[n]=1; });
+    var guide=0, good=0;
+    rows.forEach(function(r){
+      var k=String(r["倾向"]||"").trim();
+      if(!k) k=behKindByTags(behaviorRowTags(r));
+      if(k==="需引导") guide++; else good++;
+    });
+    function kpi(n,label,cls){ return '<span class="beh-kpi'+(cls?(" "+cls):"")+'"><b>'+n+'</b>'+label+'</span>'; }
+    return '<div class="beh-kpis">'
+      +kpi(wkN,"本周记录")+kpi(rows.length,"累计记录")
+      +kpi(Object.keys(names).length,"涉及学生")
+      +kpi(guide,"需引导","guide")+kpi(good,"值得肯定","good")
+      +'</div>';
+  }
+  function behNoOf(n){
+    var r=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"")===n; })[0];
+    var v=r?parseFloat(r["学号"]):NaN;
+    return isNaN(v)?9999:v;
+  }
+  function behCardHTML(o){
+    var stRow=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"")===o.name; })[0];
+    var no=stRow?String(stRow["学号"]||""):"";
+    var ph=stRow?studentPhoto(stRow):null;
+    var chips=Object.keys(o.tags).sort(function(a,b){ return o.tags[b]-o.tags[a]; }).map(function(t){
+      return '<i class="beh-tag '+behaviorTagKind(t)+'">'+esc(t)+(o.tags[t]>1?('<em>×'+o.tags[t]+'</em>'):'')+'</i>';
+    }).join("");
+    return '<div class="beh-card'+(o.total?'':' beh-empty')+'" data-behstu="'+esc(o.name)+'" title="点击查看 / 添加 TA 的行为记录">'
+      +'<div class="beh-c-h"><span class="beh-av">'
+        +(ph?'<img src="'+esc(ph)+'" alt="" loading="lazy" decoding="async">':esc(o.name.slice(0,1)||"?"))
+      +'</span><b>'+esc(o.name)+'</b>'+(no?'<span class="beh-no">'+esc(no)+'</span>':'')+'</div>'
+      +(o.total
+        ? ('<div class="beh-chips">'+chips+'</div><div class="beh-last">最近 · '+esc(o.last||"—")+(o.lastScene?(' · '+esc(o.lastScene)):'')+'</div>')
+        : '<div class="beh-last beh-none">暂无记录 · 点开即可添加</div>')
+      +'</div>';
+  }
+  function behGridHTML(){
+    var map=behaviorStat();
+    var list=(DATA.students||[]).map(function(s){ return String(s["姓名"]||"").trim(); }).filter(Boolean);
+    /* 有记录但档案里已经查不到的名字（转走 / 改名）也要显示，否则历史记录会"凭空消失" */
+    Object.keys(map).forEach(function(n){ if(list.indexOf(n)<0) list.push(n); });
+    var arr=list.map(function(n){ return map[n] || { name:n, tags:{}, total:0, week:0, last:"", lastScene:"" }; });
+    arr.sort(function(a,b){
+      if(b.total!==a.total) return b.total-a.total;
+      return (behNoOf(a.name)-behNoOf(b.name)) || a.name.localeCompare(b.name,"zh-Hans-CN");
+    });
+    if(!arr.length) return '<div class="empty-state"><div>还没有学生档案，先在「学生档案」里添加或导入学生吧～</div></div>';
+    return '<div class="beh-grid">'+arr.map(behCardHTML).join("")+'</div>';
+  }
+  function behTimelineHTML(){
+    var rows=(DATA.behavior||[]).slice().sort(function(a,b){
+      var da=String(a["日期"]||""), db=String(b["日期"]||"");
+      if(da!==db) return db.localeCompare(da);
+      return String(a._id||"").localeCompare(String(b._id||""));
+    });
+    if(!rows.length) return '<div class="empty-state"><div>还没有行为记录，点「＋ 快速标记」开始吧～</div></div>';
+    return '<div class="beh-tl">'+rows.map(function(r){
+      var tags=behaviorRowTags(r), kind=String(r["倾向"]||"").trim()||behKindByTags(tags);
+      var hs=tags.map(function(t){ return '<i class="beh-tag '+behaviorTagKind(t)+'">'+esc(t)+'</i>'; }).join("");
+      var d=String(r["日期"]||"");
+      return '<div class="beh-item">'
+        +'<div class="beh-i-h"><b data-behstu="'+esc(String(r["学生姓名"]||""))+'">'+esc(r["学生姓名"]||"（未填）")+'</b>'
+        +(r["学号"]?'<span class="beh-no">'+esc(r["学号"])+'</span>':'')
+        +'<span class="beh-date">'+esc(d.replace(/^\d{4}-/,"").replace("-","/"))+(r["场合"]?(' · '+esc(r["场合"])):'')+'</span>'
+        +'<span class="beh-kind '+((kind==="需引导")?"guide":"good")+'">'+esc(kind)+'</span>'
+        +(isHead()?'<button type="button" class="beh-del" data-behdel="'+esc(r._id||"")+'" title="删除这条记录">✕</button>':'')
+        +'</div>'
+        +'<div class="beh-i-b">'+(hs||'<span class="beh-none">无标签</span>')+(r["备注"]?('<div class="beh-note">'+esc(r["备注"])+'</div>'):'')+'</div>'
+        +'</div>';
+    }).join("")+'</div>';
+  }
+  function renderBehaviorView(){
+    var mode=(state.behMode==="all")?"all":"stu";
+    var html='<div class="beh-page">';
+    html+='<div class="beh-head"><div><h2 class="beh-title">📝 行为观察</h2>'
+      +'<div class="beh-sub">「话唠 / 好动」这类用 <span class="beh-key guide">需引导</span> 标，'
+      +'「积极发言 / 主动助人」这类用 <span class="beh-key good">值得肯定</span> 标。'
+      +'只记行为、不给孩子下结论；仅班主任可见，用于个别引导与家校沟通。</div></div>';
+    if(isHead()){
+      html+='<div class="beh-tools">'
+        +'<button type="button" class="btn-mini beh-quick" data-behact="quick">＋ 快速标记</button>'
+        +'<button type="button" class="btn-mini" data-behact="mode">'+(mode==="all"?"🧑‍🎓 按学生看":"📋 全部记录")+'</button>'
+        +'</div>';
+    }
+    html+='</div>';
+    html+=behKpiHTML();
+    html+=(mode==="all")?behTimelineHTML():behGridHTML();
+    html+='</div>';
+    return html;
+  }
+  /* ---------- 快速标记：点标签 → 选学生 → 保存（一次给多人写同一条） ---------- */
+  var behQuick={ tags:[], students:[] };
+  function openBehQuick(preName){
+    if(!isHead()){ toast("仅班主任可以标记行为"); return; }
+    var m=document.getElementById("behMask");
+    if(!m){ m=document.createElement("div"); m.id="behMask"; m.className="mask"; document.body.appendChild(m); }
+    behQuick={ tags:[], students:[] };
+    if(preName) behQuick.students=[String(preName)];
+    var opts=behaviorTagOptions();
+    m.innerHTML='<div class="sheet">'
+      +'<h3>📝 快速标记行为<button type="button" class="x" data-behclose="1">×</button></h3>'
+      +'<div class="beh-f"><label>日期</label><input type="date" id="behDate" class="beh-sel" value="'+esc(todayStr())+'"></div>'
+      +'<div class="beh-f"><label>行为标签<span class="beh-fhint">可多选，点一下即选中</span></label><div class="beh-pick" id="behTagPick">'
+        +opts.map(function(t){ return '<button type="button" class="beh-pick-tag '+behaviorTagKind(t)+'" data-behtag="'+esc(t)+'">'+esc(t)+'</button>'; }).join("")
+      +'</div></div>'
+      +'<div class="beh-f2">'
+        +'<div class="beh-f"><label>倾向</label><select id="behKind" class="beh-sel">'
+          +['（按标签自动）','需引导','值得肯定'].map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join("")
+        +'</select></div>'
+        +'<div class="beh-f"><label>场合</label><select id="behScene" class="beh-sel">'
+          +['', '课堂','课间','自习','集会','课后','其它'].map(function(k){ return '<option value="'+esc(k)+'">'+esc(k||"（不填）")+'</option>'; }).join("")
+        +'</select></div>'
+      +'</div>'
+      +'<div class="beh-f"><label>备注<span class="beh-fhint">具体情境 / 处理方式（选填）</span></label>'
+        +'<textarea id="behNote" rows="2" placeholder="如：数学课和同桌说话，课后已单独提醒"></textarea></div>'
+      +'<div class="beh-f"><label>学生</label><div class="beh-stu-pick">'
+        +'<button type="button" class="btn-mini" id="behPickStu">👥 选择学生</button>'
+        +'<span class="beh-picked'+(behQuick.students.length?" on":"")+'" id="behPicked">'+(behQuick.students.length?("已选 "+behQuick.students.length+" 人："+esc(behQuick.students.join("、"))):"已选 0 人")+'</span>'
+      +'</div></div>'
+      +'<div class="beh-foot"><button type="button" class="btn-save" id="behSave">保存标记</button></div>'
+      +'</div>';
+    m.classList.add("show");
+    function refreshPick(){
+      var picked=m.querySelector("#behPicked");
+      if(picked){
+        picked.textContent = behQuick.students.length ? ("已选 "+behQuick.students.length+" 人："+behQuick.students.join("、")) : "已选 0 人";
+        picked.className="beh-picked"+(behQuick.students.length?" on":"");
+      }
+    }
+    /* 标签：点一下切换选中 */
+    Array.prototype.forEach.call(m.querySelectorAll("[data-behtag]"), function(b){
+      b.onclick=function(){
+        var t=b.getAttribute("data-behtag");
+        var i=behQuick.tags.indexOf(t);
+        if(i>=0) behQuick.tags.splice(i,1); else behQuick.tags.push(t);
+        b.classList.toggle("on", behQuick.tags.indexOf(t)>=0);
+      };
+    });
+    /* 学生多选：复用现成的多选选择器（z-index 高于本弹层） */
+    var ps=m.querySelector("#behPickStu");
+    if(ps) ps.onclick=function(){
+      openStudentPickerMulti({ title:"👥 选择学生（可多选）", confirmText:"确定",
+        onPick:function(list){ behQuick.students=(list||[]).map(function(s){ return String(s["姓名"]||""); }).filter(Boolean); refreshPick(); } });
+    };
+    var sv=m.querySelector("#behSave");
+    if(sv) sv.onclick=behQuickSave;
+    m.onclick=function(e){ if(e.target===m || (e.target.closest && e.target.closest("[data-behclose]"))) m.classList.remove("show"); };
+  }
+  function behQuickSave(){
+    if(!isHead()) return;
+    var m=document.getElementById("behMask");
+    var tags=behQuick.tags.slice();
+    if(!tags.length){ toast("请先点选一个行为标签"); return; }
+    if(!behQuick.students.length){ toast("请选择要标记的学生"); return; }
+    var q=function(sel){ var el=m?m.querySelector(sel):null; return el?(el.value||""):""; };
+    var d=q("#behDate")||todayStr();
+    var scene=q("#behScene");
+    var kindSel=q("#behKind");
+    var note=q("#behNote").trim();
+    var kind=(kindSel && kindSel.indexOf("（")!==0) ? kindSel : behKindByTags(tags);
+    var arr=behQuick.students.map(function(nm){
+      var st=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"")===nm; })[0];
+      return { 日期:d, 学生姓名:nm, 学号:(st?String(st["学号"]||""):""),
+               行为标签:tags.slice(), 倾向:kind, 场合:scene, 备注:note };
+    });
+    setStatus("syncing");
+    apiAddBatch("behavior", arr).then(function(saved){
+      (saved||[]).forEach(function(o){ (DATA.behavior=DATA.behavior||[]).push(o); });
+      setStatus("ok");
+      if(m) m.classList.remove("show");
+      toast("已标记 "+arr.length+" 人 · "+tags.join("、")+"（"+kind+"）✓");
+      renderList("behavior"); render();
+    }).catch(function(e){ setStatus("offline"); toast("标记失败："+(e&&e.message||e)); });
+  }
+  /* ---------- 某个学生的行为明细（点卡片 / 点时间线里的名字） ---------- */
+  function openBehDetail(name){
+    name=String(name||"").trim(); if(!name) return;
+    var rows=(DATA.behavior||[]).filter(function(r){ return String(r["学生姓名"]||"").trim()===name; })
+      .sort(function(a,b){ return String(b["日期"]||"").localeCompare(String(a["日期"]||"")); });
+    var m=document.getElementById("behDetailMask");
+    if(!m){ m=document.createElement("div"); m.id="behDetailMask"; m.className="mask"; document.body.appendChild(m); }
+    var st=(DATA.students||[]).filter(function(s){ return String(s["姓名"]||"")===name; })[0];
+    var cnt={}; rows.forEach(function(r){ behaviorRowTags(r).forEach(function(t){ cnt[t]=(cnt[t]||0)+1; }); });
+    var chips=Object.keys(cnt).sort(function(a,b){ return cnt[b]-cnt[a]; }).map(function(t){
+      return '<i class="beh-tag '+behaviorTagKind(t)+'">'+esc(t)+'<em>×'+cnt[t]+'</em></i>';
+    }).join("");
+    m.innerHTML='<div class="sheet">'
+      +'<h3>📝 '+esc(name)+' · 行为观察<span class="beh-cnt">'+rows.length+' 条</span>'
+      +'<button type="button" class="x" data-behclose="1">×</button></h3>'
+      +'<div class="beh-d-chips">'+(chips||'<span class="beh-none">暂无记录</span>')+'</div>'
+      +(isHead()?('<div class="beh-d-act">'
+        +'<button type="button" class="btn-mini" data-behact="quickfor" data-beharg="'+esc(name)+'">＋ 给 TA 记一条</button>'
+        +(st?'<button type="button" class="btn-mini" data-profile="'+esc(name)+'">🗂️ 打开一生一档</button>':'')
+        +'</div>'):'')
+      +'<div class="beh-d-list">'+(rows.length?rows.map(function(r){
+          var tags=behaviorRowTags(r);
+          return '<div class="beh-d-row"><span class="beh-d-date">'+esc(String(r["日期"]||""))+'</span>'
+            +'<span class="beh-d-tags">'+tags.map(function(t){ return '<i class="beh-tag '+behaviorTagKind(t)+'">'+esc(t)+'</i>'; }).join("")+'</span>'
+            +(r["场合"]?('<span class="beh-d-scene">'+esc(r["场合"])+'</span>'):'')
+            +(isHead()?'<button type="button" class="beh-del" data-behdel="'+esc(r._id||"")+'" title="删除">✕</button>':'')
+            +(r["备注"]?('<span class="beh-d-note">'+esc(r["备注"])+'</span>'):'')
+            +'</div>';
+        }).join(""):'<div class="beh-none">还没有记录，点上方「＋ 给 TA 记一条」。</div>')+'</div>'
+      +'</div>';
+    m.classList.add("show");
+    m.onclick=function(e){ if(e.target===m || (e.target.closest && e.target.closest("[data-behclose]"))) m.classList.remove("show"); };
+  }
+  function behDelete(id){
+    if(!isHead()||!id) return;
+    var r=(DATA.behavior||[]).filter(function(x){ return x._id===id; })[0];
+    var nm=r?String(r["学生姓名"]||"").trim():"";
+    var tg=r?behaviorRowTags(r).join("、"):"";
+    if(!confirm("删除 "+(nm?("「"+nm+(tg?(" · "+tg):"")+"」"):"这条")+" 的行为记录？此操作不可撤销。")) return;
+    setStatus("syncing");
+    apiDelete("behavior", id).then(function(){
+      DATA.behavior=(DATA.behavior||[]).filter(function(x){ return x._id!==id; });
+      setStatus("ok"); toast("已删除 ✓");
+      /* 明细弹层开着时原地刷新，删一条不用重新点开 */
+      var dm=document.getElementById("behDetailMask");
+      if(dm && dm.classList.contains("show") && nm){ openBehDetail(nm); }
+      renderList("behavior"); render();
+    }).catch(function(e){ setStatus("offline"); toast("删除失败："+(e&&e.message||e)); });
+  }
+  function onBehAct(a, arg){
+    if(a==="quick"){ openBehQuick(); return; }
+    if(a==="quickfor"){
+      var dm=document.getElementById("behDetailMask");
+      if(dm) dm.classList.remove("show");
+      openBehQuick(arg); return;
+    }
+    if(a==="mode"){ state.behMode=(state.behMode==="all")?"stu":"all"; renderList("behavior"); return; }
+  }
+
+  /* ---------- 生日 · 星座 ----------
+     生日兼容 2013-05-20 / 2013/5/20 / 2013年5月20日 / 5-20（只有月日）等写法。
+     星座边界取通行版本：1/19 及以前算摩羯，12/22 起又是摩羯。 */
+  var ZODIACS=[
+    ["摩羯座","♑",1,19],["水瓶座","♒",2,18],["双鱼座","♓",3,20],["白羊座","♈",4,19],
+    ["金牛座","♉",5,20],["双子座","♊",6,21],["巨蟹座","♋",7,22],["狮子座","♌",8,22],
+    ["处女座","♍",9,22],["天秤座","♎",10,23],["天蝎座","♏",11,22],["射手座","♐",12,21]
+  ];
+  /* 解析出生日 → {y,m,d}（y 可能为 null，如只填了 5-20） */
+  function birthdayOf(raw){
+    var t=String(raw==null?"":raw).trim();
+    if(!t) return null;
+    /* Excel 的日期单元格偶尔会带时间或「2013-05-20 00:00:00」，先截掉时间部分 */
+    t=t.replace(/[T\s].*$/,"");
+    t=t.replace(/[年月]/g,"-").replace(/日/g,"").replace(/[.\/]/g,"-");
+    var m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(!m){ var m2=t.match(/^(\d{1,2})-(\d{1,2})$/); if(m2) m={1:null,2:m2[1],3:m2[2]}; }
+    if(!m) return null;
+    var mm=parseInt(m[2],10), dd=parseInt(m[3],10);
+    if(!(mm>=1&&mm<=12&&dd>=1&&dd<=31)) return null;
+    return { y:(m[1]==null?null:parseInt(m[1],10)), m:mm, d:dd };
+  }
+  /* 星座（按「该月及以前的最后一个星座」判定；12/22 之后环回摩羯） */
+  function zodiacOf(raw){
+    var bd=birthdayOf(raw); if(!bd) return null;
+    var idx=0;   // 默认摩羯：1/1–1/19 与 12/22–12/31 都落在这一段
+    for(var i=0;i<ZODIACS.length;i++){
+      var z=ZODIACS[i];
+      if(bd.m<z[2] || (bd.m===z[2] && bd.d<=z[3])){ idx=i; break; }
+    }
+    return { name:ZODIACS[idx][0], icon:ZODIACS[idx][1], index:idx };
+  }
+  function stuAgeBd(bd){
+    if(!bd||!bd.y) return null;
+    var t=new Date(), a=t.getFullYear()-bd.y;
+    if(((t.getMonth()+1)*100+t.getDate()) < (bd.m*100+bd.d)) a--;
+    return a>=0?a:null;
+  }
+  /* 距下一次生日还有几天（0=今天）；无有效生日返回 null */
+  function daysToBirthday(raw){
+    var bd=birthdayOf(raw); if(!bd) return null;
+    var t=new Date(); t.setHours(0,0,0,0);
+    var d=new Date(t.getFullYear(),bd.m-1,bd.d);
+    if(d.getTime()<t.getTime()) d=new Date(t.getFullYear()+1,bd.m-1,bd.d);
+    return Math.round((d.getTime()-t.getTime())/86400000);
+  }
+  function birthdayText(raw){ var bd=birthdayOf(raw); return bd?(bd.m+"月"+bd.d+"日"):""; }
+  /* 学生管理页顶部：本月生日提醒（点名字直接开一生一档；没有生日数据时不渲染） */
+  function renderBirthdayBar(){
+    var t=new Date(), tm=t.getMonth()+1, td=t.getDate();
+    var mon=(DATA.students||[]).filter(function(s){
+      var bd=birthdayOf(s["生日"]); return bd && bd.m===tm;
+    }).sort(function(a,b){ return birthdayOf(a["生日"]).d-birthdayOf(b["生日"]).d; });
+    if(!mon.length) return "";
+    var items=mon.map(function(st){
+      var bd=birthdayOf(st["生日"]), z=zodiacOf(st["生日"]);
+      var today=(bd.d===td);
+      return '<button type="button" class="bday-chip'+(today?' today':'')+'" data-profile="'+esc(st["姓名"])+'" title="'+esc(z?z.name:"")+'">'
+        +esc(st["姓名"])+'<i>'+bd.m+'/'+bd.d+'</i>'+(today?'<em>今天</em>':((z?z.icon:'')))
+        +'</button>';
+    }).join("");
+    return '<div class="bday-bar"><span class="bday-lab">🎂 本月生日 '+mon.length+' 人</span><span class="bday-items">'+items+'</span></div>';
   }
   /* 取学生最新年份的照片（按年份降序、同年按上传时间降序）；无照片返回 null */
   function studentPhoto(r){
@@ -7173,7 +7621,8 @@
     {key:"comment",title:"✍️ 评语",nameField:"学生姓名",fields:["学期","日期","评语"],sort:"日期"},
     {key:"talk",title:"💬 谈话谈心",nameField:"学生姓名",fields:["日期","类型","主题","内容","跟进"],sort:"日期",desc:true},
     {key:"comm",title:"💌 家校沟通",nameField:"学生",fields:["日期","家长","方式","事由","结果","跟进"],sort:"日期",desc:true},
-    {key:"honor",title:"🌟 荣誉处分",nameField:"学生姓名",fields:["日期","类别","名称","说明"],sort:"日期",desc:true}
+    {key:"honor",title:"🌟 荣誉处分",nameField:"学生姓名",fields:["日期","类别","名称","说明"],sort:"日期",desc:true},
+    {key:"behavior",title:"📝 行为观察",nameField:"学生姓名",fields:["日期","行为标签","倾向","场合","备注"],sort:"日期",desc:true}
   ];
   function openStudentProfile(name){
     name=String(name||"").trim(); if(!name) return;
@@ -7185,6 +7634,13 @@
     if(st){
       if(st["性别"]) info.push(["性别",st["性别"]]);
       if(st["学号"]) info.push(["学号",st["学号"]]);
+      var _bd=birthdayOf(st["生日"]);
+      if(_bd){
+        var _age=stuAgeBd(_bd);
+        info.push(["生日", _bd.m+"月"+_bd.d+"日"+(_age!=null?"（"+_age+"岁）":"")]);
+        var _z2=zodiacOf(st["生日"]);
+        if(_z2) info.push(["星座", _z2.icon+" "+_z2.name]);
+      }
       if(st["座位号"]) info.push(["座位号",st["座位号"]]);
       if(st["学习小组"]) info.push(["学习小组",st["学习小组"]]);
       if(st["综合表现"]) info.push(["综合表现",st["综合表现"]]);
@@ -7202,6 +7658,14 @@
       + (function(){ var lv=ptsLevelOf(cur); return lv?'<i class="pf-lv '+lv+'">'+(lv==="danger"?"🚨 最终警告":"⚠️ 预警")+'</i>':''; })()
       +'</div></div>'
       +'</div>';
+    var _d2b2=st?daysToBirthday(st["生日"]):null;
+    if(_d2b2!=null && _d2b2<=7){
+      var _bd2=birthdayOf(st["生日"]), _z3=zodiacOf(st["生日"]);
+      html+='<div class="pf-note pf-bday">🎂 '+(_d2b2===0
+        ? esc(name)+' 今天生日！'
+        : ('还有 '+_d2b2+' 天是 '+esc(name)+' 的生日（'+_bd2.m+'月'+_bd2.d+'日'+(_z3?' · '+_z3.icon+' '+_z3.name:'')+'）'))
+        +'</div>';
+    }
     if(st && st["备注"]) html+='<div class="pf-note">📝 '+esc(st["备注"])+'</div>';
     if(st && st["班干部"] && String(st["班干部"]).trim()){
       html+='<div class="pf-note pf-role">🏅 班委任职：<br>'+esc(String(st["班干部"]).replace(/\n/g,"<br>"))+'</div>';
@@ -7239,7 +7703,9 @@
         html+='<div class="pf-rows">';
         rows.forEach(function(r){
           var cells=sec.fields.map(function(f){
-            var v=r[f]; if(v==null||v==="") return "";
+            var v=r[f];
+            if(Array.isArray(v)) v=v.filter(Boolean).join("、");   // 多选字段（行为标签等）
+            if(v==null||v==="") return "";
             var cls="";
             if(f==="类型") cls=(v==="加分")?"pos":((v==="减分"||v==="兑换")?"neg":"");
             else if(f==="类别") cls=(v==="荣誉"||v==="表彰")?"pos":((v==="犯错"||v==="处分")?"neg":"");
@@ -7522,7 +7988,8 @@
     rules:["rules"],
     talk:["talk"],
     comm:["comm","students"],
-    comment:["comment","students"]
+    comment:["comment","students"],
+    behavior:["behavior"]
   };
   function saveDeps(key){ return SAVE_DEPS[key] || [key]; }
   /* 定向重载：只拉 keys 涉及的表，并按当前所在视图重渲 */
@@ -12101,6 +12568,16 @@
   document.getElementById("ruleMask").addEventListener("click",function(e){ if(e.target===this) closeRulesConfig(); });
   // 网格交互（模态 & 内联通用，统一走 document 委托，避免重复绑定）
   document.body.addEventListener("click",function(e){
+    /* 行为观察：删除单条 / 快速标记 / 看某生明细
+       ⚠️ 必须挂在 body 委托上：#behDetailMask 是 appendChild 到 body 的弹层，
+          #content 的委托收不到它内部的事件（点弹层里的 ✕ 会没反应）。
+       顺序：先删 → 再动作 → 最后才是学生卡片。 */
+    var bhdel=e.target.closest("[data-behdel]");
+    if(bhdel){ behDelete(bhdel.getAttribute("data-behdel")); return; }
+    var bhact=e.target.closest("[data-behact]");
+    if(bhact){ onBehAct(bhact.getAttribute("data-behact"), bhact.getAttribute("data-beharg")); return; }
+    var bhstu=e.target.closest("[data-behstu]");
+    if(bhstu){ openBehDetail(bhstu.getAttribute("data-behstu")); return; }
     /* 清空菜单（本周 / 历史 / 全部）：必须挂在 body 上——按钮可能在 #content 内（模块头部），
        也可能在网格模态框内（#gridMask 属 body，收不到 #content 的委托），菜单本身也挂在 body 下。 */
     var cmBtn=e.target.closest("[data-clearmenu]");
@@ -12330,6 +12807,7 @@
     "班级排名次":"班级排名","班排":"班级排名","rank":"班级排名",
     "学号座号":"学号","编号":"学号","序号":"学号","号数":"学号","班号":"学号",
     "座位":"座位号","座号":"座位号",
+    "出生日期":"生日","出生年月":"生日","出生年月日":"生日","出生日":"生日","出生":"生日","birthday":"生日","出生日期生日":"生日",
     "关注":"关注标签","标签":"关注标签",
     "表现":"综合表现","综合":"综合表现",
     "类型方式":"方式","沟通方式":"方式"
@@ -13473,7 +13951,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "duty-star-2026-09-11";
+  var __APP_VERSION__ = "behavior-2026-09-11";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
