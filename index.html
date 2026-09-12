@@ -1578,6 +1578,23 @@
   .tb-go:hover{text-decoration:underline}
   .tb-bd{display:inline-block;background:#FFF4F7;border:1px solid #F0DAE3;border-radius:999px;padding:1px 9px;margin:2px 6px 2px 0;font-size:12.5px;cursor:pointer}
   .tb-more{font-style:normal;color:var(--ink-soft);font-size:12px}
+  /* 班干部 · 今日登记台（officer-desk-2026-09-12）：只在班干部身份下渲染，其它身份零影响 */
+  .od-card{background:#fff;border:1px solid #E3EEEE;border-left:3px solid #2E8B8B;border-radius:14px;padding:10px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(46,139,139,.06)}
+  .od-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:4px}
+  .od-date{font-size:11.5px;font-weight:600;color:#8a8a95;margin-left:auto}
+  .od-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+  .od-row:last-of-type{border-bottom:none}
+  .od-row.cur{background:#FAFDFD;border-radius:10px;padding-left:6px;padding-right:6px}
+  .od-ico{flex:none;width:30px;height:30px;border-radius:9px;background:#EAF4F4;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .od-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .od-nm{font-weight:700;color:var(--ink);line-height:1.4}
+  .od-here{font-style:normal;font-size:10.5px;font-weight:700;color:#2E8B8B;background:#EAF4F4;border-radius:999px;padding:0 6px;margin-left:6px}
+  .od-tip{font-size:11.5px;color:var(--ink-soft);line-height:1.4}
+  .od-ok{flex:none;color:#2E9E6B;font-weight:800}
+  .od-go{flex:none;font-size:12.5px;font-weight:700;color:#2E8B8B;cursor:pointer;white-space:nowrap}
+  .od-go:hover{text-decoration:underline}
+  .od-foot{font-size:11.5px;color:#8a8a95;line-height:1.6;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+  .od-ask{margin-top:10px;text-align:center}
   /* 材料收交 · 生成通知弹层（matnotify-2026-09-12） */
   .matn-sheet{max-width:560px}
   .matn-sub{margin-left:8px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
@@ -2188,7 +2205,7 @@
     }
     return ROLE_HEAD;                                           // 老班主任账号：全权限
   }
-  /* 班干部：只可登记材料收集（当天作业上交情况），其余全部只读 */
+  /* 班干部（学生）：可登记材料收集（当天作业上交）与考勤（迟到 / 缺勤 / 请假），其余全部只读 */
   function isOfficer(){ return curRole===ROLE_OFFICER; }
   function canMarkMat(){ return isHead()||isOfficer(); }
   /* 仅班主任可增删改；科任老师 / 家长一律只读 */
@@ -2199,7 +2216,7 @@
   ROLE_MODS[ROLE_HEAD]    = null;
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
   ROLE_MODS[ROLE_PARENT]  = ["phome","duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
-  ROLE_MODS[ROLE_OFFICER]  = ["materials"];   // 班干部：只开放材料收集，文件夹由班主任提前建好
+  ROLE_MODS[ROLE_OFFICER]  = ["materials","attendance"];   // 班干部（学生）：登记当天作业上交 + 考勤点名，其余只读
   function canSee(key){
     if(isHead()) return true;
     var list=ROLE_MODS[curRole]||[];
@@ -3137,7 +3154,8 @@
     if(state.cat==="overview"){ t.firstChild.textContent="总览 "; t.querySelector("small").textContent=CLS_YEAR+CLS_CLASS+" 工作台"; return; }
     var label = state.mod ? stripEmoji(MODULES[state.mod].title) : CAT_META[state.cat].label;
     t.firstChild.textContent=label+" ";
-    t.querySelector("small").textContent=CAT_META[state.cat].label;
+    /* 班干部：副标题带上身份与职务，让学生一眼知道自己是以什么身份在登记 */
+    t.querySelector("small").textContent=(isOfficer() ? ("班干部"+(myOfficerPost()?" · "+myOfficerPost():"")+" · ") : "")+CAT_META[state.cat].label;
   }
 
   function renderModule(key){
@@ -3169,7 +3187,8 @@
     var comMonthlyBtn = (key==="committee") ? '<button class="btn-rule" data-comMonthly title="按职务加分值批量给所有在任班委写入当月积分（已标「不尽责」或当月已加的跳过）">🎖 班委月度加分</button>' : '';
     /* 只读身份（科任老师 / 家长）：隐藏一切写操作入口，只留视图切换与导出 */
     if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; stuBirthBtn=""; comMonthlyBtn="";
-      if(key==="attendance"||key==="materials"){ gridBtn=""; tableBtn=""; } }
+      /* 班干部是登记人（不是纯只读）：保留考勤 / 材料的视图切换，方便核对明细；家长 / 科任照旧隐藏 */
+      if((key==="attendance"||key==="materials") && !isOfficer()){ gridBtn=""; tableBtn=""; } }
     var roAdd = canEdit()
       ? '<button class="btn-imp" data-imp="'+key+'">导入</button>'
         +((key==="attendance"||key==="materials")
@@ -8683,7 +8702,11 @@
       + "-- 5. 班干部名单表（登录页免密进入；名单公开可读，写入仅限班主任）\n" + sqlOfficers() + "\n"
       + "-- 6. 班干部登记写入授权（材料收集：成员可写入/更新班主任名下的记录，班主任与家长立即可见）\n"
       + "drop policy if exists hr_materials_member_insert on hr_materials;\n create policy hr_materials_member_insert on hr_materials for insert with check ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
-      + "drop policy if exists hr_materials_member_update on hr_materials;\n create policy hr_materials_member_update on hr_materials for update using ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) ) with check ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
+      + "drop policy if exists hr_materials_member_update on hr_materials;\n create policy hr_materials_member_update on hr_materials for update using ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) ) with check ( exists (select 1 from hr_members m where m.user_id = hr_materials.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "-- 7. 考勤记录：成员可读（家长看公示）+ 班干部可写入/更新（落到班主任名下的记录）\n"
+      + "drop policy if exists hr_attendance_member_read on hr_attendance;\n create policy hr_attendance_member_read on hr_attendance for select using ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_attendance_member_insert on hr_attendance;\n create policy hr_attendance_member_insert on hr_attendance for insert with check ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "drop policy if exists hr_attendance_member_update on hr_attendance;\n create policy hr_attendance_member_update on hr_attendance for update using ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) ) with check ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
     return s.replace(/\n{3,}/g,"\n\n");
   })();
   function loadMessagesSafe(){
@@ -9557,7 +9580,7 @@
       +'<input id="offSubj" placeholder="科目（课代表选填）" style="flex:1;min-width:110px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<input id="offName" placeholder="学生姓名" style="flex:1;min-width:100px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<button class="btn-mini" data-mcreateoff="1">创建账号</button></div>'
-      +'<div id="offCreateInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 2px;line-height:1.6">创建后该学生即可在登录页「班干部」处点击名字免密进入：只开放「材料收集」，登记当天作业上交情况，结果同步给你并展示给家长。</div>'
+      +'<div id="offCreateInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 2px;line-height:1.6">创建后该学生即可在登录页「班干部」处点击名字免密进入：可登记「材料收集」（当天作业上交）与「考勤记录」（迟到 / 缺勤 / 请假），结果同步给你，家长端也看得到公示。⚠️ 材料登记需要先有事项文件夹——请在「材料收集」里先建好（如：数学作业），否则学生进去没有可登记的事项。</div>'
       +'<div style="margin:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<input id="memUid" placeholder="成员账号 ID" style="flex:2;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<input id="memName" placeholder="姓名 / 称呼" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
@@ -9768,7 +9791,8 @@
     }).then(function(){
       return loadMembersSafe();
     }).then(function(){
-      if(info) info.innerHTML="✅ 已创建：<b>"+esc(name)+"</b>（"+esc(post)+"）。无需告知账号密码——学生在登录页「班干部」处点击名字即可进入登记。";
+      if(info) info.innerHTML="✅ 已创建：<b>"+esc(name)+"</b>（"+esc(post)+"）。无需告知账号密码——学生在登录页「班干部」处点击名字即可进入登记。"
+        +((MAT_FOLDERS||[]).length ? "" : '<br><span style="color:#e0a000">⚠️ 还没有材料文件夹，学生进去登记不了作业上交。请先到「材料收集」新建一个（如：数学作业）。</span>');
       if(nameEl) nameEl.value="";
       renderMembersList(mask); render(); toast("班干部账号已创建 ✓");
     }).catch(function(e){
@@ -10903,7 +10927,7 @@
       var no=String(x.号数).trim(), name=studentNameByNo(no)||no;
       var att={日期:ocrState.date, 学生姓名:name, 学号:no, 状态:"迟到", 时间:nowHMS(), 事由:"考勤表识别"};
       var pt={日期:ocrState.date, 学生姓名:name, 学号:no, 类型:"减分", 分值:Number(ocrState.deduct)||1, 原因:"迟到"};
-      chain=chain.then(function(){ return apiAdd("attendance", att); })
+      chain=chain.then(function(){ return apiAddAtt(att); })
                  .then(function(){ return apiAdd("points", pt); });
     });
     chain.then(function(){
@@ -10981,7 +11005,7 @@
       if(isMat){ props["类型"]=type; if(item) props["事项"]=item; }
       else { if(reason) props["事由"]=reason; }
       created++; names.push(name);
-      chain=chain.then(function(){ return isMat ? apiAddMat(props) : apiAdd("attendance", props); });
+      chain=chain.then(function(){ return isMat ? apiAddMat(props) : apiAddAtt(props); });
     });
     if(!created){ toast("没有可保存的记录"); return; }
     chain.then(function(){
@@ -11163,6 +11187,7 @@
   var _autoApplyTimer=null;
   function autoApply(mod){
     if(mod!=="attendance" && mod!=="materials") return;
+    refreshOfficerBrief();   /* 登记完成：同步刷新班干部的「今日登记台」（非班干部直接 return） */
     if(_autoApplyTimer) clearTimeout(_autoApplyTimer);
     setStatus("syncing");
     _autoApplyTimer=setTimeout(function(){ _autoApplyTimer=null; applyRules(mod); }, 500);
@@ -11717,14 +11742,17 @@
     if(!groups.length){
       var empty='<div class="empty-state" style="padding:32px 14px">'
         +'<svg viewBox="0 0 24 24" fill="none" stroke="#FFB3C1" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M4 7l2-3h12l2 3"/></svg>'
-        +'<div>还没有事项文件夹。先新建一个（如：数学作业），以后同类材料就直接从这个文件夹里进去操作。</div></div>';
+        +'<div>'+(isOfficer()
+            ? '还没有事项文件夹。请把下面的提醒语发给班主任，建好（如：数学作业）后你就能在这里点格子登记了。'
+            : '还没有事项文件夹。先新建一个（如：数学作业），以后同类材料就直接从这个文件夹里进去操作。')+'</div></div>'
+        + (isOfficer() ? officerAskHeadHTML() : '');
       var _add=isHead()?'<div class="mat-folder-card add" data-matFolderAdd>'
         +'<div style="font-size:30px;line-height:1">＋</div><div style="margin-top:8px;font-weight:600">新建文件夹</div>'
         +'<div class="mfc-meta">如：数学作业 / 社会实践表</div>'
         +'</div>':'';
       var cards='<div class="mat-folders-grid">'+_add+'</div>';
       if(wrap) wrap.innerHTML=empty+cards;
-      if(foot) foot.innerHTML="";
+      if(foot) foot.innerHTML=isOfficer()?'<span class="hint">文件夹由班主任建立；建好后你就能在这里点格子登记当天上交情况。</span>':"";
       return;
     }
     var cards=groups.map(function(g){
@@ -11750,6 +11778,90 @@
       +'</div>':'';
     if(wrap) wrap.innerHTML='<div class="mat-folders-grid">'+cards+addCard+'</div>';
     if(foot) foot.innerHTML='<span class="hint">同文件夹下的材料共享同一事项，不再每次都输。点文件夹卡片即可进入网格视图继续操作。</span>';
+  }
+
+  /* ================= 班干部 · 今日登记台（officer-desk-2026-09-12） =================
+     背景：班干部是学生，用手机在教室里登记，最需要一眼看到「今天该登记什么、登记完没」。
+     这里只做「只读统计 + 直达入口」（data-gomod 复用既有委托），不引入任何新的写入路径；
+     整体 try 包裹：任何数据异常都只丢这条卡，不会影响下面的网格本身。 */
+
+  /* 当前登录者的班干部职务（如「学习委员」「课代表·数学」）；非班干部返回空串 */
+  function myOfficerPost(){
+    if(!isOfficer()) return "";
+    return (myMemberRow && myMemberRow["post"]) ? String(myMemberRow["post"]) : "";
+  }
+  /* 班干部 · 某模块今天登记了几条（只统计今天，历次记录不计） */
+  function officerDoneToday(mod){
+    var td=todayStr(), list=(mod==="materials"?(DATA.materials||[]):(DATA.attendance||[]));
+    var n=0;
+    (list||[]).forEach(function(r){ if(String((r&&r["日期"])||"").slice(0,10)===td) n++; });
+    return n;
+  }
+  /* 班干部的登记事项（顺序即展示顺序；只列已开放的模块） */
+  var OFFICER_DUTIES=[
+    { mod:"materials",  icon:"📎", name:"作业收交", tip:"进文件夹 → 点格子标记未交 / 迟交" },
+    { mod:"attendance", icon:"🕒", name:"考勤点名", tip:"点格子标记迟到 / 缺勤 / 请假" }
+  ];
+  function officerBriefHTML(active){
+    try{
+      var td=todayStr(), dt=new Date(td+"T00:00:00");
+      var wk=["周日","周一","周二","周三","周四","周五","周六"][isNaN(dt.getTime())?0:dt.getDay()];
+      var stuN=(DATA.students||[]).length;
+      var rows=OFFICER_DUTIES.map(function(x){
+        var n=officerDoneToday(x.mod), done=n>0, here=(x.mod===active);
+        return '<div class="od-row'+(here?' cur':'')+'">'
+          +'<span class="od-ico">'+x.icon+'</span>'
+          +'<span class="od-main"><span class="od-nm">'+x.name+(here?'<i class="od-here">当前</i>':'')+'</span>'
+          +'<span class="od-tip">'+(done?('今天已登记 '+n+' 条'):x.tip)+'</span></span>'
+          +(done?'<span class="od-ok">✓</span>':'')
+          +'<a class="od-go" data-gomod="'+x.mod+'">'+(done?'再看看 ›':'去登记 ›')+'</a>'
+          +'</div>';
+      }).join("");
+      return '<div class="od-card">'
+        +'<div class="od-head">📋 今日登记台<span class="od-date">'+esc(td)+' '+wk+' · 全班 '+stuN+' 人</span></div>'
+        +rows
+        +'<div class="od-foot">登记内容会实时同步给班主任，家长端也能看到公示。拿不准的先跳过，交给班主任处理。</div>'
+        +'</div>';
+    }catch(e){ return ''; }
+  }
+  /* 班干部没有材料文件夹时的求助入口：一键复制一句能直接发给班主任的话 */
+  function officerAskHeadHTML(){
+    return '<div class="od-ask"><button type="button" class="btn-mini" data-matAskHead>📋 复制提醒语发给班主任</button></div>';
+  }
+  function officerAskHeadText(){
+    var nm=(myMemberRow&&myMemberRow["name"])?String(myMemberRow["name"]):"";
+    return "老师，我是"+(nm?nm+"，":"")+"材料收集里还没有事项文件夹，我没法登记作业上交情况。"
+      +"麻烦您在「材料收集」里新建一个（比如「数学作业」），我就能进去登记了。";
+  }
+  /* 点「复制提醒语」：把求助文案放进剪贴板，学生直接粘给班主任 */
+  function officerAskForFolder(){
+    copyText(officerAskHeadText()).then(function(ok){
+      if(ok) toast("已复制，粘贴发给班主任即可 ✓");
+      else toast("复制失败，请手动告诉班主任");
+    });
+  }
+  /* 登记完成后刷新「今日登记台」的统计。
+     登记走的是局部重绘（paintCell / renderGrid），而登记台是 renderInlineGrid 里
+     一次性拼进 list-<mod> 的 —— 不主动刷新的话，学生登记完仍看到「去登记」，
+     会以为没成功（e2e 抓到的真 bug）。这里只换掉那块卡：不重建网格、不丢滚动位置。 */
+  function refreshOfficerBrief(){
+    if(!isOfficer()) return;
+    var mod=gridState.mod;
+    if(mod!=="materials" && mod!=="attendance") return;
+    var box=document.getElementById("list-"+mod);
+    if(!box) return;
+    var old=box.querySelector(".od-card");
+    if(!old) return;
+    var tmp=document.createElement("div");
+    tmp.innerHTML=officerBriefHTML(mod);
+    var fresh=tmp.firstChild;
+    if(fresh) box.replaceChild(fresh, old);
+  }
+  /* 考勤登记：班干部 / 科任登记时同样落到班主任名下（与 apiAddMat 同一口径）。
+     否则记录会挂在学生自己的 uid 下，班主任和家长都读不到——这是本批次的关键修复点。 */
+  function apiAddAtt(props){
+    var _uid=(!isHead() && MSG_OWNER) ? MSG_OWNER : undefined;
+    return apiAdd("attendance", props, _uid);
   }
   /* ---------- 材料收交 · 生成通知文案（matnotify-2026-09-12） ----------
      班主任最费时间的活之一：收完作业在家长群里催交。这里把当前文件夹里的
@@ -11977,7 +12089,8 @@
   function renderInlineGrid(key){
     var box=document.getElementById("list-"+key); if(!box) return;
     gridScrollKeep();
-    box.innerHTML = '<div class="inl-grid">'
+    /* 班干部：网格之前先给一块「今日登记台」（只读统计 + 直达入口），其它身份不渲染 */
+    box.innerHTML = (isOfficer() ? officerBriefHTML(key) : '') + '<div class="inl-grid">'
       +'<div class="grid-toolbar" id="igToolbar"></div>'
       +'<div class="grid-banner" id="igBanner" hidden></div>'
       +'<div class="grid-table-wrap" id="igWrap"></div>'
@@ -12300,7 +12413,7 @@
             DATA.attendance=(DATA.attendance||[]).map(function(r){ return r._id===rec._id?Object.assign({},r,props,{_id:rec._id}):r; });
             return o;
           });
-          return apiAdd("attendance", props).then(function(o){
+          return apiAddAtt(props).then(function(o){
             (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id}, props));
           });
         });
@@ -12542,7 +12655,7 @@
     }
     else {
       // 新建：apiAddMat 会自动同步到 DATA.materials；attendance 走通用 apiAdd，需要手动 push
-      p = (mod==="materials" ? apiAddMat(props) : apiAdd("attendance", props).then(function(o){
+      p = (mod==="materials" ? apiAddMat(props) : apiAddAtt(props).then(function(o){
         var local=Object.assign({_id:o._id}, props);
         (DATA.attendance= DATA.attendance||[]).push(local);
       }));
@@ -12588,7 +12701,7 @@
         if(mod==="attendance" && per) props.时段=per;
         if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
         if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
-        else if(value){ chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+        else if(value){ chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAddAtt(props).then(function(){}); }); }
       });
     });
     chain.then(function(){
@@ -12618,7 +12731,7 @@
         if(mod==="attendance" && per) props.时段=per;
         if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
         if(rec){ chain=chain.then(function(){ return mod==="materials"?apiUpdMat(rec._id, props):apiUpdate("attendance", rec._id, props); }); }
-        else { chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAdd("attendance", props).then(function(){}); }); }
+        else { chain=chain.then(function(){ return mod==="materials"?apiAddMat(props):apiAddAtt(props).then(function(){}); }); }
       });
     });
     chain.then(function(){
@@ -12685,7 +12798,7 @@
         if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
         chain=chain.then(function(){
           if(mod==="materials") return apiAddMat(props);
-          return apiAdd("attendance", props).then(function(o){ (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id},props)); });
+          return apiAddAtt(props).then(function(o){ (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id},props)); });
         });
       });
     });
@@ -13225,6 +13338,7 @@
   });
   document.body.addEventListener("click",function(e){
     /* 材料收交 · 生成通知（弹层挂 body，必须走 body 委托） */
+    var askHead=e.target.closest("[data-matAskHead]"); if(askHead){ officerAskForFolder(); return; }
     var mnOpen=e.target.closest("[data-matnotify]"); if(mnOpen){ openMatNotify(); return; }
     var mnCopy=e.target.closest("[data-matnCopy]"); if(mnCopy){ matnCopy(); return; }
     var mnClose=e.target.closest("[data-matnClose]"); if(mnClose){ closeMatNotify(); return; }
@@ -14718,7 +14832,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "matnotify-2026-09-12";
+  var __APP_VERSION__ = "officer-desk-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -14864,7 +14978,12 @@
         box.innerHTML='<span style="font-size:12.5px;color:#9a9aa2">正在加载班干部名单…</span>';
         db.from(tbl("officers")).select("id,data").then(function(res){
           if(res.error){
-            box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2;line-height:1.8">暂未关联班干部<br>请班主任在「⚙️ 成员管理」里创建后重试</div>';
+            /* 区分两种失败：名单表还没建（后台未初始化） vs 表在但还没创建任何班干部 */
+            var _em=String((res.error&&(res.error.message||res.error.code))||"");
+            var _noTable=/pgrst205|schema cache|does not exist|42p01/i.test(_em);
+            box.innerHTML='<div style="text-align:center;padding:16px 6px;font-size:12.5px;color:#9a9aa2;line-height:1.8">'
+              +(_noTable ? '班干部名单还没启用<br>请把这句话转告班主任：后台需要先执行一次「班干部名单」初始化'
+                         : '暂未关联班干部<br>请班主任在「⚙️ 成员管理」里创建后重试')+'</div>';
             return;
           }
           var rows=(res.data||[]).map(function(r){ return r.data||{}; })
