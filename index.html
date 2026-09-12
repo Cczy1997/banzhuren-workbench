@@ -989,6 +989,23 @@
   /* 小组模式：组间走廊 */
   .seat-aisle-h{display:flex;align-items:center;justify-content:center;font-size:11px;color:#b09aad;writing-mode:vertical-rl;letter-spacing:2px;background:repeating-linear-gradient(0deg,#faf6f9,#faf6f9 6px,#f1e9ef 6px,#f1e9ef 12px)}
   .seat-aisle{min-height:40px;background:repeating-linear-gradient(0deg,#faf6f9,#faf6f9 8px,#f1e9ef 8px,#f1e9ef 16px)}
+  /* 座位智能编排弹层 */
+  .sa-sheet{max-width:660px}
+  .sa-sub{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin:-6px 0 12px}
+  .sa-sub b{color:var(--pink-d)}
+  .sa-bars{display:flex;flex-direction:column;gap:9px;margin-bottom:12px}
+  .sa-bar-h{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--ink)}
+  .sa-bar-h b{color:var(--pink-d)}
+  .sa-bar-t{height:8px;border-radius:99px;background:#f3eef1;overflow:hidden;margin-top:4px}
+  .sa-bar-t i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#9DB9F8,#3D6FE0)}
+  .sa-bar-hint{font-size:11.5px;color:var(--ink-soft);margin-top:3px}
+  .sa-grid{margin:2px 0 4px}
+  .sa-grid .seatcell{min-height:52px;padding:4px 5px}
+  .sa-grid .seatname{font-size:12px}
+  .sa-cell .sa-meta{font-size:10.5px;color:#b6b0b4;margin-top:2px;white-space:nowrap}
+  .sa-notes{background:#FAFBFC;border:1px dashed var(--line);border-radius:12px;padding:9px 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.7;margin:10px 0}
+  .sa-foot{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .sa-foot>span{margin-right:auto;font-size:12.5px;color:var(--ink-soft)}
   .sc-sel{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;color:var(--ink)}
   .btn-grid.btn-xls{background:#E7F7EF;color:#1f8a5b;border-color:#bfe7d2}
   .btn-grid.btn-xls:hover{background:#D6F2E6}
@@ -2195,6 +2212,7 @@
         {name:"姓名",type:"text",required:true,ph:"学生姓名"},
         {name:"性别",type:"select",options:["男","女"]},
         {name:"生日",type:"date",ph:"如 2013-05-20（用于星座显示与生日提醒，可从表格批量补全）"},
+        {name:"身高",type:"number",ph:"厘米，如 158（用于座位智能编排）"},
         {name:"学号",type:"text",ph:"01"},
         {name:"座位号",type:"text",ph:"1排1"},
         {name:"学习小组",type:"select",options:["第1组","第2组","第3组","第4组","第5组","第6组","第7组","第8组"]},
@@ -5923,6 +5941,7 @@
       if(r["性别"]) sub.push(r["性别"]);
       if(r["学习小组"]) sub.push(r["学习小组"]);
       var _z=zodiacOf(r["生日"]); if(_z) sub.push(_z.icon+_z.name);
+      if(r["身高"]) sub.push(parseFloat(r["身高"])+"cm");
       var _d2b=daysToBirthday(r["生日"]);
       var _bday=(_d2b!=null && _d2b<=7) ? '<span class="stu-bday" title="'+esc(_d2b===0?"今天生日":"还有 "+_d2b+" 天生日")+'">🎂</span>' : '';
       var tags=(r["关注标签"]&&(Array.isArray(r["关注标签"])?r["关注标签"]:[r["关注标签"]]).filter(Boolean))||[];
@@ -6621,6 +6640,7 @@
     }
     ctrl+='<button class="btn-grid" data-seat="applylayout">应用布局</button>'
       +'<button class="btn-grid" data-seat="fill">👥 按名单排座</button>'
+      +'<button class="btn-grid" data-seat="auto">🪄 智能编排</button>'
       +'<button class="btn-grid btn-xls" data-seat="excel">📊 导出座位表(Excel)</button>'
       +'<button class="btn-grid" data-seat="printseat">🖨️ 打印(讲台视角)</button>'
       +'<span class="sc-hint">点两位同学可<b>交换</b>；点空位可<b>添加</b>同学；讲台两侧座位点开可单独安排'+(isGroup?'；组间为<b>走廊</b>':'')+'</span>'
@@ -6734,6 +6754,8 @@
       saveSeatLayout(); renderList("seats"); toast("座位布局已更新 ✓");
     } else if(act==="fill"){
       fillSeatsFromRoster();
+    } else if(act==="auto"){
+      openSeatAuto();
     } else if(act==="excel"){
       exportSeatExcel();
     } else if(act==="printseat"){
@@ -6937,6 +6959,278 @@
     return Promise.all(ids.map(function(id){ return apiDelete("seats", id).catch(function(){}); })).then(function(){
       DATA.seats=(DATA.seats||[]).filter(function(r){ return !delIds[r._id]; });
     });
+  }
+
+  /* ---------- 座位智能编排（身高 · 行为 · 星座） ----------
+     评分制 + 多次随机重启爬山，种子固定 → 同一批数据算出的方案可复现（「再算一次」才换种子）。
+     · 身高（45%）：同列相邻两排「前排比后排高」按厘米差扣分 → 矮个在前高个在后
+     · 行为（40%）：行为观察「需引导」条数 = 关注负荷（封顶 3）
+         - 负荷≥1 的同学尽量排前 1/3（离讲台近、好照顾）
+         - 两个负荷≥2 的同学正交相邻大扣分；隔走廊 / 空位不算相邻
+         - 高负荷旁边坐「值得肯定且零负荷」的同学 → 以优带差加分
+     · 星座（15%）：火土风水四元素，相邻同元素轻扣分、每行元素够多样轻加分（小组讨论氛围调剂） */
+  function seatZodiacElement(raw){
+    var z=zodiacOf(raw); if(!z) return "";
+    var n=z.name;
+    if(n==="白羊座"||n==="狮子座"||n==="射手座") return "火";
+    if(n==="金牛座"||n==="处女座"||n==="摩羯座") return "土";
+    if(n==="双子座"||n==="天秤座"||n==="水瓶座") return "风";
+    if(n==="巨蟹座"||n==="天蝎座"||n==="双鱼座") return "水";
+    return "";
+  }
+  function seatBehaviorLoad(){
+    var L={};
+    (DATA.behavior||[]).forEach(function(r){
+      var n=String(r["学生姓名"]||"").trim(); if(!n) return;
+      if(!L[n]) L[n]={guide:0,good:0};
+      if(r["倾向"]==="需引导") L[n].guide++;
+      else if(r["倾向"]==="值得肯定") L[n].good++;
+    });
+    return L;
+  }
+  function seatMulberry32(a){
+    return function(){
+      a|=0; a=a+0x6D2B79F5|0;
+      var t=Math.imul(a^a>>>15,1|a);
+      t=t+Math.imul(t^t>>>7,61|t)^t;
+      return ((t^t>>>14)>>>0)/4294967296;
+    };
+  }
+  function seatAutoPlan(seed){
+    var isGroup=seatLayout.mode==="group";
+    var R=1, colList=[], groups=1, cpg=1;
+    if(isGroup){
+      groups=seatLayout.groups; cpg=seatLayout.colsPerGroup; R=seatLayout.rowsPerGroup;
+      for(var gi=0;gi<groups;gi++){ for(var k=0;k<cpg;k++) colList.push(gi*cpg+1+k); }
+    } else {
+      R=seatLayout.rows;
+      for(var c=1;c<=seatLayout.cols;c++) colList.push(c);
+    }
+    var colN=colList.length, cap=R*colN;
+    var st=(DATA.students||[]).slice();
+    if(!st.length) return {err:"请先在「学生档案」录入学生名单"};
+    if(st.length>cap) return {err:"座位不够：名单 "+st.length+" 人，当前布局只有 "+cap+" 个座位。先在座位页「应用布局」调大再编排。"};
+    /* 身高：缺失按中位数补齐（缺得太多排序不可信，会在方案说明里提醒） */
+    var hs=st.map(function(s){ var h=parseFloat(s["身高"]); return (!isNaN(h)&&h>0)?h:null; });
+    var known=hs.filter(function(h){ return h!=null; }).sort(function(a,b){ return a-b; });
+    var med=known.length?known[Math.floor(known.length/2)]:150;
+    var heights=hs.map(function(h){ return h!=null?h:med; });
+    var missH=hs.length-known.length;
+    var L=seatBehaviorLoad();
+    var load=st.map(function(s){ var l=L[String(s["姓名"]||"").trim()]||{guide:0,good:0}; return {g:Math.min(3,l.guide),o:Math.min(3,l.good)}; });
+    var elem=st.map(function(s){ return seatZodiacElement(s["生日"]); });
+    var zMiss=elem.filter(function(x){ return !x; }).length;
+    var N=st.length;
+    /* 只用前 N 个格（行优先，从讲台往后铺），空位自然留在后排 */
+    var vPairs=[];   /* 同列上下相邻（身高用） */
+    for(var ci=0;ci<colN;ci++){
+      for(var r=1;r<R;r++){
+        var i1=(r-1)*colN+ci, i2=r*colN+ci;
+        if(i2<N) vPairs.push([i1,i2]);
+      }
+    }
+    function isAisle(ci){ return isGroup && ((ci+1)%cpg===0); }
+    var oPairs=[];   /* 正交相邻（行为/星座用）：横向 + 纵向，跨走廊不算 */
+    for(var r2=0;r2<R;r2++){
+      for(var ci2=0;ci2<colN-1;ci2++){
+        if(isAisle(ci2)) continue;
+        var j1=r2*colN+ci2, j2=r2*colN+ci2+1;
+        if(j1<N&&j2<N) oPairs.push([j1,j2]);
+      }
+      for(var ci3=0;ci3<colN;ci3++){
+        var k1=r2*colN+ci3, k2=(r2+1)*colN+ci3;
+        if(k2<N) oPairs.push([k1,k2]);
+      }
+    }
+    function score(arr){
+      var hPen=0, inv=0, bPen=0, mentor=0, front=0, zPen=0, zRow=0, ggPair=0;
+      for(var p=0;p<vPairs.length;p++){
+        var a=heights[arr[vPairs[p][0]]], b=heights[arr[vPairs[p][1]]];
+        if(a>b){ hPen+=(a-b); inv++; }
+      }
+      for(var q=0;q<oPairs.length;q++){
+        var si=arr[oPairs[q][0]], sj=arr[oPairs[q][1]];
+        var g1=load[si].g, g2=load[sj].g;
+        if(g1>=2&&g2>=2) bPen+=12;
+        else if(g1>=1&&g2>=1){ bPen+=5; ggPair++; }
+        if((g1>=1&&g2===0&&load[sj].o>=1)||(g2>=1&&g1===0&&load[si].o>=1)) mentor+=3;
+        var e1=elem[si], e2=elem[sj];
+        if(e1&&e2&&e1===e2) zPen+=2;
+      }
+      for(var i=0;i<N;i++){
+        var rr=Math.floor(i/colN)+1;
+        if(load[arr[i]].g>=1) front+=(R-rr+1)*load[arr[i]].g*1.5;
+      }
+      for(var r3=1;r3<=R;r3++){
+        var set={}, cnt=0, base=(r3-1)*colN;
+        for(var ci4=0;ci4<colN;ci4++){
+          var ii=base+ci4; if(ii>=N) break;
+          var el=elem[arr[ii]]; if(el){ set[el]=1; cnt++; }
+        }
+        if(cnt>=4 && Object.keys(set).length>=3) zRow+=1.5;
+      }
+      return { total:(-hPen*2 - bPen*4 + mentor*2 + front + zRow*2 - zPen),
+               hPen:hPen, inv:inv, bPen:bPen, mentor:mentor, front:front, zPen:zPen, zRow:zRow, ggPair:ggPair };
+    }
+    var rnd=seatMulberry32(seed||20260912);
+    var best=null, bestS=-Infinity, bestRaw=null;
+    var RESTART=12, STEPS=1800;
+    for(var it=0; it<RESTART; it++){
+      var arr=new Array(N);
+      if(it===0){
+        /* 初始解：身高从矮到高铺（同高时负荷大的优先靠前） */
+        var order=st.map(function(_,i){ return i; }).sort(function(a,b){ return (heights[a]-heights[b]) || (load[b].g-load[a].g); });
+        for(var z0=0;z0<N;z0++) arr[z0]=order[z0];
+      } else {
+        for(var z1=0;z1<N;z1++) arr[z1]=z1;
+        for(var z2=N-1;z2>0;z2--){ var sw=(rnd()*(z2+1))|0; var tt=arr[z2]; arr[z2]=arr[sw]; arr[sw]=tt; }
+      }
+      var cur=score(arr);
+      for(var step=0;step<STEPS;step++){
+        var i=(rnd()*N)|0, j=(rnd()*N)|0;
+        if(i===j) continue;
+        var tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+        var cand=score(arr);
+        if(cand.total>=cur.total || rnd()<0.04){ cur=cand; }
+        else { tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp; }
+      }
+      if(cur.total>bestS){ bestS=cur.total; best=arr.slice(); bestRaw=cur; }
+    }
+    var assign=[];
+    for(var m=0;m<N;m++){
+      var rr2=Math.floor(m/colN)+1;
+      assign.push({ st:st[best[m]], r:rr2, c:colList[m%colN], h:heights[best[m]], gi:load[best[m]].g });
+    }
+    /* 展示用三维子分（0-100） */
+    var sHeight=Math.max(0,Math.round(100-bestRaw.hPen*2));
+    var gTotal=load.reduce(function(acc,l){ return acc+l.g; },0);
+    var idealFront=gTotal*1.5*R;
+    var sBeh=Math.max(0,Math.min(100,Math.round(70 - bestRaw.bPen*3 + bestRaw.mentor*3 + (idealFront?30*bestRaw.front/idealFront:0))));
+    var sZod=Math.max(0,Math.min(100,Math.round(100 - bestRaw.zPen*5 + Math.min(15,bestRaw.zRow*3))));
+    /* 方案说明 */
+    var frontRows=Math.max(1,Math.ceil(R/3));
+    var guideAll=0, guideFront=0;
+    assign.forEach(function(a){ if(a.gi>=1){ guideAll++; if(a.r<=frontRows) guideFront++; } });
+    var notes=[];
+    if(guideAll){
+      notes.push("有 "+guideAll+" 位同学带「需引导」记录，其中 "+guideFront+" 位安排在前 "+frontRows+" 排"+(guideFront<guideAll?"，其余按相邻约束就近放置":""));
+      if(bestRaw.ggPair>0) notes.push("仍有 "+bestRaw.ggPair+" 对需引导同学相邻——座位紧张时难免，可点两位同学手动交换微调");
+      else notes.push("需引导的同学已互相隔开 ✓");
+      if(bestRaw.mentor>0) notes.push("以优带差："+Math.round(bestRaw.mentor/3)+" 处「需引导」同学旁边坐的是值得肯定的同学（座位图里标 🎯 的是重点关注对象）");
+    } else {
+      notes.push("还没有「需引导」的行为记录，本次主要按身高编排；先在「📝 行为观察」记几条，编排会更懂你的班");
+    }
+    if(missH>0) notes.push(missH+" 人未填身高，按中位数 "+med+"cm 参与排序——补全身高后重排会更准");
+    if(bestRaw.inv>0) notes.push("身高仍有 "+bestRaw.inv+" 处「前排挡后排」，多为行为约束让位或身高缺失");
+    else notes.push("身高完全从矮到高 ✓");
+    if(zMiss>0) notes.push(zMiss+" 人未填生日，不参与星座平衡");
+    if(cap-N>0) notes.push("空出 "+(cap-N)+" 个座位（后排），换座位表布局后可重新编排");
+    return { assign:assign, subs:{h:sHeight,b:sBeh,z:sZod}, notes:notes,
+             R:R, colN:colN, colList:colList, isGroup:isGroup, groups:groups, cpg:cpg, empty:cap-N };
+  }
+  /* ---------- 编排弹层（append 到 body，事件走 body 委托） ---------- */
+  var seatAutoCur=null;
+  function openSeatAuto(reseed){
+    if(!canEdit()){ toast("仅班主任可以编排座位"); return; }
+    var plan=seatAutoPlan(reseed?(Date.now()%100000000):20260912);
+    if(plan.err){ toast(plan.err); return; }
+    seatAutoCur=plan;
+    var m=document.getElementById("seatAutoMask");
+    if(!m){ m=document.createElement("div"); m.id="seatAutoMask"; m.className="mask"; document.body.appendChild(m); }
+    m.innerHTML=renderSeatAutoSheet(plan);
+    m.classList.add("show");
+    m.onclick=function(e){ if(e.target===m || (e.target.closest&&e.target.closest("[data-saclose]"))) m.classList.remove("show"); };
+  }
+  function saScoreBar(label,val,hint){
+    return '<div class="sa-bar"><div class="sa-bar-h"><span>'+label+'</span><b>'+val+' 分</b></div>'
+      +'<div class="sa-bar-t"><i style="width:'+Math.max(4,Math.min(100,val))+'%"></i></div>'
+      +(hint?'<div class="sa-bar-hint">'+esc(hint)+'</div>':'')+'</div>';
+  }
+  function renderSeatAutoSheet(plan){
+    var GENDER={};
+    (DATA.students||[]).forEach(function(s){ if(s["姓名"]) GENDER[s["姓名"]]=s["性别"]; });
+    function saCell(a){
+      if(!a) return '<div class="seatcell empty sa-cell"></div>';
+      var g=GENDER[a.st["姓名"]];
+      var z=zodiacOf(a.st["生日"]);
+      return '<div class="seatcell sa-cell '+(g==="男"?"boy":(g==="女"?"girl":"unk"))+'" title="'+esc(a.st["姓名"]||"")+'">'
+        +'<div class="seatname">'+esc(a.st["姓名"]||"")+'</div>'
+        +'<div class="sa-meta">'+Math.round(a.h)+'cm'+(z?" · "+z.icon:"")+(a.gi>=2?" · 🎯":"")+'</div>'
+        +'</div>';
+    }
+    var tmpl="34px";
+    if(plan.isGroup){
+      for(var gi=0;gi<plan.groups;gi++){
+        for(var k=0;k<plan.cpg;k++) tmpl+=" 1fr";
+        if(gi<plan.groups-1) tmpl+=" 22px";
+      }
+    } else tmpl+=" repeat("+plan.colN+",1fr)";
+    var map={};
+    plan.assign.forEach(function(a){ map[a.r+"_"+a.c]=a; });
+    var grid='<div class="seat-scroll"><div class="seatgrid sa-grid" style="grid-template-columns:'+tmpl+'">';
+    grid+='<div class="seat-h corner"></div>';
+    if(plan.isGroup){
+      for(var g1=0;g1<plan.groups;g1++){
+        var gs=g1*plan.cpg+1;
+        for(var k1=0;k1<plan.cpg;k1++) grid+='<div class="seat-h">'+(gs+k1)+'</div>';
+        if(g1<plan.groups-1) grid+='<div class="seat-aisle-h">走廊</div>';
+      }
+    } else {
+      for(var c1=1;c1<=plan.colN;c1++) grid+='<div class="seat-h">'+c1+'</div>';
+    }
+    for(var r=1;r<=plan.R;r++){
+      grid+='<div class="seat-h rowh">'+r+'</div>';
+      if(plan.isGroup){
+        for(var g2=0;g2<plan.groups;g2++){
+          var gs2=g2*plan.cpg+1;
+          for(var k2=0;k2<plan.cpg;k2++) grid+=saCell(map[r+"_"+(gs2+k2)]);
+          if(g2<plan.groups-1) grid+='<div class="seat-aisle"></div>';
+        }
+      } else {
+        for(var c2=0;c2<plan.colN;c2++) grid+=saCell(map[r+"_"+plan.colList[c2]]);
+      }
+    }
+    grid+='</div></div>';
+    return '<div class="sheet sa-sheet">'
+      +'<h3>🪄 智能编排 · 最佳座位方案<button type="button" class="x" data-saclose="1">×</button></h3>'
+      +'<div class="sa-sub">综合评分 <b>身高 45% · 行为 40% · 星座 15%</b>，从 12 组随机起点爬山取最优；应用后仍可点两位同学手动交换，讲台两侧座位不受影响。</div>'
+      +'<div class="sa-bars">'
+      +saScoreBar("身高秩序",plan.subs.h,"矮个在前、高个在后，不挡视线")
+      +saScoreBar("行为分布",plan.subs.b,"需引导同学靠前、互相隔开、以优带差")
+      +saScoreBar("星座平衡",plan.subs.z,"四元素相邻错开，小组讨论氛围更均衡")
+      +'</div>'
+      +grid
+      +'<div class="sa-notes">'+plan.notes.map(function(n){ return '<div>· '+esc(n)+'</div>'; }).join("")+'</div>'
+      +'<div class="sa-foot"><span>共 '+plan.assign.length+' 人'+(plan.empty?(" · 空出 "+plan.empty+" 座"):"")+'</span>'
+      +'<button type="button" class="btn-mini" data-seatact="redo">🔄 再算一次</button>'
+      +'<button type="button" class="btn-grid" data-seatact="apply">✔ 应用此方案</button>'
+      +'</div></div>';
+  }
+  function applySeatPlan(){
+    var plan=seatAutoCur;
+    if(!plan||!plan.assign){ toast("方案已失效，请重新编排"); return; }
+    if(!confirm("应用方案将清空当前网格座位并按最佳方案重排（讲台两侧座位保留），确定？")) return;
+    setStatus("syncing");
+    var delJobs=(DATA.seats||[]).filter(function(r){ return r["排号"]!=="讲台"; }).map(function(r){ return apiDelete("seats", r._id).catch(function(){}); });
+    Promise.all(delJobs).then(function(){
+      DATA.seats=(DATA.seats||[]).filter(function(r){ return r["排号"]==="讲台"; });
+      var addJobs=plan.assign.map(function(a){
+        var s=a.st||{};
+        var name=s["姓名"]||"", no=s["学号"]||"";
+        return apiAdd("seats",{排号:a.r+"排",列号:a.c+"列",学生姓名:name,学号:no}).then(function(o){
+          o["排号"]=a.r+"排"; o["列号"]=a.c+"列"; o["学生姓名"]=name; o["学号"]=no; DATA.seats.push(o);
+        });
+      });
+      return Promise.all(addJobs);
+    }).then(function(){
+      return dedupeSeatsKeepLatest();
+    }).then(function(){
+      setStatus("ok");
+      var m=document.getElementById("seatAutoMask"); if(m) m.classList.remove("show");
+      seatAutoCur=null;
+      toast("已按最佳方案排座 "+plan.assign.length+" 人 ✓");
+      renderList("seats");
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("排座失败，正在恢复…"); refreshAll().then(function(){ renderList("seats"); }); });
   }
 
   /* ---------- 总览：班级课表 + 当天待办任务 + 荣誉榜 ---------- */
@@ -7692,6 +7986,7 @@
     if(st){
       if(st["性别"]) info.push(["性别",st["性别"]]);
       if(st["学号"]) info.push(["学号",st["学号"]]);
+      if(st["身高"]) info.push(["身高",parseFloat(st["身高"])+"cm"]);
       var _bd=birthdayOf(st["生日"]);
       if(_bd){
         var _age=stuAgeBd(_bd);
@@ -12638,6 +12933,14 @@
     if(bhact){ onBehAct(bhact.getAttribute("data-behact"), bhact.getAttribute("data-beharg")); return; }
     var bhstu=e.target.closest("[data-behstu]");
     if(bhstu){ openBehDetail(bhstu.getAttribute("data-behstu")); return; }
+    /* 座位智能编排弹层按钮（apply/redo）：弹层 appendChild 到 body，必须走 body 委托 */
+    var saBtn=e.target.closest("[data-seatact]");
+    if(saBtn){
+      var saA=saBtn.getAttribute("data-seatact");
+      if(saA==="apply"){ applySeatPlan(); }
+      else if(saA==="redo"){ openSeatAuto(true); }
+      return;
+    }
     /* 清空菜单（本周 / 历史 / 全部）：必须挂在 body 上——按钮可能在 #content 内（模块头部），
        也可能在网格模态框内（#gridMask 属 body，收不到 #content 的委托），菜单本身也挂在 body 下。 */
     var cmBtn=e.target.closest("[data-clearmenu]");
@@ -12862,6 +13165,7 @@
     "关系称谓":"关系","称谓":"关系",
     "家长":"家长姓名","家长称呼":"家长姓名","家长名":"家长姓名",
     "工作单位":"单位","公司":"单位","所在公司":"单位",
+    "身高cm":"身高","身高厘米":"身高","height":"身高",
     "家庭住址":"家庭住址","住址":"家庭住址","家庭地址":"家庭住址","居所":"家庭住址","居住地址":"家庭住址",
     "名称标题":"名称","荣誉名称":"名称","处分名称":"名称","荣誉处分":"名称",
     "评语内容":"评语","寄语":"评语","班主任评语":"评语",
@@ -14092,7 +14396,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "bday-merge-2026-09-11";
+  var __APP_VERSION__ = "seatauto-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
