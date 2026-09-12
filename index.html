@@ -1578,6 +1578,24 @@
   .tb-go:hover{text-decoration:underline}
   .tb-bd{display:inline-block;background:#FFF4F7;border:1px solid #F0DAE3;border-radius:999px;padding:1px 9px;margin:2px 6px 2px 0;font-size:12.5px;cursor:pointer}
   .tb-more{font-style:normal;color:var(--ink-soft);font-size:12px}
+  /* 材料收交 · 生成通知弹层（matnotify-2026-09-12） */
+  .matn-sheet{max-width:560px}
+  .matn-sub{margin-left:8px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+  .matn-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .matn-btns{display:flex;gap:10px;margin-top:12px}
+  .matn-lb{font-size:12.5px;color:var(--ink-soft);font-weight:700}
+  .matn-sel{padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font-size:13px;font-family:inherit}
+  .matn-tab{border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .matn-tab.on{background:#33405C;border-color:#33405C;color:#fff}
+  .matn-chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-soft);cursor:pointer}
+  .matn-hint{font-size:12px;color:var(--ink-soft)}
+  .matn-ta{width:100%;box-sizing:border-box;min-height:152px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#FCFDFF;color:var(--ink);font-size:13.5px;line-height:1.75;font-family:inherit;white-space:pre-wrap;resize:vertical}
+  .matn-ta:focus{outline:none;border-color:#B7C9F2}
+  .matn-btn{flex:1;padding:10px 14px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .matn-btn.primary{background:#33405C;border-color:#33405C;color:#fff}
+  .matn-btn.primary:hover{filter:brightness(1.08)}
+  .matn-tip{margin-top:9px;font-size:11.5px;color:var(--ink-soft);line-height:1.6}
+
   /* 总览待办卡 · 一行式快速添加（低调中性配色，与全站输入框一致） */
   .affq-bar{display:flex;gap:8px;align-items:center;margin:0 0 10px}
   .affq-bar input[type="text"]{flex:1;min-width:0;padding:8px 11px;border:1px solid var(--line);border-radius:11px;background:#fff;font-size:14px;color:var(--ink);font-family:inherit}
@@ -11733,6 +11751,142 @@
     if(wrap) wrap.innerHTML='<div class="mat-folders-grid">'+cards+addCard+'</div>';
     if(foot) foot.innerHTML='<span class="hint">同文件夹下的材料共享同一事项，不再每次都输。点文件夹卡片即可进入网格视图继续操作。</span>';
   }
+  /* ---------- 材料收交 · 生成通知文案（matnotify-2026-09-12） ----------
+     班主任最费时间的活之一：收完作业在家长群里催交。这里把当前文件夹里的
+     「未交 / 迟交」名单直接拼成一段可粘贴到微信的文案，两种版本：
+       · 号数版（默认）——只列号数，符合本应用「公示不给姓名」的既有约定，可直接发班级群
+       · 姓名版——列姓名，便于逐个家长私发或自己核对
+     谁都交齐时不生成催交文案，而是给一段表扬版（催交之外也有正向反馈）。 */
+  var matnState = { item:"", type:"", dates:[], date:"", byName:false, withLate:true };
+  /* 当前文件夹下「有记录的日期」，倒序；一条记录都没有时用文件夹登记日期兜底 */
+  function matNotifyDates(item, type){
+    var set={};
+    (DATA.materials||[]).forEach(function(r){
+      if(String(r["事项"]||"").trim()!==item) return;
+      if((r["类型"]||"作业提交")!==type) return;
+      var d=String(r["日期"]||"").slice(0,10); if(d) set[d]=1;
+    });
+    var arr=Object.keys(set).sort().reverse();
+    if(!arr.length){ var fd=matFixedDate(); if(fd) arr=[fd]; }
+    return arr;
+  }
+  /* 某一天的收交情况：未交 / 迟交名单（号数 + 姓名）+ 已登记人数。
+     只统计「登记过的」格子——没登记的不算未交，避免误伤还没登记的学生。 */
+  function matDayPick(item, type, date){
+    var un=[], late=[], tot=0;
+    gridStudents().forEach(function(s){
+      var no=String(s["学号"]||""); if(!no) return;
+      var rec=gridFindRecord("materials", no, date);   // 依赖 gridState.curItem/curType，与当前打开的文件夹一致
+      if(!rec) return;
+      tot++;
+      var v=String(rec["状态"]||"");
+      if(v==="未交") un.push({ no:no, name:String(s["姓名"]||"") });
+      else if(v==="迟交") late.push({ no:no, name:String(s["姓名"]||"") });
+    });
+    return { date:date, un:un, late:late, tot:tot };
+  }
+  /* 拼文案。picks 为若干天的收交情况；单日 → 明细版，多日 → 汇总版 */
+  function matNotifyText(picks, opts){
+    opts=opts||{};
+    var clsName=opts.clsName||"班级";
+    var label=String(opts.item||"").trim() || String(opts.type||"作业提交");
+    var byName=!!opts.byName, withLate=opts.withLate!==false;
+    var head="【"+clsName+" · "+label+"】";
+    picks=picks||[];
+    if(!picks.length) return head+"\n（暂无登记记录：先在网格里登记收交情况，再来生成通知）";
+    function names(list){
+      return list.map(function(x){ return byName ? (x.name||x.no) : (x.no+"号"); }).join("、");
+    }
+    function missLines(p){
+      var l=[];
+      if(p.un.length) l.push("未交（"+p.un.length+"人）："+names(p.un));
+      if(withLate && p.late.length) l.push("迟交（"+p.late.length+"人）："+names(p.late));
+      return l;
+    }
+    if(picks.length===1){
+      var p=picks[0], ls=missLines(p);
+      if(!ls.length) return head+" "+fmtDate(p.date)+"收交\n✅ 全班已交齐，感谢各位家长的配合！";
+      return head+" "+fmtDate(p.date)+"收交\n"+ls.join("\n")+"\n请相关家长提醒孩子明天补交，感谢配合 🙏";
+    }
+    var any=false;
+    var body=picks.map(function(p){
+      var ls=missLines(p);
+      if(ls.length) any=true;
+      return fmtDate(p.date)+"  "+(ls.length?ls.join("；"):"已全部交齐 ✅");
+    }).join("\n");
+    var ds=picks.map(function(p){ return p.date; }).sort();
+    return head+" "+fmtDate(ds[0])+"–"+fmtDate(ds[ds.length-1])+" 收交汇总\n"+body
+      +(any?"\n请相关家长提醒孩子补交，感谢配合 🙏":"");
+  }
+  function matnPicks(){
+    if(!matnState.dates.length) return [];
+    if(matnState.date==="__all__") return matnState.dates.slice().reverse().map(function(d){ return matDayPick(matnState.item, matnState.type, d); });
+    return [matDayPick(matnState.item, matnState.type, matnState.date)];
+  }
+  function matnRefresh(){
+    var ta=document.getElementById("matnTa"); if(!ta) return;
+    var picks=matnPicks();
+    ta.value=matNotifyText(picks, {
+      item:matnState.item, type:matnState.type, byName:matnState.byName, withLate:matnState.withLate,
+      clsName:(DATA.cls && DATA.cls.班级名称) || "班级"
+    });
+    var hint=document.getElementById("matnHint");
+    if(hint){
+      var miss=0, late=0;
+      picks.forEach(function(p){ miss+=p.un.length; late+=p.late.length; });
+      hint.textContent = miss
+        ? ("共 "+miss+" 人次未交"+(late?("、" + late + " 人次迟交"):"")+"，复制后直接发家长群即可")
+        : "这段时间没有未交记录，已生成「全部交齐」版文案";
+    }
+  }
+  function closeMatNotify(){ var m=document.getElementById("matnMask"); if(m) m.remove(); }
+  function openMatNotify(){
+    if(!canEdit()){ toast("仅班主任可操作"); return; }
+    var item=String(gridState.curItem||"").trim(), type=gridState.curType||"作业提交";
+    if(!item){ toast("请先打开一个材料文件夹"); return; }
+    var dates=matNotifyDates(item, type);
+    matnState={ item:item, type:type, dates:dates, date:dates[0]||"", byName:false, withLate:true };
+    var old=document.getElementById("matnMask"); if(old) old.remove();
+    var wd=["日","一","二","三","四","五","六"];
+    var optHTML="";
+    if(dates.length>1) optHTML+='<option value="__all__">汇总（共 '+dates.length+' 日）</option>';
+    dates.forEach(function(d){
+      var w=wd[new Date(d+"T00:00:00").getDay()||0];
+      optHTML+='<option value="'+esc(d)+'">'+esc(fmtDate(d)+" 周"+w)+'</option>';
+    });
+    var ov=document.createElement("div");
+    ov.className="mask show"; ov.id="matnMask";
+    ov.innerHTML='<div class="sheet matn-sheet">'
+      +'<h3>📋 生成通知<span class="matn-sub">'+esc(item)+'</span>'
+      +'<button type="button" class="x" data-matnClose="1">×</button></h3>'
+      +'<div class="matn-row"><span class="matn-lb">范围</span>'
+      +'<select class="matn-sel" data-matnDate>'+optHTML+'</select>'
+      +'<span class="matn-lb">名单</span>'
+      +'<button type="button" class="matn-tab on" data-matnName="0">号数版</button>'
+      +'<button type="button" class="matn-tab" data-matnName="1">姓名版</button>'
+      +'</div>'
+      +'<div class="matn-row matn-row2">'
+      +'<label class="matn-chk"><input type="checkbox" data-matnLate checked> 含「迟交」</label>'
+      +'<span class="matn-hint" id="matnHint"></span>'
+      +'</div>'
+      +'<textarea class="matn-ta" id="matnTa" spellcheck="false"></textarea>'
+      +'<div class="matn-btns">'
+      +'<button type="button" class="matn-btn" data-matnClose="1">关闭</button>'
+      +'<button type="button" class="matn-btn primary" data-matnCopy="1">📋 复制文案</button>'
+      +'</div>'
+      +'<div class="matn-tip">号数版只列号数（可直接发班级群）；姓名版便于逐个家长私发。文案可在框里直接改。</div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    matnRefresh();
+  }
+  function matnCopy(){
+    var ta=document.getElementById("matnTa"); if(!ta) return;
+    var txt=String(ta.value||"");
+    if(!txt.trim()){ toast("没有可复制的内容"); return; }
+    copyText(txt).then(function(ok){
+      toast(ok ? "已复制 ✓ 去家长群粘贴即可" : "复制失败，请手动全选复制");
+    });
+  }
   /* 材料文件夹：新建对话框（名称 + 类型二选一）*/
   function matNewFolderDialog(){
     var old=document.getElementById("matNewMask"); if(old) old.remove();
@@ -12189,6 +12343,7 @@
        +'<span class="gt-sep"></span>'
        +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为已交（只补当天）">🪄 一键补齐已交</button>'
        +(canMarkMat()?'<button class="gt-btn primary" data-quickno="'+mod+'" title="直接输入没交的号数，一次标记到位">🔢 号数快登</button>':'')
+       +(canEdit()?'<button class="gt-btn" data-matnotify="materials" title="把当前文件夹的未交 / 迟交名单拼成一段可直接发家长群的通知文案（号数版保护隐私，姓名版便于私发）">📋 生成通知</button>':'')
        +(off?''
           :'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
            +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
@@ -13061,7 +13216,27 @@
   document.getElementById("ruleSave").addEventListener("click",saveRulesConfig);
   document.getElementById("ruleMask").addEventListener("click",function(e){ if(e.target===this) closeRulesConfig(); });
   // 网格交互（模态 & 内联通用，统一走 document 委托，避免重复绑定）
+  /* 材料收交 · 生成通知：范围(日期)/版本(号数|姓名)/含迟交 的联动重算。
+     弹层 appendChild 到 body，change 事件同样收不到 #content 的委托 → 挂 body。 */
+  document.body.addEventListener("change",function(e){
+    var t=e.target; if(!t || !t.getAttribute) return;
+    if(t.getAttribute("data-matnDate")!=null){ matnState.date=t.value; matnRefresh(); return; }
+    if(t.getAttribute("data-matnLate")!=null){ matnState.withLate=!!t.checked; matnRefresh(); return; }
+  });
   document.body.addEventListener("click",function(e){
+    /* 材料收交 · 生成通知（弹层挂 body，必须走 body 委托） */
+    var mnOpen=e.target.closest("[data-matnotify]"); if(mnOpen){ openMatNotify(); return; }
+    var mnCopy=e.target.closest("[data-matnCopy]"); if(mnCopy){ matnCopy(); return; }
+    var mnClose=e.target.closest("[data-matnClose]"); if(mnClose){ closeMatNotify(); return; }
+    if(e.target && e.target.id==="matnMask"){ closeMatNotify(); return; }
+    var mnName=e.target.closest("[data-matnName]");
+    if(mnName){
+      matnState.byName = mnName.getAttribute("data-matnName")==="1";
+      var _ms=document.getElementById("matnMask");
+      if(_ms){ var _tabs=_ms.querySelectorAll("[data-matnName]");
+        for(var _i=0;_i<_tabs.length;_i++){ _tabs[_i].classList.toggle("on", _tabs[_i]===mnName); } }
+      matnRefresh(); return;
+    }
     /* 行为观察：删除单条 / 快速标记 / 看某生明细
        ⚠️ 必须挂在 body 委托上：#behDetailMask 是 appendChild 到 body 的弹层，
           #content 的委托收不到它内部的事件（点弹层里的 ✕ 会没反应）。
@@ -14543,7 +14718,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "affquick-2026-09-12";
+  var __APP_VERSION__ = "matnotify-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
