@@ -2214,7 +2214,7 @@
      班主任侧不受影响：ORDER 里不会多出 schedule，仍走总览里的班级课表。 */
   var ROLE_MODS = {};
   ROLE_MODS[ROLE_HEAD]    = null;
-  ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages"];
+  ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages","honor","regulations"];   // 荣誉/班级制度：渲染层早就按「家长/科任」成对处理，此前清单漏配（subject-desk-2026-09-12）
   ROLE_MODS[ROLE_PARENT]  = ["phome","duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
   ROLE_MODS[ROLE_OFFICER]  = ["materials","attendance"];   // 班干部（学生）：登记当天作业上交 + 考勤点名，其余只读
   function canSee(key){
@@ -8706,7 +8706,15 @@
       + "-- 7. 考勤记录：成员可读（家长看公示）+ 班干部可写入/更新（落到班主任名下的记录）\n"
       + "drop policy if exists hr_attendance_member_read on hr_attendance;\n create policy hr_attendance_member_read on hr_attendance for select using ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
       + "drop policy if exists hr_attendance_member_insert on hr_attendance;\n create policy hr_attendance_member_insert on hr_attendance for insert with check ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
-      + "drop policy if exists hr_attendance_member_update on hr_attendance;\n create policy hr_attendance_member_update on hr_attendance for update using ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) ) with check ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
+      + "drop policy if exists hr_attendance_member_update on hr_attendance;\n create policy hr_attendance_member_update on hr_attendance for update using ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) ) with check ( exists (select 1 from hr_members m where m.user_id = hr_attendance.user_id and (m.data->>'uid') = auth.uid()::text) );\n"
+      + "-- 8. 荣誉与处分：成员可读（家长 / 科任老师看「家长可见」的记录）。\n"
+      + "--    do 块先判断表在不在，避免表还没建时整段回滚。\n"
+      + "do $$ begin\n"
+      + "  if to_regclass('public.hr_honor') is not null then\n"
+      + "    execute $p$drop policy if exists hr_honor_member_read on hr_honor$p$;\n"
+      + "    execute $p$create policy hr_honor_member_read on hr_honor for select using ( exists (select 1 from hr_members m where m.user_id = hr_honor.user_id and (m.data->>'uid') = auth.uid()::text) )$p$;\n"
+      + "  end if;\n"
+      + "end $$;\n";
     return s.replace(/\n{3,}/g,"\n\n");
   })();
   function loadMessagesSafe(){
@@ -9557,8 +9565,8 @@
     mask.className="mask show"; mask.id="membersMask";
     mask.innerHTML='<div class="sheet"><h3>⚙️ 成员管理<button type="button" class="x" data-mclose="1">×</button></h3>'
       +'<div style="font-size:13px;line-height:1.75;color:var(--ink-soft)">'
-      +'把科任老师 / 家长的<b>账号 ID</b>加进来，他们登录后即可<b>只读查看</b>对应模块，并给你留言。'
-      +'<br>对方在「📝 留言板」里能看到并复制自己的账号 ID，发给你即可。</div>'
+      +'家长、班干部、科任老师都有对应的一键创建入口 —— 建号后把邮箱密码发给对方即可，无需对方做任何事。'
+      +'<br>下面的「＋ 添加」是手动绑定通道，用于对方已经自行注册、或你手上已有账号 ID 的情况：对方可在「📝 留言板」里看到并复制自己的账号 ID。</div>'
       +'<div style="margin:14px 0 6px;font-weight:800;color:var(--ink);font-size:13.5px">＋ 创建家长账号（关联学生）</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       +'<select id="memStu" style="flex:2;min-width:150px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'+(stuOpts||'<option value="">（暂无学生）</option>')+'</select>'
@@ -9581,6 +9589,13 @@
       +'<input id="offName" placeholder="学生姓名" style="flex:1;min-width:100px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<button class="btn-mini" data-mcreateoff="1">创建账号</button></div>'
       +'<div id="offCreateInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 2px;line-height:1.6">创建后该学生即可在登录页「班干部」处点击名字免密进入：可登记「材料收集」（当天作业上交）与「考勤记录」（迟到 / 缺勤 / 请假），结果同步给你，家长端也看得到公示。⚠️ 材料登记需要先有事项文件夹——请在「材料收集」里先建好（如：数学作业），否则学生进去没有可登记的事项。</div>'
+      +'<div style="margin:12px 0 6px;font-weight:800;color:var(--ink);font-size:13.5px">🧑‍🏫 创建科任老师账号</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<input id="subjName" placeholder="老师姓名（如 王老师）" style="flex:1.2;min-width:140px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<input id="subjSubject" placeholder="任教科目（选填）" style="flex:1;min-width:110px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<input id="subjPwd" type="text" placeholder="登录密码（≥6位）" style="flex:1.2;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
+      +'<button class="btn-mini" data-mcreatesubj="1">创建账号</button></div>'
+      +'<div id="subjCreateInfo" style="font-size:11.5px;color:#9a9aa2;margin:4px 0 2px;line-height:1.6">填姓名、设密码，系统自动建号并绑定到你的班级，把邮箱密码发给老师即可登录——能看材料收集、班级课表、荣誉公示、班级制度，可留言（全部只读）。不用再让老师自己注册、抄账号 ID 给你。</div>'
       +'<div style="margin:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<input id="memUid" placeholder="成员账号 ID" style="flex:2;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
       +'<input id="memName" placeholder="姓名 / 称呼" style="flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:13px">'
@@ -9596,6 +9611,7 @@
       if(e.target.closest("[data-madd]")){ addMember(mask); return; }
       if(e.target.closest("[data-mcreate]")){ createParentAccount(mask); return; }
       if(e.target.closest("[data-mcreateoff]")){ createOneOfficer(mask); return; }
+      if(e.target.closest("[data-mcreatesubj]")){ createOneSubject(mask); return; }
       if(e.target.closest("[data-mcreateall]")){ createAllParents(mask); return; }
       if(e.target.closest("[data-mfixghost]")){ fixGhostParents(mask); return; }
       if(e.target.closest("[data-mexport]")){ exportAccountsFile(); return; }
@@ -9795,6 +9811,51 @@
         +((MAT_FOLDERS||[]).length ? "" : '<br><span style="color:#e0a000">⚠️ 还没有材料文件夹，学生进去登记不了作业上交。请先到「材料收集」新建一个（如：数学作业）。</span>');
       if(nameEl) nameEl.value="";
       renderMembersList(mask); render(); toast("班干部账号已创建 ✓");
+    }).catch(function(e){
+      var m=(e&&e.message)||String(e||"");
+      if(info) info.textContent="创建失败："+m;
+      toast("创建失败："+m);
+    });
+  }
+  /* 班主任创建科任老师账号（subject-desk-2026-09-12）：
+     在这之前，科任老师只能「自己注册 → 登录后什么都看不到 → 去留言板抄下自己的账号 ID
+     → 微信发给班主任 → 班主任在成员管理里手动粘贴」——五步、跨两个应用，多数老师卡在中间。
+     现在与家长账号完全同一套流程：班主任填姓名、设密码，系统自动建号并写入成员表（含 uid），
+     把邮箱密码发给老师即可登录。signUp 仍走不落盘的 dbGuest，不会污染班主任会话。 */
+  function createOneSubject(mask){
+    if(!isHead()){ toast("仅班主任可创建科任老师账号"); return; }
+    if(!db){ toast("未连接后端"); return; }
+    var nameEl=mask.querySelector("#subjName"), subjEl=mask.querySelector("#subjSubject"), pwdEl=mask.querySelector("#subjPwd");
+    var name=(nameEl&&nameEl.value||"").trim();
+    var subject=(subjEl&&subjEl.value||"").trim();
+    var pwd=(pwdEl&&pwdEl.value||"").trim();
+    if(!name){ toast("请填写老师姓名"); return; }
+    if(pwd.length<6){ toast("密码至少 6 位"); return; }
+    if((DATA.members||[]).some(function(r){ return r.role==="科任老师" && String(r.name||"").trim()===name; })){ toast("「"+name+"」已有科任老师账号"); return; }
+    var title=subject ? (name+"（"+subject+"）") : name;
+    var info=mask.querySelector("#subjCreateInfo");
+    if(info) info.textContent="正在创建科任老师账号…";
+    var signer=dbGuest||db;   // 独立客户端 signUp，避免污染班主任会话（同家长/班干部逻辑）
+    var email="kr"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)+"@banzhuren.app";
+    signer.auth.signUp({email:email,password:pwd,options:{data:{role:"科任老师",displayName:title}}}).then(function(res){
+      if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; }
+      var u=res.data&&res.data.user;
+      if(!u||!u.id) throw new Error("未返回新账号信息");
+      return db.from(tbl("members")).insert({ user_id: curUid,
+        data:{uid:u.id,name:name,role:"科任老师",ownerUid:curUid,email:email,pwd:pwd,subject:subject} }).select('id')
+        .then(function(r2){
+          if(r2.error) throw r2.error;
+          return u.id;
+        });
+    }).then(function(){
+      return loadMembersSafe();
+    }).then(function(){
+      if(info) info.innerHTML="✅ 已创建：<b>"+esc(title)+"</b><br>邮箱：<code>"+esc(email)
+        +"</code><br>密码："+esc(pwd)+"<br>把这两样发给这位老师即可登录——能看材料收集、班级课表、荣誉公示、班级制度，并给你留言（全部只读）。";
+      if(nameEl) nameEl.value="";
+      if(pwdEl) pwdEl.value="";
+      if(subjEl) subjEl.value="";
+      renderMembersList(mask); render(); toast("科任老师账号已创建 ✓");
     }).catch(function(e){
       var m=(e&&e.message)||String(e||"");
       if(info) info.textContent="创建失败："+m;
@@ -10482,6 +10543,26 @@
       +"create policy hr_officers_own on hr_officers\n"
       +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);";
   }
+  /* 荣誉与处分表（subject-desk-2026-09-12）：班主任读写，成员（家长 / 科任老师）只读。
+     此前这张表只有通用模板给的 own 策略 → 成员侧读不到任何记录，荣誉页永远空白。
+     这里连成员读策略一起建出来，保证「缺表自修复」这条路也能得到完整的表。 */
+  function sqlHonor(){
+    return "create table if not exists hr_honor (\n"
+      +"  id         uuid primary key default gen_random_uuid(),\n"
+      +"  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,\n"
+      +"  created_at timestamptz not null default now(),\n"
+      +"  data       jsonb not null default '{}'::jsonb\n"
+      +");\n"
+      +"create index if not exists hr_honor_user_idx on hr_honor(user_id);\n"
+      +"alter table hr_honor enable row level security;\n"
+      +"drop policy if exists hr_honor_own on hr_honor;\n"
+      +"create policy hr_honor_own on hr_honor\n"
+      +"  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);\n"
+      +"drop policy if exists hr_honor_member_read on hr_honor;\n"
+      +"create policy hr_honor_member_read on hr_honor for select using (\n"
+      +"  exists (select 1 from hr_members m where m.user_id = hr_honor.user_id and (m.data->>'uid') = auth.uid()::text)\n"
+      +");";
+  }
   /* 班级二维码放行表：班主任写，未登录可读（扫码时按 code 取到免登录凭据） */
   function sqlClassPass(){
     return "create table if not exists hr_classpass (\n"
@@ -10505,6 +10586,7 @@
     if(t==="hr_messages")  return sqlMessages();
     if(t==="hr_members")   return sqlMembers();
     if(t==="hr_officers")  return sqlOfficers();
+    if(t==="hr_honor")     return sqlHonor();   /* 荣誉：建表时连成员只读策略一起建 */
     if(t==="hr_classpass") return sqlClassPass();   /* 班级码：未登录可读（扫码免登录） */
     /* 班级制度公示：班主任写，所有登录用户读（家长端只读） */
     if(t==="hr_regulations") return sqlRegulations();
@@ -14832,7 +14914,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "officer-desk-2026-09-12";
+  var __APP_VERSION__ = "subject-desk-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -14950,7 +15032,8 @@
           if(roleWrap) roleWrap.style.display="";
           if(signup) signup.style.display="";
           var rs=document.getElementById("authRole"); if(rs) rs.value="科任老师";
-          if(tip) tip.textContent="科任老师可在此自助注册（只读权限：材料、课表、留言板）。";
+          if(tip) tip.textContent="推荐让班主任在「留言板 → ⚙️ 成员管理」里为你创建账号，直接用收到的邮箱密码登录"
+            +"（可看：材料收集、班级课表、荣誉公示、班级制度）。若你已自行注册，请到「📝 留言板」复制自己的账号 ID 发给班主任绑定。";
         } else if(offMode){
           if(title) title.textContent="班干部进入";
           if(roleWrap) roleWrap.style.display="none";
