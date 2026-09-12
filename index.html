@@ -385,8 +385,8 @@
   .grid-table thead th.col-head:hover{background:#E8EEF8}
   .grid-table thead th .col-date{font-weight:800;font-size:13px;display:block}
   .grid-table thead th .col-week{font-size:11px;color:var(--ink-soft);font-weight:600;display:block;margin-top:1px}
-  .grid-table thead th.add-col{cursor:pointer;background:#FAFBFD;color:var(--ink-soft);font-weight:600}
-  .grid-table thead th.add-col:hover{background:#EEF1F6;color:var(--mint-d)}
+  .grid-table thead th.add-col,.grid-table tbody td.add-col{cursor:pointer;background:#FAFBFD;color:var(--ink-soft);font-weight:600}
+  .grid-table thead th.add-col:hover,.grid-table tbody td.add-col:hover{background:#EEF1F6;color:var(--mint-d)}
   .grid-table tbody td{height:42px}
   .grid-table tbody td.sticky-l{position:sticky;left:0;z-index:1;background:#F9FAFC;text-align:left;padding:6px 10px;font-weight:600;color:var(--ink);min-width:118px}
   .grid-table tbody td.sticky-l .gl-no{font-size:11px;color:var(--ink-soft);font-weight:500;display:block}
@@ -2786,15 +2786,18 @@
   function stripEmoji(t){ return t.replace(/^[^一-龥]+ /,''); }
 
   function setStatus(s){
+    /* 空值保护：这两个元素缺失时若不判断，每次状态变更都会抛 TypeError，
+       并连带打断调用它的那段逻辑（同一个按钮于是「点了没反应」）。 */
     var el=document.getElementById("status"), t=document.getElementById("statusText");
-    el.className="s-status"+(s==="ok"?"":(s==="offline"?" offline":" syncing"));
-    t.textContent = s==="ok"?"已同步":(s==="offline"?"离线模式":"同步中");
+    if(el) el.className="s-status"+(s==="ok"?"":(s==="offline"?" offline":" syncing"));
+    if(t) t.textContent = s==="ok"?"已同步":(s==="offline"?"离线模式":"同步中");
   }
   var toastTimer;
   var _schemaFixSuppressToastUntil = 0;
   function toast(msg){
     if(Date.now() < _schemaFixSuppressToastUntil) return;
-    var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+    var t=document.getElementById("toast"); if(!t) return;   /* 提示元素缺失也不该让整个操作崩掉 */
+    t.textContent=msg; t.classList.add("show");
     clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove("show");},2200);
   }
 
@@ -3704,6 +3707,16 @@
       box.innerHTML=renderSeatGrid(key);
       return;
     }
+    // 班级制度公示：纯文档渲染。
+    // ⚠ 必须排在下方 if(!rows.length) 空态分支「之前」：制度数据存在 REG_CACHE
+    //   （由 hr_regulations 单独查询缓存），DATA.regulations 恒为空数组 ——
+    //   排在后面会被通用空态分支抢先 return，制度正文 / 导入结果 / 增删章节全都渲染不出来。
+    //   identity-audit-2026-09-13 修。
+    if(key==="regulations"){
+      if(cnt) cnt.textContent="";
+      box.innerHTML = renderRegulationsView();
+      return;
+    }
     // 成绩 / 班务待办 模块在列表上方注入专属面板（AI 分析条 / 当天待办聚合）
     var extra = key==="grades" ? renderGradesAIBar() : (key==="rules" ? renderRuleCats() : (key==="comment" ? renderCommentAIBar() : ""));
     // 班务待办：已完成的事项移入「已完成归档」区，主列表只留未完成的，便于完成后也能随时翻看
@@ -3729,12 +3742,6 @@
     // 班级制度：按「方向(类别)」分文件夹收纳，同一方向的制度放在一起，可展开/收起
     if(key==="rules"){
       box.innerHTML = attStrip + extra + renderRulesView(rows);
-      return;
-    }
-    // 班级制度公示：纯文档渲染（不走卡片列表）
-    if(key==="regulations"){
-      if(cnt) cnt.textContent="";
-      box.innerHTML = renderRegulationsView();
       return;
     }
     box.innerHTML = attStrip + extra + archiveHTML + rows.map(function(r){ return cardHTML(key,r); }).join("");
@@ -3971,11 +3978,22 @@
       renderList("rules");
     });
   }
+  /* 制度编辑缓存守卫：REG_CACHE 由 loadRegulationsSafe() 异步填充，
+     首次进入「班级制度」且数据尚未载入时它仍是 null —— 直接写 REG_CACHE.sections
+     会抛 TypeError 且按钮毫无反应（用户不知道发生了什么）。统一在这里兜底并提示。 */
+  function regCacheForEdit(){
+    if(!REG_CACHE || typeof REG_CACHE!=="object"){
+      toast("制度数据还在加载，请稍候再试"); return null;
+    }
+    if(!Array.isArray(REG_CACHE.sections)) REG_CACHE.sections=[];
+    return REG_CACHE;
+  }
   function regsAddSection(){
     if(!isHead()){ toast("仅班主任可编辑"); return; }
-    var cur=(REG_CACHE && Array.isArray(REG_CACHE.sections)) ? REG_CACHE.sections.slice() : [];
+    var rc=regCacheForEdit(); if(!rc) return;
+    var cur=rc.sections.slice();
     cur.push({ h:"新章节", b:"" });
-    REG_CACHE.sections = cur;
+    rc.sections = cur;
     renderList("regulations");
     setTimeout(function(){
       var h=document.querySelectorAll('[data-regh]');
@@ -3987,19 +4005,21 @@
   function regsDelSection(idx){
     if(!isHead()){ toast("仅班主任可编辑"); return; }
     if(!confirm("确定删除该章节？此改动要等点「保存」才会推送给家长。")) return;
-    var cur=(REG_CACHE && Array.isArray(REG_CACHE.sections)) ? REG_CACHE.sections.slice() : [];
+    var rc=regCacheForEdit(); if(!rc) return;
+    var cur=rc.sections.slice();
     if(idx<0||idx>=cur.length) return;
     cur.splice(idx,1);
-    REG_CACHE.sections=cur;
+    rc.sections=cur;
     renderList("regulations");
   }
   function regsMoveSection(idx, dir){
     if(!isHead()){ toast("仅班主任可编辑"); return; }
-    var cur=(REG_CACHE && Array.isArray(REG_CACHE.sections)) ? REG_CACHE.sections.slice() : [];
+    var rc=regCacheForEdit(); if(!rc) return;
+    var cur=rc.sections.slice();
     var j = dir==="up" ? idx-1 : idx+1;
     if(j<0||j>=cur.length) return;
     var tmp=cur[idx]; cur[idx]=cur[j]; cur[j]=tmp;
-    REG_CACHE.sections=cur;
+    rc.sections=cur;
     renderList("regulations");
   }
   function regsSaveFromDom(){
@@ -12650,7 +12670,7 @@
           html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
         }
       });
-      if(isHead()) html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="为该生新增日期">+</td>';
+      if(isHead()) html+='<td class="add-col" data-addColFor="'+esc(no)+'" title="新增日期列">+</td>';
       html+='</tr>';
     });
     html+='</tbody></table>';
@@ -12961,7 +12981,8 @@
         clear=document.getElementById("aiClear");
     if(!send) return;
     function doSend(){
-      var text=(input.value||"").trim(); if(!text) return;
+      var text=(input.value||"").trim();
+      if(!text){ toast("请先输入你想问的问题"); return; }   /* 原为静默 return：点了完全没反应 */
       var k=(key.value||"").trim(); if(!k){ toast("请先填写通义千问 Key（与考勤识别共用）"); return; }
       saveAIKey(k);
       aiMsgs.push({role:"user",content:text}); input.value=""; renderAIChatInto(); setStatus("syncing"); toast("思考中…");
@@ -13542,6 +13563,10 @@
     if(c){ var per=c.getAttribute("data-period")||""; gridCellClick(c.getAttribute("data-no"), c.getAttribute("data-date"), per); return; }
     var ac=e.target.closest("[data-addCol]");
     if(ac){ if(isHead()) gridAddDate(); return; }
+    /* 行内「＋」格：与表头「＋」同一列、同义（新增日期列）。
+       此前只渲染无委托 → 点了毫无反应（identity-audit-2026-09-12 静态扫描揪出）。 */
+    var acf=e.target.closest("[data-addColFor]");
+    if(acf){ if(isHead()) gridAddDate(); return; }
     var dm=e.target.closest("[data-gridMarkDone]");
     if(dm){ gridMarkDone(); return; }
     var mc=e.target.closest("[data-gridMarkCancel]");
@@ -14914,7 +14939,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "subject-desk-2026-09-12";
+  var __APP_VERSION__ = "identity-audit-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
