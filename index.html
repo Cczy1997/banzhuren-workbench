@@ -1578,6 +1578,13 @@
   .tb-go:hover{text-decoration:underline}
   .tb-bd{display:inline-block;background:#FFF4F7;border:1px solid #F0DAE3;border-radius:999px;padding:1px 9px;margin:2px 6px 2px 0;font-size:12.5px;cursor:pointer}
   .tb-more{font-style:normal;color:var(--ink-soft);font-size:12px}
+  /* 总览待办卡 · 一行式快速添加（低调中性配色，与全站输入框一致） */
+  .affq-bar{display:flex;gap:8px;align-items:center;margin:0 0 10px}
+  .affq-bar input[type="text"]{flex:1;min-width:0;padding:8px 11px;border:1px solid var(--line);border-radius:11px;background:#fff;font-size:14px;color:var(--ink);font-family:inherit}
+  .affq-bar input[type="text"]:focus{outline:none;border-color:#B7C9F2}
+  .affq-bar input[type="date"]{padding:7px 8px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink-soft);font-size:13px;font-family:inherit}
+  .affq-bar .mini{white-space:nowrap}
+
   /* 防白屏：加载态 + 全局错误边界 */
   .boot-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46vh;color:var(--ink-soft);font-size:15px;font-weight:700}
   .spinner{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:spin .8s linear infinite;flex:none}
@@ -2279,6 +2286,7 @@
         {name:"分类",type:"select",options:["日常事务","活动组织","安全纪律","家校沟通","其他"]},
         {name:"优先级",type:"select",options:["高","中","低"]},
         {name:"截止日期",type:"date"},
+        {name:"重复",type:"select",options:["不重复","每周","每两周","每月"]},
         {name:"状态",type:"select",options:["待办","进行中","已完成"]},
         {name:"备注",type:"text",multiline:true,ph:"补充说明（选填）"}
       ]
@@ -7276,6 +7284,13 @@
       /* ③ 未读留言（家长发来的） */
       var un=0; try{ un=msgUnread()||0; }catch(_u){}
       if(un) rows.push(row("warn","有 <b>"+un+"</b> 条未读留言","messages","去处理 ›"));
+      /* ③b 逾期待办（截止日期早于今天且未完成）——逾期的事最容易沉底，提到第一眼 */
+      var od=(DATA.affairs||[]).filter(function(r){
+        if(!r || String(r["状态"]||"")==="已完成") return false;
+        var dd=String(r["截止日期"]||"").slice(0,10);
+        return !!dd && dd<t;
+      }).length;
+      if(od) rows.push(row("warn","有 <b>"+od+"</b> 件待办已逾期","affairs","去看看 ›"));
       /* ④ 7 天内的生日 */
       var bds=[];
       (DATA.students||[]).forEach(function(s){
@@ -8358,8 +8373,9 @@
       return (da||"9999").localeCompare(db||"9999");
     });
     var bc=document.getElementById("affCount"); if(bc) bc.textContent=rows.length;
-    if(!rows.length){ box.innerHTML='<div class="empty">📋 暂无待办，去「班级事务 → 班务待办」添加一条吧～</div>'; return; }
-    box.innerHTML = rows.map(function(r){ var t=affairTag(r); return todayCard(r, t.cls, t.tag); }).join("");
+    var qbar=isHead()?affQuickBarHTML():"";
+    if(!rows.length){ box.innerHTML=qbar+'<div class="empty">📋 暂无待办：在上面输入框记一条，或去「班级事务 → 班务待办」添加～</div>'; return; }
+    box.innerHTML = qbar + rows.map(function(r){ var t=affairTag(r); return todayCard(r, t.cls, t.tag); }).join("");
   }
   function todayCard(r, cls, tag){
     var d=(r["截止日期"]||"").slice(0,10);
@@ -10659,14 +10675,56 @@
     return props;
   }
   /* 已完成归档：保留事项/分类/优先级/截止日期/备注等全部字段，仅追加 状态=已完成 + 完成时间 */
+  /* 周期待办：算下一期截止日期（本地时区拼接，避免 toISOString 的 UTC 偏移导致差一天） */
+  function nextCycleDate(base, kind){
+    var p=String(base||"").slice(0,10).split("-");
+    var d=new Date(Number(p[0])||1970, (Number(p[1])||1)-1, Number(p[2])||1);
+    if(kind==="每周") d.setDate(d.getDate()+7);
+    else if(kind==="每两周") d.setDate(d.getDate()+14);
+    else if(kind==="每月"){ var m=d.getMonth(); d.setMonth(m+1); if(d.getMonth()!==((m+1)%12)) d.setDate(0); }   /* 月末回钳（1/31→2/28），否则 JS 会滚进 3 月、二月份被跳过 */
+    var m="0"+(d.getMonth()+1), day="0"+d.getDate();
+    return d.getFullYear()+"-"+m.slice(-2)+"-"+day.slice(-2);
+  }
   function doDone(id){
     setStatus("syncing");
+    var rec=(DATA.affairs||[]).filter(function(r){return r._id===id;})[0];
     var props=recordProps("affairs", id, {状态:"已完成", 完成时间:todayStr()});
     apiUpdate("affairs", id, props)
-      .then(function(){ toast("已完成 🎉 已归档，可在上方「已完成归档」里查看"); return refreshModules(["affairs"]); })
+      .then(function(){
+        /* 周期待办：完成后自动生成下一期（截止=下一周期；原本没填截止则以今天为基准） */
+        var rep=String((rec&&rec["重复"])||"");
+        if(rep && rep!=="不重复"){
+          var base=String(props["截止日期"]||"").slice(0,10) || todayStr();
+          var nd=nextCycleDate(base, rep);
+          return apiAdd("affairs",{事项:props["事项"]||"",分类:props["分类"]||"日常事务",优先级:props["优先级"]||"中",截止日期:nd,状态:"待办",重复:rep,备注:props["备注"]||""})
+            .then(function(){ toast("已完成 🎉 下期已自动生成（截止 "+fmtDate(nd)+"）"); return refreshModules(["affairs"]); });
+        }
+        toast("已完成 🎉 已归档，可在上方「已完成归档」里查看"); return refreshModules(["affairs"]);
+      })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("操作失败"); });
   }
+  /* 总览待办卡：一行式快速添加（事项必填 + 可选截止日期），回车或点按钮即存。
+     解决「想记一条待办要进二级菜单填 6 个字段」的摩擦——其余字段用默认值，之后可去详情里改。 */
+  function affQuickBarHTML(){
+    return '<div class="affq-bar"><input type="text" id="affqInp" maxlength="60" placeholder="想到就记：收周记、准备班会…（回车保存）">'
+      +'<input type="date" id="affqDate" title="截止日期（可选）">'
+      +'<button class="mini done" data-affquick="1">＋添加</button></div>';
+  }
+  function affQuickSave(){
+    if(!canEdit()){ toast("仅班主任可操作"); return; }
+    var inp=document.getElementById("affqInp"); if(!inp) return;
+    var txt=String(inp.value||"").trim();
+    if(!txt){ inp.focus(); return; }
+    var dEl=document.getElementById("affqDate");
+    var dd=dEl?String(dEl.value||""):"";
+    setStatus("syncing");
+    apiAdd("affairs",{事项:txt,分类:"日常事务",优先级:"中",截止日期:dd,状态:"待办",重复:"不重复",备注:""})
+      .then(function(){ toast("已加入待办 ✓"); return refreshModules(["affairs"]); })
+      .then(function(){ setStatus("ok"); })
+      .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败，请重试"); });
+  }
+
   /* 撤销完成：把归档事项移回待办列表（清除完成时间） */
   function undoDone(id){
     setStatus("syncing");
@@ -12811,6 +12869,8 @@
     }
     var cmoff=e.target.closest("[data-cmboff]");
     if(cmoff){ cmbOffOpen=!cmbOffOpen; renderList("committee"); return; }
+    var aq=e.target.closest("[data-affquick]");
+    if(aq){ affQuickSave(); return; }
     var btn=e.target.closest("button[data-act]"); if(btn){
       var act=btn.getAttribute("data-act"), id=btn.getAttribute("data-id"), mod=btn.getAttribute("data-mod")||"affairs";
       if(act==="done") doDone(id);
@@ -12884,6 +12944,10 @@
         e.target.blur();
       }
     }
+  }, true);
+  /* 总览待办快速添加：输入框内回车直接保存 */
+  document.addEventListener("keydown", function(e){
+    if(e.key==="Enter" && e.target && e.target.id==="affqInp"){ e.preventDefault(); affQuickSave(); }
   }, true);
   /* 座位布局「网格/小组」切换：即时重渲染控制条 */
   document.getElementById("content").addEventListener("change",function(e){
@@ -14479,7 +14543,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "headbrief-2026-09-12";
+  var __APP_VERSION__ = "affquick-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
