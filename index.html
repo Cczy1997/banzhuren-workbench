@@ -10426,6 +10426,9 @@
   }
   /* 表缺失判定：命中则弹建表引导 */
   function trySchemaFix(msg){
+    /* 家长 / 扫码访客 / 科任 / 班干部：缺表只走普通错误提示，绝不弹建表 SQL 弹窗（家长端上线加固 2026-09-12）。
+       未登录（curUser 为空）也不弹——登录页上的访客同样不该看到数据库操作指引。 */
+    if(!curUser || curRole!==ROLE_HEAD) return false;
     if(!/schema cache|does not exist|42p01|pgrst205|no such table|could not find the table/i.test(String(msg||""))) return false;
     var t=extractMissingTable(msg);
     if(!t) return false;
@@ -14069,6 +14072,15 @@
     if(!db){ document.getElementById("authSub").textContent="无法加载 Supabase 客户端（可能是网络 / CDN 被拦截，或不是通过部署地址打开）。请刷新重试，或确认用 https://cczy1997.github.io/banzhuren-workbench/ 打开本页。"; }
   }
   function hideAuth(){ document.getElementById("authScreen").classList.remove("show"); }
+  /* 登录失败文案：把技术错误翻译成用户能自行处理的指引（家长端上线加固 2026-09-12） */
+  function friendlyAuthErr(m){
+    m=String(m||"登录失败");
+    if(/not confirmed/i.test(m)) return "邮箱尚未验证。请先到收件箱点击验证链接；仍有问题请联系班主任。";
+    if(/invalid login credentials/i.test(m)) return "账号或密码不正确。请检查邮箱有无多余空格、密码大小写；家长账号和密码由班主任统一发放，忘记请联系班主任。";
+    if(/rate limit/i.test(m)) return "尝试次数过多，请等几分钟再试。";
+    if(/failed to fetch|networkerror|load failed|fetch failed/i.test(m)) return "网络不通或被拦截，请切换 Wi-Fi / 流量后重试。";
+    return m;
+  }
   document.getElementById("authLogin").onclick=function(){
     if(!db){ document.getElementById("authErr").textContent="Supabase 未连接：请刷新页面，或检查部署配置。"; return; }
     var email=document.getElementById("authEmail").value.trim();
@@ -14077,8 +14089,7 @@
     setStatus("syncing");
     db.auth.signInWithPassword({email:email,password:pwd}).then(function(res){
       if(res.error){
-        var m=res.error.message||"登录失败";
-        if(/not confirmed/i.test(m)) m="邮箱尚未验证。请先到收件箱点击验证链接，或到 Supabase 后台关闭「Confirm email」后重试。";
+        var m=friendlyAuthErr(res.error.message||"登录失败");
         var e2=Object.create(res.error); e2.message=m; throw e2;
       }
       onSignedIn(res.data.user);
@@ -14396,7 +14407,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "seatauto-2026-09-12";
+  var __APP_VERSION__ = "parentready-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
