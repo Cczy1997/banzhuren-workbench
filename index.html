@@ -1564,6 +1564,20 @@
   .logout-btn{margin-top:8px;width:100%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;cursor:pointer}
   .logout-btn:active{background:#FFF0F6}
+  /* 今日速办（headbrief-2026-09-12）：总览顶部的当日事务卡 */
+  .today.tb h2{margin-bottom:8px}
+  .tb-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:4px 14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.03)}
+  .tb-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13.5px;color:var(--ink);line-height:1.6}
+  .tb-row:last-child{border-bottom:none}
+  .tb-dot{flex:none;width:9px;height:9px;border-radius:50%;background:#c9c9d2}
+  .tb-dot.good{background:#2E9E6B}
+  .tb-dot.warn{background:#D98B2B}
+  .tb-txt{flex:1;min-width:0}
+  .tb-txt b{color:#D9534F}
+  .tb-go{flex:none;font-size:12.5px;font-weight:700;color:#2E8B8B;cursor:pointer;white-space:nowrap}
+  .tb-go:hover{text-decoration:underline}
+  .tb-bd{display:inline-block;background:#FFF4F7;border:1px solid #F0DAE3;border-radius:999px;padding:1px 9px;margin:2px 6px 2px 0;font-size:12.5px;cursor:pointer}
+  .tb-more{font-style:normal;color:var(--ink-soft);font-size:12px}
   /* 防白屏：加载态 + 全局错误边界 */
   .boot-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46vh;color:var(--ink-soft);font-size:15px;font-weight:700}
   .spinner{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:spin .8s linear infinite;flex:none}
@@ -7234,8 +7248,66 @@
   }
 
   /* ---------- 总览：班级课表 + 当天待办任务 + 荣誉榜 ---------- */
+  /* ---------- 总览 · 今日速办（headbrief-2026-09-12） ----------
+     打开应用第一眼回答「今天该做的事做了没」：考勤 / 收交 / 未读留言 / 本周生日 / 值日红旗。
+     每条带 data-gomod 直达跳转（复用既有委托），渲染全程 try 包裹——任何数据异常都只丢这张卡，不影响总览其它部分。 */
+  function renderTodayBrief(){
+    try{
+      var d=new Date();
+      var t=todayStr();
+      var label=(d.getMonth()+1)+"月"+d.getDate()+"日 周"+"日一二三四五六".charAt(d.getDay());
+      function row(st,txt,gomod,golabel){
+        return '<div class="tb-row"><span class="tb-dot '+st+'"></span><span class="tb-txt">'+txt+'</span>'
+          +(gomod?'<a class="tb-go" data-gomod="'+gomod+'">'+golabel+'</a>':'')+'</div>';
+      }
+      var rows=[];
+      /* ① 考勤：今天有登记（异常几人）/ 未登记 */
+      var att=(DATA.attendance||[]).filter(function(r){return String((r&&r["日期"])||"").slice(0,10)===t;});
+      var abn=att.filter(function(r){return String((r&&r["状态"])||"")!=="出勤";}).length;
+      rows.push(row(att.length?"good":"warn",
+        "考勤"+(att.length?("已登记"+(abn?" · 异常 <b>"+abn+"</b> 人":" · 全班正常")):"今天还没登记"),
+        "attendance", att.length?"查看 ›":"去登记 ›"));
+      /* ② 收交：今天有登记（未交/迟交几条）/ 未登记 */
+      var mat=(DATA.materials||[]).filter(function(r){return String((r&&r["日期"])||"").slice(0,10)===t;});
+      var bad=mat.filter(function(r){var s=String((r&&r["状态"])||"");return s==="未交"||s==="迟交";}).length;
+      rows.push(row(mat.length?"good":"warn",
+        "作业收交"+(mat.length?("已登记"+(bad?" · 未交/迟交 <b>"+bad+"</b> 条":" · 全部已交")):"今天还没登记"),
+        "materials", mat.length?"查看 ›":"去登记 ›"));
+      /* ③ 未读留言（家长发来的） */
+      var un=0; try{ un=msgUnread()||0; }catch(_u){}
+      if(un) rows.push(row("warn","有 <b>"+un+"</b> 条未读留言","messages","去处理 ›"));
+      /* ④ 7 天内的生日 */
+      var bds=[];
+      (DATA.students||[]).forEach(function(s){
+        if(!s) return;
+        var dd=daysToBirthday(s["生日"]);
+        if(dd!=null&&dd>=0&&dd<=7) bds.push({n:String(s["姓名"]||""),d:dd});
+      });
+      bds.sort(function(a,b){return a.d-b.d;});
+      if(bds.length){
+        var bs=bds.slice(0,4).map(function(x){
+          return '<span class="tb-bd" data-profile="'+esc(x.n)+'">🎂 '+esc(x.n)+' '+(x.d===0?"今天":x.d+" 天后")+'</span>';
+        }).join("");
+        rows.push('<div class="tb-row"><span class="tb-dot good"></span><span class="tb-txt">'+bs
+          +(bds.length>4?'<i class="tb-more">等 '+bds.length+' 人</i>':'')
+          +'</span><a class="tb-go" data-gomod="students">去看 ›</a></div>');
+      }
+      /* ⑤ 本周值日 + 流动红旗状态 */
+      var dg=""; try{ dg=currentDutyGroup()||""; }catch(_d){}
+      if(dg){
+        var done=false;
+        try{ done=(dutyRot&&dutyRot.checkedWeek===isoWeek().key); }catch(_w){}
+        rows.push(row(done?"good":"warn","本周值日：<b>"+esc(dg)+"</b>"+(done?" · 红旗已记录":" · 流动红旗待记录"),"duty","去处理 ›"));
+      }
+      if(!rows.length) return "";
+      return '<div class="today tb"><h2>⚡ 今日速办'
+        +'<span class="hint" style="margin-left:10px;font-weight:500">'+label+' · 绿点=已完成</span></h2>'
+        +'<div class="tb-card">'+rows.join("")+'</div></div>';
+    }catch(e){ console.warn("今日速办渲染失败", e); return ""; }
+  }
   function renderOverview(){
-    return '<div class="sched-wrap">'
+    return renderTodayBrief()
+      +'<div class="sched-wrap">'
       +'<div class="phead"><h3>🗓️ 班级课表</h3><span class="hint">点击单元格即可编辑；切到「本周调课」模式的改动仅当周生效，下周自动还原</span></div>'
       +'<div id="overviewSched"></div>'
       +'</div>'
@@ -14407,7 +14479,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "parentready-2026-09-12";
+  var __APP_VERSION__ = "headbrief-2026-09-12";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
