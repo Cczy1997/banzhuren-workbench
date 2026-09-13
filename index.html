@@ -9423,19 +9423,15 @@
      与「值日安排」横向周表同源（DATA.duty），组序用权威组列表，本周值日组打「本周」标。
      值日属班级公务，姓名随分工一起公示；无数据时给一句 truthful 空态。 */
   function dutyRosterHTMLForGuest(){
-    var groups=getDutyGroups(), cur=currentDutyGroup(), out=[];
-    groups.forEach(function(g){
-      var mem=dutyWeekGroupMembers(g);
-      if(!mem.length) return;
-      out.push('<div class="ph-duty-g">'
-        +'<span class="ph-duty-gn">'+esc(g)+(g===cur?'<i class="dw-cur-badge" style="margin-left:4px">本周</i>':'')+'</span>'
-        +'<span class="ph-duty-people">'+mem.map(function(p){
-            return '<span class="dw-person"><span class="dw-pname">'+esc(p.name)+'</span>'
-              +(p.no?'<span class="dw-pno">'+esc(p.no)+'</span>':'')+'</span>';
-          }).join('')+'</span></div>');
-    });
-    if(!out.length) return '<div class="ph-empty">班主任还没排本周值日表，排好后这里会自动显示。</div>';
-    return '<div class="ph-duty-roster">'+out.join('')+'</div>';
+    /* dutycur-2026-09-13：只显示本周轮到的那一组（整套轮换表在「值日安排」模块） */
+    var cur=currentDutyGroup(), mem=cur?dutyWeekGroupMembers(cur):[];
+    if(!mem.length) return '<div class="ph-empty">本周还没轮到值日（或班主任还没排表），轮换安排见「值日安排」。</div>';
+    return '<div class="ph-duty-roster"><div class="ph-duty-g">'
+      +'<span class="ph-duty-gn">'+esc(cur)+'<i class="dw-cur-badge" style="margin-left:4px">本周</i></span>'
+      +'<span class="ph-duty-people">'+mem.map(function(p){
+          return '<span class="dw-person"><span class="dw-pname">'+esc(p.name)+'</span>'
+            +(p.no?'<span class="dw-pno">'+esc(p.no)+'</span>':'')+'</span>';
+        }).join('')+'</span></div></div>';
   }
   function renderGuestHome(){
     var cls=(typeof shareClsName==="function"?shareClsName():"班级");
@@ -15205,7 +15201,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "clsmeta-2026-09-13";
+  var __APP_VERSION__ = "dutycur-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
