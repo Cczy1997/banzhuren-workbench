@@ -81,6 +81,8 @@
   }
   .brand{display:flex;align-items:center;gap:10px;padding:4px 6px 12px;cursor:pointer;border-radius:14px;transition:.15s}
   .brand:active{transform:scale(.99)}
+  .brand.ro{cursor:default}
+  .brand.ro:active{transform:none}
   .brand .mascot{width:42px;height:42px;flex:0 0 auto}
   .brand .bt{flex:1;min-width:0}
   .brand h1{font-size:16px;margin:0;font-weight:800;line-height:1.25;letter-spacing:.3px}
@@ -227,7 +229,7 @@
   .attrv-prev .lastcol{border-right:2px solid #33405C}
   .attrv-prev .arv-ph{text-align:center;color:var(--ink-soft);font-size:13px;padding:18px 0}
   /* 关联学生选择器弹层 */
-  /* ---------- 行为观察（behavior） ---------- */
+  /* 行为观察（behavior）：14 标签正负分类，弹层挂 body 委托，仅班主任可见 */
   .beh-page{display:flex;flex-direction:column;gap:10px}
   .beh-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
   .beh-title{font-size:18px;font-weight:800;margin:0 0 3px}
@@ -1560,6 +1562,11 @@
   .ph-tc-c{font-weight:700;color:var(--ink)}
   .ph-tc-t{margin-left:auto;color:#9a9aa2;font-size:11.5px}
   .ph-empty{font-size:12.5px;color:#9a9aa2;padding:4px 0;line-height:1.7}
+  /* 本周值日生（访客首页卡片，duty-guest-2026-09-13） */
+  .ph-duty-g{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .ph-duty-g:last-child{border-bottom:none}
+  .ph-duty-gn{font-weight:700;font-size:13px;min-width:60px;padding-top:2px}
+  .ph-duty-people{display:flex;flex-wrap:wrap;gap:4px}
   .ph-tip{font-size:12px;color:#9a9aa2;line-height:1.75;margin-top:8px}
   .ph-kv{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--ink-soft);line-height:1.9}
   .ph-kv b{color:var(--ink);font-weight:700}
@@ -1798,7 +1805,7 @@
       </svg>
       <div class="bt">
         <h1 id="clsTitle">初一(1)班</h1>
-        <div class="hint">✏️ 点击修改班级 / 年段</div>
+        <div class="hint" id="brandHint">✏️ 点击修改班级 / 年段</div>
       </div>
     </div>
     <nav class="nav" id="nav"></nav>
@@ -2268,20 +2275,16 @@
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages","honor","regulations"];   // 荣誉/班级制度：渲染层早就按「家长/科任」成对处理，此前清单漏配（subject-desk-2026-09-12）
   ROLE_MODS[ROLE_PARENT]  = ["phome","duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
   ROLE_MODS[ROLE_OFFICER]  = ["materials","attendance"];   // 班干部（学生）：登记当天作业上交 + 考勤点名，其余只读
-  /* 「扫码进入的班级视图」（访客）：没有绑定本人账号，只给班级公示类内容。
-     判据两条缺一不可 —— ① isGuestScan()：本次是从 ?c= 扫码链接进来的（改 URL 那一刻
-     成员表还没回来，isGuest() 仍是 false）；② isGuest()：成员表里的 guest 标记，
-     重复扫码 / 刷新 / 从微信收藏点开时 _guestScan 已复位，只靠①会漏判。
-     家长本人账号登录后两条都是 false，完全不受影响。 */
+  /* 扫码进入的班级视图（访客）：没有本人账号，只给班级公示类内容。两条判据缺一不可 ——
+     ① isGuestScan()：本次从 ?c= 扫码进来（此时成员表未回，isGuest() 还是 false）；
+     ② isGuest()：成员表的 guest 标记，覆盖重复扫码 / 刷新 / 收藏点开（_guestScan 已复位）。 */
   function isVisitorView(){ return isGuestScan() || isGuest(); }
-  /* 访客看不到的模块（家长本人登录仍可见）。加模块只改这一行；
-     deploy/audit_identity_matrix.js 会读它，不会误报「越权可见 / 期望可见但未出现」。 */
+  /* 访客看不到的模块；审计器读这份清单，加模块只改这一行。 */
   var GUEST_HIDDEN_MODS = ["honorboard"];
   function canSee(key){
     if(isHead()) return true;
-    /* 🏆 荣誉榜 = 全班学生姓名 + 累计积分排名，属学生个人数据 → 未登录本人账号不展示。
-       侧栏消失后，renderList 顶部那套「不可见模块自动落到首个可见模块」会把残留的
-       state.mod="honorboard" 兜回家校首页，不需要额外兜底。 */
+    /* 🏆 荣誉榜含全班姓名 + 积分排名（个人数据）→ 未登录不展示；残留 state.mod 由 renderList
+       顶部「不可见 → 落首个可见模块」兜回家校首页。 */
     if(GUEST_HIDDEN_MODS.indexOf(key)>=0 && isVisitorView()) return false;
     var list=ROLE_MODS[curRole]||[];
     return list.indexOf(key)>=0;
@@ -3497,13 +3500,9 @@
     var diff=Math.round((new Date(fmtISO(d)+"T00:00:00") - new Date(todayStr()+"T00:00:00"))/86400000);
     return diff>0?diff:0;
   }
-  /* 家长端 / 扫码访客 · 考勤 / 材料收集：**全班公示版（只公示号数，不公示姓名）**
-     —— 家长与扫码访客都能看到「今天全班谁迟到、哪份材料谁没交」，但名字一律不外露：
-        名单统一换成号数，既满足知情权，也不把别人家孩子的姓名公开出去。
-     · 考勤：逐日列出全班 迟到 / 缺勤 / 早退 / 请假 的号数（含时段、事由）+ 本周汇总
-     · 材料：按「作业提交 / 材料上交 · 事项（文件夹）」列出 未交 / 迟交 的号数
-     · 扫码访客没有本人身份 → 不做任何过滤，看到的就是整份公示（因此不会出现乱码 / 空白）
-     · 已登录且绑定了孩子的家长，自家号数会高亮标注（可选亮点，不认识也完全不影响阅读）
+  /* 家长端 / 扫码访客 · 考勤 / 材料收集：**全班公示版（只公示号数，不公示姓名）** ——
+     名单统一换号数，姓名一律不外露；扫码访客没有本人身份 → 不做过滤，看到的就是整份公示
+     （🔴 别改成「只看自己孩子」，访客会整页空）。已登录且绑定孩子的家长，自家号数高亮。
      周切换沿用 parentBriefWeek / parentWeekNav('') */
   /* 周选择与当前模块：家长端考勤 / 材料公示的视图状态。
      🔴 这两个 var 必须留在本文件里：之前整段重写家长端时把声明一起删了，
@@ -7117,14 +7116,10 @@
     });
   }
 
-  /* ---------- 座位智能编排（身高 · 行为 · 星座） ----------
+  /* ---------- 座位智能编排（身高 45% · 行为 40% · 星座 15%） ----------
      评分制 + 多次随机重启爬山，种子固定 → 同一批数据算出的方案可复现（「再算一次」才换种子）。
-     · 身高（45%）：同列相邻两排「前排比后排高」按厘米差扣分 → 矮个在前高个在后
-     · 行为（40%）：行为观察「需引导」条数 = 关注负荷（封顶 3）
-         - 负荷≥1 的同学尽量排前 1/3（离讲台近、好照顾）
-         - 两个负荷≥2 的同学正交相邻大扣分；隔走廊 / 空位不算相邻
-         - 高负荷旁边坐「值得肯定且零负荷」的同学 → 以优带差加分
-     · 星座（15%）：火土风水四元素，相邻同元素轻扣分、每行元素够多样轻加分（小组讨论氛围调剂） */
+     身高：同列相邻两排「前排比后排高」按厘米差扣分；行为：需引导条数=关注负荷（封顶 3），
+     高负荷排前 1/3、其旁坐「值得肯定且零负荷」的同学以优带差；星座：相邻同元素轻扣分。 */
   function seatZodiacElement(raw){
     var z=zodiacOf(raw); if(!z) return "";
     var n=z.name;
@@ -8745,13 +8740,10 @@
      ownerUid 记在 data 里（apiQuery 只回传 _id + data，不会带出 user_id），
      这样成员登录后能读到「我属于哪个班主任的班级」，并据此获得只读查看权与留言对象。 */
   var myMemberRow=null, MSG_OWNER=null, membersTableMissing=false;
-  /* 从成员表里认领「我」这一行：家长 / 科任 / 班干部的只读范围、留言对象、
-     家校首页的孩子卡片、自家号数高亮，全都靠它。
-     🔴 不能只写在 loadMembersSafe 里：老账号（没有 user_metadata.role）第一次拉成员表时
-        curRole 还是默认的「班主任」，会被 isHead() 挡掉；等身份被成员表纠正成家长之后
-        不会再跑一次 loadMembersSafe → myMemberRow 永远是 null，
-        表现为「账号尚未关联学生 / 你还没有加入班级」（成员行其实就在 DATA.members 里）。
-        所以抽成函数，身份纠正后补调一次。 */
+  /* 从成员表里认领「我」这一行：只读范围、留言对象、孩子卡片、自家号数高亮全靠它。
+     🔴 不能只写在 loadMembersSafe 里：老账号第一次拉成员表时 curRole 还是「班主任」，
+        会被 isHead() 挡掉；身份纠正后不会再跑一次 → myMemberRow 恒为 null
+        （表现为「账号尚未关联学生」）→ 所以抽成函数，身份纠正后补调一次。 */
   function pickMyMemberRow(){
     if(isHead()){ myMemberRow=null; MSG_OWNER=null; return; }
     var mine=(DATA.members||[]).filter(function(r){ return r && r["uid"]===curUid; })[0]||null;
@@ -8825,7 +8817,7 @@
   /* ===== 设置（云端，跨设备一致） =====
      把仅存 localStorage 的配置（班会 / 周报 / 值日配置 / 班级信息 / 规则）统一收进 hr_settings 单行，
      班主任读写自己的那一行；成员经 member-read 策略读到班主任的那一行 → 同账号跨电脑一致、家长可见教师配置。 */
-  var settingsTableMissing=false;
+  var settingsTableMissing=false, settingsLoaded=false;
   var settingsRowId=null;
   function sqlSettings(){
     return "create table if not exists hr_settings (\n"
@@ -8842,9 +8834,12 @@
       + "create policy hr_settings_member_read on hr_settings for select using ( exists (select 1 from hr_members m where m.user_id = hr_settings.user_id and (m.data->>'uid') = auth.uid()::text) );\n";
   }
   function loadSettingsSafe(){
+    if(settingsLoaded) return Promise.resolve();   /* 首屏已拿到：后台补齐不再重复拉 */
     return apiQuery("settings").then(function(res){
       var rows=res.results||[];
-      if(rows.length){ settingsRowId=rows[0]._id; hydrateSettings(rows[0].data||{}); }
+      /* ⚠️ apiQuery 已把行扁平化成 {_id, ...data 的键}：取 rows[0].data 恒为 undefined，
+         等于每次用空对象 hydrate，云端配置一项都读不回来。 */
+      if(rows.length){ settingsRowId=rows[0]._id; settingsLoaded=true; hydrateSettings(rows[0].data || rows[0]); }
     }).catch(function(e){
       if(classifyError(e).kind==="schema"){ settingsTableMissing=true; }
     });
@@ -8861,6 +8856,8 @@
     if(s.ruleCfg&&typeof s.ruleCfg==="object"){ RULE_CFG=s.ruleCfg; }
     if(Array.isArray(s.matFolders)){ MAT_FOLDERS=s.matFolders.filter(function(f){ return f && String(f.item||"").trim(); })
       .map(function(f){ return { item:String(f.item).trim(), type:f.type==="材料上交"?"材料上交":"作业提交", created:String(f.created||"") }; }); }
+    try{ applyClass(); }catch(_){}   /* 读回云端后立刻同步左上角 */
+    try{ applyClass(); }catch(_){}
   }
   function persistSettings(){
     if(settingsTableMissing || !isHead()) return;   // 仅班主任写；成员只读，绝不回写
@@ -9422,6 +9419,24 @@
     });
     return late+"/"+absent+"/"+nosub+"/"+honor;
   }
+  /* 扫码访客家校首页的「本周值日生」名单（duty-guest-2026-09-13）：
+     与「值日安排」横向周表同源（DATA.duty），组序用权威组列表，本周值日组打「本周」标。
+     值日属班级公务，姓名随分工一起公示；无数据时给一句 truthful 空态。 */
+  function dutyRosterHTMLForGuest(){
+    var groups=getDutyGroups(), cur=currentDutyGroup(), out=[];
+    groups.forEach(function(g){
+      var mem=dutyWeekGroupMembers(g);
+      if(!mem.length) return;
+      out.push('<div class="ph-duty-g">'
+        +'<span class="ph-duty-gn">'+esc(g)+(g===cur?'<i class="dw-cur-badge" style="margin-left:4px">本周</i>':'')+'</span>'
+        +'<span class="ph-duty-people">'+mem.map(function(p){
+            return '<span class="dw-person"><span class="dw-pname">'+esc(p.name)+'</span>'
+              +(p.no?'<span class="dw-pno">'+esc(p.no)+'</span>':'')+'</span>';
+          }).join('')+'</span></div>');
+    });
+    if(!out.length) return '<div class="ph-empty">班主任还没排本周值日表，排好后这里会自动显示。</div>';
+    return '<div class="ph-duty-roster">'+out.join('')+'</div>';
+  }
   function renderGuestHome(){
     var cls=(typeof shareClsName==="function"?shareClsName():"班级");
     var head='<div class="phead"><h3>🏠 家校首页 · '+esc(cls)+'</h3>'
@@ -9440,6 +9455,11 @@
       +esc(isoWeek(todayStr()).monday.slice(5))+' 起</span></div><div class="ph-grid">'
       +cells.map(function(c){ return '<div class="ph-stat"><div class="ph-stat-v '+(Number(c[1])?c[2]:"good")+'">'+c[1]+'</div><div class="ph-stat-l">'+c[0]+'</div></div>'; }).join("")
       +'</div><div class="ph-empty">按全班统计，只显示人次不显示姓名。</div></div>';
+    /* ②.5 本周值日生（班级公务，扫码可见；点标题直达「值日安排」周表） */
+    html+='<div class="ph-card"><div class="ph-sec-h">🧹 本周值日生'
+      +'<span class="spacer"><button class="btn-mini" data-phgo="duty">值日安排 ›</button></span></div>'
+      +dutyRosterHTMLForGuest()
+      +'</div>';
     /* ③ 今日课表 */
     var cs=todayCoursesOf();
     html+='<div class="ph-card"><div class="ph-sec-h">📅 今日课表'
@@ -9914,11 +9934,7 @@
       toast("创建失败："+m);
     });
   }
-  /* 班主任创建科任老师账号（subject-desk-2026-09-12）：
-     在这之前，科任老师只能「自己注册 → 登录后什么都看不到 → 去留言板抄下自己的账号 ID
-     → 微信发给班主任 → 班主任在成员管理里手动粘贴」——五步、跨两个应用，多数老师卡在中间。
-     现在与家长账号完全同一套流程：班主任填姓名、设密码，系统自动建号并写入成员表（含 uid），
-     把邮箱密码发给老师即可登录。signUp 仍走不落盘的 dbGuest，不会污染班主任会话。 */
+  /* 科任账号创建（subject-desk-2026-09-12）：kr 前缀邮箱 + 不落盘独立客户端，细节见 overview 文档 */
   function createOneSubject(mask){
     if(!isHead()){ toast("仅班主任可创建科任老师账号"); return; }
     if(!db){ toast("未连接后端"); return; }
@@ -11173,11 +11189,7 @@
     document.getElementById("rosterMask").classList.add("show");
   }
   function closeRoster(){ document.getElementById("rosterMask").classList.remove("show"); }
-  /* ============ 🖨 点名表（考勤记录 → 可打印的分栏名单） ============
-     用途：按「号数」顺序排全班名单，右侧留空白列供手写勾选（考勤 / 交作业 / 课堂表现）。
-     默认 2 栏 / A4 横向，一张纸装下全班，与班级纸质点名单一致。
-     输出两条路：隐藏 iframe 直出打印（避开弹窗拦截）、HTML table 导出 .xls 可自行调整。
-     attprint-2026-09-13 新增。 */
+  /* 🖨 点名表（attprint-2026-09-13）：attRvParts 三段共用（预览/打印/导出），A4 横向分栏 */
   function attRvStudents(){
     return (DATA.students||[]).slice().sort(byNo).filter(function(s){ return String(s["姓名"]||"").trim(); });
   }
@@ -11397,10 +11409,10 @@
   }
 
   /* ---------- 加减分规则（手动「应用规则」触发；自动去重、可重算） ----------
-     考勤：① 缺勤 / 迟到「按天」扣分，同一学生同一天无论上午+下午、无论几条记录，最多扣 1 次（取最严重状态：缺勤>迟到>请假>出勤）；
-           ② 周一~周五连续全勤（当天两时段均出勤）→ 每人 +attWeekBonus（中断则该周不得分）。扣分与全勤奖励可叠加。
-     材料：作业提交 / 材料上交 分开计算，连续 matConsecutive 次已交 → +1；迟交每次 −matLatePenalty、未交每次 −matNoPenalty；
-           同一「事项(表格)」内同一天只扣 1 次（按 日期+事项 去重取最严重状态）。 */
+     考勤：缺勤 / 迟到按天扣 1 次（取最严重：缺勤>迟到>请假>出勤）；周一~周五连续全勤
+           +attWeekBonus（中断则该周不得分）；扣分与全勤可叠加。
+     材料：连续 matConsecutive 次已交 +1；迟交 −matLatePenalty、未交 −matNoPenalty；
+           同一「事项」同一天只扣 1 次（按 日期+事项 去重取最严重状态）。 */
   function matchStu(r, no, nm){ return no ? String(r["学号"]||"")===String(no) : String(r["学生姓名"]||"")===String(nm); }
   function computeAttendancePoints(){
     var out=[], bonus=RULE_CFG.attWeekBonus||1;
@@ -12202,12 +12214,7 @@
     var _uid=(!isHead() && MSG_OWNER) ? MSG_OWNER : undefined;
     return apiAdd("attendance", props, _uid);
   }
-  /* ---------- 材料收交 · 生成通知文案（matnotify-2026-09-12） ----------
-     班主任最费时间的活之一：收完作业在家长群里催交。这里把当前文件夹里的
-     「未交 / 迟交」名单直接拼成一段可粘贴到微信的文案，两种版本：
-       · 号数版（默认）——只列号数，符合本应用「公示不给姓名」的既有约定，可直接发班级群
-       · 姓名版——列姓名，便于逐个家长私发或自己核对
-     谁都交齐时不生成催交文案，而是给一段表扬版（催交之外也有正向反馈）。 */
+  /* 材料收交·生成通知（matnotify-2026-09-12）：号数版/姓名版/汇总三种文案，细节见 overview 文档 */
   var matnState = { item:"", type:"", dates:[], date:"", byName:false, withLate:true };
   /* 当前文件夹下「有记录的日期」，倒序；一条记录都没有时用文件夹登记日期兜底 */
   function matNotifyDates(item, type){
@@ -13161,18 +13168,33 @@
     CLS_YEAR = localStorage.getItem("wb_cls_year") || "初一";
     CLS_CLASS = localStorage.getItem("wb_cls_class") || "(1)班";
   }
+  /* 左上角班级 / 年段：以云端设置为准，仅班主任可改；这里同步光标与提示语。 */
+  function syncBrandEditability(){
+    var b=document.getElementById("brand"), h=document.getElementById("brandHint");
+    var can=canEdit();
+    if(b){
+      if(b.classList) b.classList.toggle("ro", !can);
+      b.title = can ? "点击修改班级 / 年段" : "班级 / 年段由班主任设置，所有身份显示一致";
+    }
+    if(h) h.textContent = can ? "✏️ 点击修改班级 / 年段" : "🏫 班级 / 年段由班主任设置";
+  }
   function applyClass(){
     var full = CLS_YEAR + CLS_CLASS;
-    document.getElementById("clsTitle").textContent = full;
+    var t=document.getElementById("clsTitle");
+    if(t) t.textContent = full;
     document.title = full + " · 班主任小台";
+    syncBrandEditability();
   }
   function openCfg(){
+    /* 弹层是静态 DOM 藏不住 → 非班主任拦在入口 */
+    if(!canEdit()){ toast("班级 / 年段由班主任设置，其他身份只读同步显示"); return; }
     document.getElementById("cfgYear").value = CLS_YEAR;
     document.getElementById("cfgClass").value = CLS_CLASS;
     document.getElementById("cfgMask").classList.add("show");
   }
   function closeCfg(){ document.getElementById("cfgMask").classList.remove("show"); }
   function saveCfg(){
+    if(!canEdit()){ closeCfg(); toast("只有班主任可以修改班级 / 年段"); return; }
     var y=(document.getElementById("cfgYear").value||"").trim()||"初一";
     var c=(document.getElementById("cfgClass").value||"").trim()||"(1)班";
     CLS_YEAR=y; CLS_CLASS=c;
@@ -13240,10 +13262,7 @@
     box.innerHTML = msgs || '<div class="ai-empty">👋 我是你的班级 AI 小助手。可以问我：「帮我写一段给进步生的评语」「这周班会怎么安排」「怎么激励积分靠后的同学」…</div>';
     box.scrollTop=box.scrollHeight;
   }
-  /* ===== AI Key 跨设备同步（基于 Supabase auth user_metadata）=====
-     之前 key 只存 localStorage，换设备/换浏览器就要重填。
-     现在保存时同时写云端（db.auth.updateUser({ data: { dashscope_key } })），
-     启动 / 登录成功时从云端拉到本地缓存。localStorage 仍作为本地缓存，避免每次启动都打云端。 */
+  /* AI Key 跨设备同步：存 auth user_metadata，本机 localStorage 只作缓存 */
   var AI_KEY_META = "dashscope_key";
   function getAIKey(){ try{ return localStorage.getItem("wb_cls_dashscope_key") || ""; }catch(e){ return ""; } }
   /* 保存到本地 + 异步写云端。云端写失败不影响本地使用，仅 toast 提示（避免阻塞当前操作）。
@@ -14120,12 +14139,7 @@
     pdf:["/banzhuren-workbench/pdf.min.js","https://lib.baomitu.com/pdf.js/3.11.174/pdf.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"],
     pdfWorker:"https://lib.baomitu.com/pdf.js/3.11.174/pdf.worker.min.js"
   };
-  /* xlsx 加载策略（彻底解决「成绩 Excel 传不上去」+「首屏过慢」）：
-     - 692KB 库以 <script type="text/plain"> 内联在 HTML 中：浏览器**不解析、不执行**，
-       因此完全不阻塞首屏（首屏只解析 580KB 应用代码）；
-     - 真正导入时才由 ensureXLSX() → _injectInlineXLSX() 取出注入执行（纯本地，无网络）；
-     - 页面空闲时（requestIdleCallback）后台预热，用户点导入时通常已就绪；
-     - fetch 多源竞速 + Cache API 仅作为兜底（内联块缺失/损坏时才用）。 */
+  /* xlsx 加载策略：692KB 库以 text/plain 内置、空闲时再注入，细节见 overview 文档 */
   function _anyP(list){
     return new Promise(function(res,rej){
       var errs=[], done=false, n=list.length;
@@ -14980,14 +14994,9 @@
       if(document.getElementById("authErr")) document.getElementById("authErr").textContent="界面渲染出错："+(e&&e.message||e);
     }
   }
-  /* 启动快照缓存（**分片**）：把上次成功拉取的数据按表存进 localStorage，下次刷新先用缓存瞬出界面，
-     再后台静默刷新云端——把「每次刷新都要等 16 张表从 supabase 拉完」的等待降到几乎 0。
-     分片要点（此前是整包 JSON.stringify(DATA) 存在一个键里，冷启动时很吃亏）：
-       ① 整包 2~3MB 字符串一次 JSON.parse 要占住主线程几百毫秒 —— 现在首屏只 parse
-          当前身份首屏真正要用的那几片（走 bootCoreKeys），其余片放到浏览器空闲时再补；
-       ② 任何一张表变化都得重写整包 —— 现在只写变化的那几片（saveBootCache(keys)）；
-       ③ 单键超配额会被整包丢掉 —— 现在一片写不下只丢那一片。
-     按版本号隔离：版本升级后旧缓存自动失效，并顺手清掉历代遗留键（否则 localStorage 越攒越满）。 */
+  /* 启动快照缓存（分片）：按表把上次数据存进 localStorage，首屏先瞬出、再后台静默刷新。
+     只 parse 当前身份首屏要用的几片（bootCoreKeys）、只写变化的那几片，一片超配额只丢那一片
+     （整包会因单键超限被整包丢弃）。按版本号隔离，升级后旧缓存自动失效并清掉历代遗留键。 */
   var BOOT_CACHE_PREFIX="wb_bootcache_";
   function bootCacheKey(){ return BOOT_CACHE_PREFIX+(typeof __APP_VERSION__!=="undefined"?__APP_VERSION__:"v"); }
   function shardKey(k){ return bootCacheKey()+"__"+k; }
@@ -15066,7 +15075,8 @@
   /* 首屏必拉：课表 / 成员 / 留言（家长首页留言卡要用）；非班主任还要班级制度 */
   function refreshBootCore(){
     /* 班级制度不再挤进首屏：它在后台层拉（家长首页用不到它），点侧栏时 ensureModule 也会兜底 */
-    var pre=[loadSchedulesSafe(), loadMembersSafe(), loadMessagesSafe()];
+    /* settings 放首屏：班级 / 年段在里面，晚拉到会先显示默认名再跳变 */
+    var pre=[loadSchedulesSafe(), loadMembersSafe(), loadMessagesSafe(), loadSettingsSafe()];
     return Promise.all(pre.map(function(p){ return p.catch(function(){}); }))
       .then(function(){
         /* 老账号（无 role 元数据）到这一步才拿得到成员表 → 用它纠正身份，
@@ -15077,6 +15087,7 @@
             curRole=r;
             restoreView();                 // 换成该身份的默认落地页
             try{ renderSidebar(); }catch(_e){}
+            try{ syncBrandEditability(); }catch(_e){}
           }
         }
         /* 刚被纠正过身份（老账号）→ 补认一次「我这一行」：
@@ -15194,7 +15205,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "guest-honor-2026-09-13";
+  var __APP_VERSION__ = "clsmeta-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
