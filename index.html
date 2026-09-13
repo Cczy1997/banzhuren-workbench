@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>初一(1)班 · 班主任小台</title>
+<title>家校联系</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#5B6FDB">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -2190,8 +2190,8 @@
 (function(){
   "use strict";
   // ===== Supabase 配置（部署前请替换为你的项目 URL 与 anon key）=====
-  /* guest-chrome-2026-09-13：扫码访客（?c=）的页面标题（微信顶栏）立即改「家校联系」，不等数据加载 */
-  try{ if(/(?:^|\?|&)c=/.test(location.search)) document.title="家校联系"; }catch(_e){}
+  /* alltitle-2026-09-13：所有身份的页面标题（微信顶栏）统一「家校联系」，打开立即生效 */
+  try{ document.title="家校联系"; }catch(_e){}
   var SUPABASE_URL = "https://ffuslbsknqqsjqjbvpjr.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_gpIn1xpywnjQnxP-OM_s-Q_Gz9Gj6L-";
   var db = null;
@@ -13191,7 +13191,7 @@
     var full = CLS_YEAR + CLS_CLASS;
     var t=document.getElementById("clsTitle");
     if(t) t.textContent = full;
-    document.title = isVisitorView() ? "家校联系" : (full + " · 班主任小台");
+    document.title = "家校联系"; /* alltitle-2026-09-13：全身份统一 */
     syncBrandEditability();
   }
   function openCfg(){
@@ -15211,7 +15211,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "guestchrome-2026-09-13";
+  var __APP_VERSION__ = "alltitle-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
