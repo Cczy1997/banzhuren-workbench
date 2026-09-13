@@ -212,6 +212,20 @@
   .rstat.sel[data-v="迟交"],.rstat.sel[data-v="迟到"]{background:#fff3e6;color:#c8761b;border-color:#ffcf9a}
   .rstat.sel[data-v="未交"],.rstat.sel[data-v="缺勤"]{background:#fdecec;color:#d8453f;border-color:#f6b6b2}
   .rstat.sel[data-v="请假"]{background:#eef2ff;color:#4a6cf7;border-color:#c2d0ff}
+  /* 🖨 点名表（考勤记录用：A4 横向分栏名单，空白列供手写勾选） */
+  .attrv-cfg{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 2px}
+  .attrv-cfg .field{flex:1 1 150px;min-width:130px;margin:0}
+  .attrv-opts{display:flex;flex-wrap:wrap;gap:16px;margin:9px 0 2px;font-size:13px;color:var(--ink)}
+  .attrv-opts label{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
+  .attrv-opts input[type=checkbox]{width:16px;height:16px;accent-color:var(--pink-d);margin:0}
+  .attrv-prev{margin-top:10px;padding:8px;border:1px solid var(--line);border-radius:12px;background:#fbfcff;overflow:auto;max-height:46vh}
+  .attrv-prev .ar-title{text-align:center;font-weight:800;font-size:14px;color:var(--ink);margin-bottom:3px}
+  .attrv-prev .ar-sub{text-align:center;font-size:11px;color:var(--ink-soft);margin-bottom:5px}
+  .attrv-prev table{width:100%;border-collapse:collapse;table-layout:fixed}
+  .attrv-prev th,.attrv-prev td{border:1px solid #98a4ba;height:19px;font-size:10.5px;text-align:center;padding:0 2px;color:#33405C;overflow:hidden;white-space:nowrap}
+  .attrv-prev th{font-weight:700;background:#f2f5fd}
+  .attrv-prev .lastcol{border-right:2px solid #33405C}
+  .attrv-prev .arv-ph{text-align:center;color:var(--ink-soft);font-size:13px;padding:18px 0}
   /* 关联学生选择器弹层 */
   /* ---------- 行为观察（behavior） ---------- */
   .beh-page{display:flex;flex-direction:column;gap:10px}
@@ -2006,6 +2020,43 @@
   </div>
 </div>
 
+<!-- 🖨 点名表（考勤记录用：A4 横向分栏名单，打印出来手写勾选） -->
+<div class="mask" id="attRvMask">
+  <div class="sheet" style="max-width:840px">
+    <h3>🖨 点名表</h3>
+    <button class="x" id="attRvClose">×</button>
+    <p class="imp-tip">按「号数」顺序排全班名单，空白列用来手写勾选。<b>默认 2 栏 / A4 横向</b>，一张纸装下全班；也可导出 Excel 后自行调整。</p>
+    <div class="attrv-cfg">
+      <div class="field" style="flex:1 1 100%"><label>标题</label><input type="text" id="attRvTitle"></div>
+      <div class="field"><label>空白列</label>
+        <select id="attRvHead">
+          <option value="blank">留空（6 列）</option>
+          <option value="week5">周一 ~ 周五</option>
+          <option value="week6">周一 ~ 周六</option>
+          <option value="period6">节次 1 ~ 6</option>
+          <option value="weekno6">第 1 ~ 6 周</option>
+          <option value="yn">完成 / 未完成</option>
+          <option value="custom">自定义…</option>
+        </select>
+      </div>
+      <div class="field" id="attRvCustomField" style="display:none"><label>自定义列（逗号分隔）</label><input type="text" id="attRvHeadCustom" placeholder="如：早读,午休,晚自习"></div>
+      <div class="field" style="flex:0 0 106px"><label>栏数</label>
+        <select id="attRvLanes"><option value="1">1 栏</option><option value="2" selected>2 栏</option><option value="3">3 栏</option></select>
+      </div>
+    </div>
+    <div class="attrv-opts">
+      <label><input type="checkbox" id="attRvDate"> 日期 / 星期填写行</label>
+      <label><input type="checkbox" id="attRvNo" checked> 显示「号数」列</label>
+      <label><input type="checkbox" id="attRvRemark"> 末尾加「备注」列</label>
+    </div>
+    <div class="attrv-prev" id="attRvPreview"></div>
+    <div class="actions">
+      <button class="btn-cancel" id="attRvExport">📊 导出 Excel</button>
+      <button class="btn-save" id="attRvPrint">🖨 打印</button>
+    </div>
+  </div>
+</div>
+
 <!-- 加减分规则配置弹窗 -->
 <div class="mask" id="ruleMask">
   <div class="sheet" style="max-width:520px">
@@ -3194,6 +3245,11 @@
       ? '<button class="btn-rule" data-rosteropen="'+key+'" title="按班级名单批量登记：默认全员「'
         +(key==="materials"?"已交":"出勤")+'」，只需点改例外（迟到 / 缺勤 / 请假 / 迟交 / 未交），一次为全班建立当天记录">📋 花名册登记</button>'
       : '';
+    /* 🖨 点名表：生成可打印的分栏名单（空白列供手写勾选）。
+       只读身份不影响使用（点名不写库），故不列入下面的清空清单；仅家长隐藏（家长不需要打全班名单）。 */
+    var attPrintBtn = (key==="attendance" && curRole!==ROLE_PARENT)
+      ? '<button class="btn-rule" data-attprint="1" title="生成可打印的点名表：按号数排全班名单，A4 横向分栏，空白列供手写勾选；也可导出 Excel 自行调整">🖨 点名表</button>'
+      : '';
     /* 只读身份（科任老师 / 家长）：隐藏一切写操作入口，只留视图切换与导出 */
     if(!canEdit()){ ruleBtn=""; ocrBtn=""; stuGroupBtn=""; stuBirthBtn=""; comMonthlyBtn=""; rosterBtn="";
       /* 班干部是登记人（不是纯只读）：保留考勤 / 材料的视图切换，方便核对明细；家长 / 科任照旧隐藏 */
@@ -3218,6 +3274,7 @@
       + stuBirthBtn
       + comMonthlyBtn
       + rosterBtn
+      + attPrintBtn
       +((!canEdit() && (key==="honor"||key==="attendance"||key==="materials")) ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
       + roAdd
       +'</div>'
@@ -11054,7 +11111,18 @@
     attendance:[["出勤","ok"],["迟到","late"],["缺勤","miss"],["请假","leave"]]
   };
   var rosterState = { key:"", sel:{} };
-  function byNo(a,b){ var na=String(a["学号"]||""), nb=String(b["学号"]||""); return na<nb?-1:(na>nb?1:0); }
+  /* 按号数排序（考勤 / 材料 / 花名册 / 点名表统一用它）
+     ⚠️ 必须按「数值」比，不能按字符串：学号存的是 "1"…"53" 且不补零，
+        字符串比较会把 "10" 排到 "2" 前面 → 名单顺序整段错乱（attprint-2026-09-13 修）。 */
+  function byNo(a,b){
+    var ra=String(a["学号"]==null?"":a["学号"]).trim(), rb=String(b["学号"]==null?"":b["学号"]).trim();
+    var na=parseInt(ra.replace(/\D/g,""),10), nb=parseInt(rb.replace(/\D/g,""),10);
+    var ea=isNaN(na), eb=isNaN(nb);
+    if(ea!==eb) return ea?1:-1;                     /* 没学号的排最后 */
+    if(!ea && na!==nb) return na-nb;                /* 都是数字 → 比数值 */
+    if(ra!==rb) return ra<rb?-1:1;                  /* 数字相同或都非数字 → 比原串 */
+    return String(a["姓名"]||"").localeCompare(String(b["姓名"]||""),"zh");
+  }
   function openRoster(key){
     rosterState.key = key;
     rosterState.sel = {};
@@ -11092,6 +11160,155 @@
     document.getElementById("rosterMask").classList.add("show");
   }
   function closeRoster(){ document.getElementById("rosterMask").classList.remove("show"); }
+  /* ============ 🖨 点名表（考勤记录 → 可打印的分栏名单） ============
+     用途：按「号数」顺序排全班名单，右侧留空白列供手写勾选（考勤 / 交作业 / 课堂表现）。
+     默认 2 栏 / A4 横向，一张纸装下全班，与班级纸质点名单一致。
+     输出两条路：隐藏 iframe 直出打印（避开弹窗拦截）、HTML table 导出 .xls 可自行调整。
+     attprint-2026-09-13 新增。 */
+  function attRvStudents(){
+    return (DATA.students||[]).slice().sort(byNo).filter(function(s){ return String(s["姓名"]||"").trim(); });
+  }
+  function attRvCfg(){
+    function g(id){ return document.getElementById(id); }
+    var tEl=g("attRvTitle"), hEl=g("attRvHead"), cEl=g("attRvHeadCustom"),
+        lEl=g("attRvLanes"), dEl=g("attRvDate"), nEl=g("attRvNo"), rEl=g("attRvRemark");
+    var title=String((tEl&&tEl.value)||"").trim() || (((DATA.cls&&DATA.cls.班级名称)||"班级")+"点名表");
+    var pv=String((hEl&&hEl.value)||"blank"), heads=[];
+    if(pv==="week5") heads=["周一","周二","周三","周四","周五"];
+    else if(pv==="week6") heads=["周一","周二","周三","周四","周五","周六"];
+    else if(pv==="period6") heads=["1","2","3","4","5","6"];
+    else if(pv==="weekno6") heads=["第1周","第2周","第3周","第4周","第5周","第6周"];
+    else if(pv==="yn") heads=["完成","未完成"];
+    else if(pv==="custom"){
+      heads=String((cEl&&cEl.value)||"").split(/[,，、\s]+/).map(function(x){ return x.trim(); }).filter(Boolean);
+    }
+    if(!heads.length) heads=["","","","","",""];       /* 留空：6 列空白格（与样例一致） */
+    var lanes=parseInt(String((lEl&&lEl.value)||"2"),10); if(!(lanes>=1 && lanes<=3)) lanes=2;
+    return { title:title, heads:heads, lanes:lanes,
+      showDate:!!(dEl&&dEl.checked), showNo:!!(nEl&&nEl.checked), remark:!!(rEl&&rEl.checked) };
+  }
+  /* 生成打印 / 导出共用的三段：标题、样式、表格 HTML（改一处两边同步生效） */
+  function attRvParts(){
+    var cfg=attRvCfg(), list=attRvStudents();
+    var names=list.map(function(s){ return String(s["姓名"]||"").trim(); });
+    var nos=list.map(function(s){ return String(normNo(s["学号"])||""); });
+    var n=names.length, L=cfg.lanes, HN=cfg.heads.length;
+    var rows=Math.max(1, Math.ceil(n/L));
+    /* 行高自适应：一页 A4 横向装下 rows 行（1 栏 53 人时会压到下限，仍可读） */
+    var rowH=Math.max(15, Math.min(28, Math.floor(660/rows)));
+    var laneW=100/L;
+    var noW=cfg.showNo ? laneW*0.13 : 0, nameW=laneW*0.27;
+    var restN=HN+(cfg.remark?1:0), restW=restN ? (laneW-noW-nameW)/restN : 0;
+    var cg="<colgroup>", li, k, i;
+    for(li=0;li<L;li++){
+      if(cfg.showNo) cg+='<col style="width:'+noW.toFixed(3)+'%">';
+      cg+='<col style="width:'+nameW.toFixed(3)+'%">';
+      for(k=0;k<restN;k++) cg+='<col style="width:'+restW.toFixed(3)+'%">';
+    }
+    cg+="</colgroup>";
+    /* 表头 */
+    var th="<tr>";
+    for(li=0;li<L;li++){
+      var hc=[];
+      if(cfg.showNo) hc.push("号数");
+      hc.push("姓名");
+      cfg.heads.forEach(function(h){ hc.push(h); });
+      if(cfg.remark) hc.push("备注");
+      for(i=0;i<hc.length;i++) th+='<th'+(i===hc.length-1?' class="lastcol"':'')+'>'+esc(hc[i])+'</th>';
+    }
+    th+="</tr>";
+    /* 数据行：逐栏填满（左栏 1~27、右栏 28~53），末栏不足补空格 */
+    var tb="";
+    for(var r=0;r<rows;r++){
+      tb+="<tr>";
+      for(li=0;li<L;li++){
+        var idx=li*rows+r;
+        var nm=names[idx]||"", no=nos[idx]||"";
+        var dc=[];
+        if(cfg.showNo) dc.push(no);
+        dc.push(nm);
+        for(k=0;k<HN;k++) dc.push("");
+        if(cfg.remark) dc.push("");
+        for(i=0;i<dc.length;i++) tb+='<td'+(i===dc.length-1?' class="lastcol"':'')+'>'+esc(dc[i])+'</td>';
+      }
+      tb+="</tr>";
+    }
+    var css='@page{size:A4 landscape;margin:8mm}'
+      +'*{box-sizing:border-box}'
+      +'body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#000;margin:0}'
+      +'.ar-title{text-align:center;font-size:19px;font-weight:800;letter-spacing:1px;margin:0 0 3px}'
+      +'.ar-sub{text-align:center;font-size:12px;color:#333;margin:0 0 7px}'
+      +'table.ar-t{width:100%;border-collapse:collapse;table-layout:fixed}'
+      +'.ar-t th,.ar-t td{border:1px solid #000;height:'+rowH+'px;font-size:12px;text-align:center;padding:0 2px;overflow:hidden;white-space:nowrap;vertical-align:middle}'
+      +'.ar-t th{font-weight:700}'
+      +'.ar-t .lastcol{border-right:2.5px solid #000}';
+    return { title:cfg.title,
+      sub: cfg.showDate ? "______年______月______日        星期______" : "",
+      css: css, body: '<table class="ar-t">'+cg+'<thead>'+th+'</thead><tbody>'+tb+'</tbody></table>',
+      count:n, rows:rows, lanes:L };
+  }
+  function attRvSyncCustom(){
+    var s=document.getElementById("attRvHead"), w=document.getElementById("attRvCustomField");
+    if(!s||!w) return;
+    w.style.display = (s.value==="custom") ? "" : "none";
+  }
+  function renderAttRvPreview(){
+    var box=document.getElementById("attRvPreview");
+    if(!box) return;
+    var p=attRvParts();
+    if(!p.count){ box.innerHTML='<div class="arv-ph">还没有学生档案，请先到「学生档案」添加学生</div>'; return; }
+    box.innerHTML='<div class="ar-title">'+esc(p.title)+'</div>'
+      +(p.sub ? '<div class="ar-sub">'+esc(p.sub)+'</div>' : '')
+      +p.body;
+  }
+  function openAttRv(){
+    var el=document.getElementById("attRvMask");
+    if(!el) return;
+    var t=document.getElementById("attRvTitle");
+    if(t && !t.value) t.value=((DATA.cls&&DATA.cls.班级名称)||"班级")+"点名表";
+    attRvSyncCustom();
+    renderAttRvPreview();
+    el.classList.add("show");
+  }
+  function closeAttRv(){ var el=document.getElementById("attRvMask"); if(el) el.classList.remove("show"); }
+  /* 打印：写进隐藏 iframe 再调 print，避开弹窗拦截（与座位表同一套做法） */
+  function printAttRoster(){
+    var p=attRvParts();
+    if(!p.count){ toast("还没有学生档案，请先到「学生档案」添加学生"); return; }
+    var f=document.createElement("iframe");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(f);
+    var d=f.contentWindow.document;
+    d.open();
+    d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(p.title)+'</title>'
+      +'<style>'+p.css+'</style></head><body>'
+      +'<div class="ar-title">'+esc(p.title)+'</div>'
+      +(p.sub ? '<div class="ar-sub">'+esc(p.sub)+'</div>' : '')
+      +p.body+'</body></html>');
+    d.close();
+    setTimeout(function(){
+      try{ f.contentWindow.focus(); f.contentWindow.print(); }
+      catch(e){ toast("调起打印失败，请改用「📊 导出 Excel」"); }
+      setTimeout(function(){ if(f.parentNode) f.parentNode.removeChild(f); }, 60000);
+    }, 250);
+  }
+  function exportAttRosterExcel(){
+    var p=attRvParts();
+    if(!p.count){ toast("还没有学生档案，请先到「学生档案」添加学生"); return; }
+    var doc='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+      +'<head><meta charset="utf-8"><style>'+p.css+'</style></head><body>'
+      +'<div class="ar-title">'+esc(p.title)+'</div>'
+      +(p.sub ? '<div class="ar-sub">'+esc(p.sub)+'</div>' : '')
+      +p.body+'</body></html>';
+    var blob=new Blob(["\uFEFF"+doc],{type:"application/vnd.ms-excel;charset=utf-8"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a");
+    a.href=url; a.download=p.title+"_"+todayStr()+".xls";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+    toast("点名表已导出 ✓");
+  }
+
   function applyRoster(){
     var key=rosterState.key;
     if(!key) return;
@@ -13424,8 +13641,20 @@
     var t=e.target; if(!t || !t.getAttribute) return;
     if(t.getAttribute("data-matnDate")!=null){ matnState.date=t.value; matnRefresh(); return; }
     if(t.getAttribute("data-matnLate")!=null){ matnState.withLate=!!t.checked; matnRefresh(); return; }
+    /* 点名表：任何配置改动都即时重画预览（弹层在 body 下，走 body 监听） */
+    if(t.closest && t.closest("#attRvMask")){ attRvSyncCustom(); renderAttRvPreview(); return; }
+  });
+  document.body.addEventListener("input",function(e){
+    if(e.target && e.target.closest && e.target.closest("#attRvMask")) renderAttRvPreview();
   });
   document.body.addEventListener("click",function(e){
+    /* 🖨 点名表：打开入口（按钮在 #content 内）+ 弹层内三个按钮
+       ⚠️ #attRvMask 是静态写死的弹层，位于 #content 之外 → 必须走 body 委托，
+          挂 #content 委托只会「弹层打开了、里面按钮全没反应」（铁律 33）。 */
+    if(e.target.closest("[data-attprint]")){ openAttRv(); return; }
+    if(e.target.closest("#attRvClose")){ closeAttRv(); return; }
+    if(e.target.closest("#attRvPrint")){ printAttRoster(); return; }
+    if(e.target.closest("#attRvExport")){ exportAttRosterExcel(); return; }
     /* 花名册批量录入：状态点选 + 一键全选
        ⚠️ 必须挂在 body 委托：#rosterMask 是页面里静态写死的弹层，在 #content 之外，
           事件冒泡不经过 #content → 挂 #content 委托时这两个分支一行都不会执行
@@ -14952,7 +15181,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "roster-wake-2026-09-13";
+  var __APP_VERSION__ = "attprint-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
