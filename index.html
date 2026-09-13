@@ -2190,6 +2190,8 @@
 (function(){
   "use strict";
   // ===== Supabase 配置（部署前请替换为你的项目 URL 与 anon key）=====
+  /* guest-chrome-2026-09-13：扫码访客（?c=）的页面标题（微信顶栏）立即改「家校联系」，不等数据加载 */
+  try{ if(/(?:^|\?|&)c=/.test(location.search)) document.title="家校联系"; }catch(_e){}
   var SUPABASE_URL = "https://ffuslbsknqqsjqjbvpjr.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_gpIn1xpywnjQnxP-OM_s-Q_Gz9Gj6L-";
   var db = null;
@@ -2279,6 +2281,16 @@
      ① isGuestScan()：本次从 ?c= 扫码进来（此时成员表未回，isGuest() 还是 false）；
      ② isGuest()：成员表的 guest 标记，覆盖重复扫码 / 刷新 / 收藏点开（_guestScan 已复位）。 */
   function isVisitorView(){ return isGuestScan() || isGuest(); }
+  /* guest-chrome-2026-09-13：访客界面不带「📤 分享工作台」「⇄ 切换身份/退出」，标题固定「家校联系」。
+     两个调用点：① 登录成功路径（此时只认 isGuestScan）；② pickMyMemberRow 认领成员行后
+     （覆盖「复用会话且 URL 已清 ?c=」的回头访客，靠 isGuest() 兜住）。非访客身份全部恢复显示。 */
+  function syncGuestChrome(){
+    var g=isVisitorView();
+    var lo=document.getElementById("logoutBtn"); if(lo) lo.style.display=g?"none":"";
+    var sh=document.getElementById("shareBtn"); if(sh) sh.style.display=g?"none":"";
+    var sr=document.getElementById("switchRoleBtn"); if(sr) sr.style.display=g?"none":"";
+    if(g && document.title!=="家校联系") document.title="家校联系";
+  }
   /* 访客看不到的模块；审计器读这份清单，加模块只改这一行。 */
   var GUEST_HIDDEN_MODS = ["honorboard"];
   function canSee(key){
@@ -8749,6 +8761,7 @@
     var mine=(DATA.members||[]).filter(function(r){ return r && r["uid"]===curUid; })[0]||null;
     myMemberRow=mine;
     MSG_OWNER=mine?(mine["ownerUid"]||null):null;
+    syncGuestChrome();
   }
   function loadMembersSafe(){
     DATA.members=DATA.members||[];
@@ -13178,7 +13191,7 @@
     var full = CLS_YEAR + CLS_CLASS;
     var t=document.getElementById("clsTitle");
     if(t) t.textContent = full;
-    document.title = full + " · 班主任小台";
+    document.title = isVisitorView() ? "家校联系" : (full + " · 班主任小台");
     syncBrandEditability();
   }
   function openCfg(){
@@ -14969,12 +14982,9 @@
       curRole = _roleFromMeta ? _r : resolveRole(user);
       if(isGuestScan()) curRole = ROLE_PARENT;
       hideAuth();
-      document.getElementById("logoutBtn").style.display="";
-      var _shb=document.getElementById("shareBtn"); if(_shb) _shb.style.display="";
+      syncGuestChrome();   /* 访客不显示 分享工作台 / 切换身份·退出（guest-chrome-2026-09-13） */
       var _qtb=document.getElementById("quickTblBtn"); if(_qtb) _qtb.style.display=(curRole===ROLE_HEAD)?"":"none";
       var _cqb=document.getElementById("clsQrBtn"); if(_cqb) _cqb.style.display=(curRole===ROLE_HEAD)?"":"none";
-      /* 扫码进入的家长并没有「本人账号」，切换身份只会把人绕晕（还容易误进班主任视图）→ 隐藏 */
-      var _srb2=document.getElementById("switchRoleBtn"); if(_srb2) _srb2.style.display=isGuestScan()?"none":"";
       var _cub=document.getElementById("checkUpdBtn"); if(_cub) _cub.style.display="";
       // 登录后立即从云端拉 AI Key（覆盖本地旧值），新设备无需重填
       syncAIKeyFromCloud();
@@ -15201,7 +15211,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "dutycur-2026-09-13";
+  var __APP_VERSION__ = "guestchrome-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
