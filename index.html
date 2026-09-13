@@ -1232,6 +1232,7 @@
   .duty-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
   .duty-note{background:#FFF7E6;border:1.5px dashed #F0C36D;border-radius:10px;padding:8px 13px;font-size:13.5px;color:#8B6914;margin-bottom:12px;line-height:1.55;outline:none}
   .duty-note:focus{background:#FFF1D6;border-color:#E0A53A}
+  .duty-note-ro{background:#F7F8FA;border:1px solid #E6E8EF;color:#4B5563;cursor:default}
   .duty-week-wrap{overflow-x:auto;margin:0 -2px}
   .duty-week-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;min-width:680px}
   .duty-week-table th,.duty-week-table td{border:1px solid var(--line);padding:8px 6px;text-align:center;vertical-align:middle}
@@ -2190,16 +2191,14 @@
 (function(){
   "use strict";
   // ===== Supabase 配置（部署前请替换为你的项目 URL 与 anon key）=====
-  /* alltitle-2026-09-13：所有身份的页面标题（微信顶栏）统一「家校联系」，打开立即生效 */
+  /* alltitle：全身份标题（微信顶栏）统一「家校联系」 */
   try{ document.title="家校联系"; }catch(_e){}
   var SUPABASE_URL = "https://ffuslbsknqqsjqjbvpjr.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_gpIn1xpywnjQnxP-OM_s-Q_Gz9Gj6L-";
   var db = null;
   var dbGuest = null;   // 仅用于「创建家长账号」时的 signUp：persistSession:false 不落盘，避免污染主客户端 db 的班主任会话（gotrue 会自动切到新用户会话并轮换刷新令牌，恢复失败时会导致成员写入被 RLS 拒绝）
-  /* 网络拦截层：给 Supabase 客户端包一层自定义 fetch，避免网关/代理返回的非 JSON 拦截页
-     直接命中内部 JSON.parse 抛出 "Unexpected token ':'" 拖崩整页。
-     仅对非 2xx 且非 JSON 的响应做转换（网关拦截页典型为 502/403 的 HTML）；
-     用 r.clone() 读取原响应体，不消费真正的 body，不影响正常 JSON 解析。 */
+  /* 网络拦截层：自定义 fetch 把网关非 JSON 拦截页（502/403 HTML）转成可读错误，避免 JSON.parse 拖崩整页；
+     仅非 2xx 且非 JSON 时转换，用 r.clone() 读体不消费 body。 */
   function supaFetch(url, init){
     try {
       return fetch(url, init).then(function(r){
@@ -2289,6 +2288,9 @@
     var lo=document.getElementById("logoutBtn"); if(lo) lo.style.display=g?"none":"";
     var sh=document.getElementById("shareBtn"); if(sh) sh.style.display=g?"none":"";
     var sr=document.getElementById("switchRoleBtn"); if(sr) sr.style.display=g?"none":"";
+    /* guest-clean：家长用不到「检查更新」与「由班主任设置」提示行 */
+    var cu=document.getElementById("checkUpdBtn"); if(cu && g) cu.style.display="none";
+    var bh=document.getElementById("brandHint"); if(bh) bh.style.display=g?"none":"";
     if(g && document.title!=="家校联系") document.title="家校联系";
   }
   /* 访客看不到的模块；审计器读这份清单，加模块只改这一行。 */
@@ -3303,7 +3305,8 @@
       + comMonthlyBtn
       + rosterBtn
       + attPrintBtn
-      +((!canEdit() && (key==="honor"||key==="attendance"||key==="materials")) ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
+      /* guest-clean：访客不显示「导出」 */
+      +((isVisitorView() || (!canEdit() && (key==="honor"||key==="attendance"||key==="materials"))) ? "" : '<button class="btn-exp" data-exp="'+key+'">导出</button>')
       + roAdd
       +'</div>'
       + (key==="students" ? '<div class="stu-search-wrap"><input class="stu-search" id="stuSearch" placeholder="🔍 搜索姓名 / 学号 / 标签 / 小组…" value="'+esc(state.stuQ||"")+'"></div>' : '')
@@ -5285,7 +5288,9 @@
     html+='  <div class="duty-meta-bar">';
     html+='    <span class="duty-meta"><span class="dm-key">📅 本周日期</span><span class="dm-val">'+esc(wk.monday)+' ~ '+esc(wk.sunday)+'</span></span>';
     html+='  </div>';
-    html+='  <div class="duty-note" contenteditable="true" data-dutynote="1" title="点击编辑班级备注">'+esc(note)+'</div>';
+    /* guest-clean：备注仅班主任可编辑，访客只读 */
+    if(isHead()) html+='  <div class="duty-note" contenteditable="true" data-dutynote="1" title="点击编辑班级备注">'+esc(note)+'</div>';
+    else if(note) html+='  <div class="duty-note duty-note-ro" title="班级备注（由班主任填写）">'+esc(note)+'</div>';
     html+=dutySwapHintHTML();
     html+='  <div class="duty-week-wrap'+(dutySwap.on?' duty-swap-on':'')+'"><table class="duty-week-table">';
     html+='    <thead>'+thead+'</thead>';
@@ -5297,6 +5302,7 @@
   }
   /* 值日表：班级备注失焦保存（contenteditable） */
   function dutyNoteSave(td){
+    if(!canEdit()){ toast("仅班主任可修改值日表"); return; }
     var t=(td.textContent||"").trim();
     setDutyNote(t);
     toast("班级备注已保存 ✓");
@@ -6410,9 +6416,8 @@
     ["金牛座","♉",5,20],["双子座","♊",6,21],["巨蟹座","♋",7,22],["狮子座","♌",8,22],
     ["处女座","♍",9,22],["天秤座","♎",10,23],["天蝎座","♏",11,22],["射手座","♐",12,21]
   ];
-  /* 解析出生日 → {y,m,d}（y 可为 null，如只填了 5-20）
-     兼容来源：手工日期控件值 / Excel 日期单元格（序列号 或 美式 m/d/yy）/ 中文年月日 /
-               多段任意顺序（y-m-d、m-d-y、d-m-y）/ 两位年份 / 8 位数字 / ISO 时间戳（含 Z，按本地时区取日） */
+  /* 解析出生日 → {y,m,d}（y 可为 null）：兼容日期控件 / Excel 序列号或 m/d/yy / 中文年月日 /
+     多段任意顺序 / 两位年份 / 8 位数字 / ISO 时间戳 */
   function birthdayOf(raw){
     if(raw==null) return null;
     if(raw instanceof Date){ if(isNaN(raw.getTime())) return null; return { y:raw.getFullYear(), m:raw.getMonth()+1, d:raw.getDate() }; }
@@ -6929,12 +6934,8 @@
       printSeatTeacherView();
     }
   }
-  /* ===== 座位表导出/打印 · 统一「讲台视角」（教师视角） =====
-     屏幕端是俯视平面图：讲台在上、第1排紧贴讲台、列号自左向右。
-     老师站在讲台上面向学生，方向恰好整体旋转 180°：
-       · 纸的底部是讲台，第 1 排（最靠近讲台）在纸的底部
-       · 纸的左右 = 老师的左右（即屏幕端列号左右对调）
-     因此打印稿 = 屏幕网格旋转 180°，讲台两侧座位也随之对调。 */
+  /* 座位表导出：统一「讲台视角」——屏幕是俯视图（讲台在上），打印稿 = 旋转 180°（讲台在纸底、
+     第1排贴纸底、列号左右对调），与老师站在讲台上面向学生所见一致。 */
   function seatTeacherViewParts(){
     var isGroup=seatLayout.mode==="group";
     var R = isGroup ? seatLayout.rowsPerGroup : seatLayout.rows;
@@ -15211,7 +15212,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "alltitle-2026-09-13";
+  var __APP_VERSION__ = "guest-clean-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
