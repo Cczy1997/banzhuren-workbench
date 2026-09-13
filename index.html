@@ -2681,15 +2681,38 @@
     }catch(e){}
   }
   function saveRuleCats(){ try{ localStorage.setItem(RULECAT_LS, JSON.stringify(RULE_CATS)); }catch(e){} }
+  /* 云端 hr_settings 与本地缓存合并：谁 ts 新谁赢（60s 内视为同时→云端优先，跨设备一致是设计意图）。
+     只有一边有组列表时以有的一边为准，避免空列表把另一边清空。
+     ⚠️ 以前 hydrateSettings 直接 dutyRot=s.dutyRot 硬覆盖 → 本地刚切的组被云端旧值盖回去 */
+  function dutyRotMerge(c){
+    if(!c||typeof c!=="object") return;
+    var l=null;
+    try{ l=JSON.parse(localStorage.getItem(DUTYROT_LS)||"null"); }catch(e){}
+    if(!l||typeof l!=="object") l=dutyRot;
+    var lg=Array.isArray(l.groups)?l.groups:[], cg=Array.isArray(c.groups)?c.groups:[];
+    var lt=+l.ts||0, ct=+c.ts||0, w, o;
+    if(!lg.length&&cg.length){ w=c; o=l; }
+    else if(!cg.length){ w=l; o=c; }
+    else if(ct>lt+60000){ w=c; o=l; }
+    else if(lt>ct+60000){ w=l; o=c; }
+    else { w=c; o=l; }
+    var g=(Array.isArray(w.groups)&&w.groups.length?w.groups:(Array.isArray(o.groups)?o.groups:[])).slice();
+    dutyRot={ groups:g, cursor:Math.max(0,Math.min(g.length?g.length-1:0,+w.cursor||0)),
+      servedWeeks:+w.servedWeeks||1, checkedWeek:w.checkedWeek||null, manualWeek:w.manualWeek||null,
+      stars:(w.stars&&typeof w.stars==="object")?w.stars:((o&&typeof o.stars==="object")?o.stars:{}),
+      ts:+w.ts||0 };
+    try{ localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(_){}
+  }
   function loadDutyRot(){
     try{
       var s=JSON.parse(localStorage.getItem(DUTYROT_LS)||"{}");
-      if(s&&Array.isArray(s.groups)&&s.groups.length){
-        dutyRot={ groups:s.groups.slice(), cursor:Math.max(0,Math.min(s.groups.length-1,s.cursor||0)), servedWeeks:s.servedWeeks||1, checkedWeek:s.checkedWeek||null, manualWeek:s.manualWeek||null, stars:(s.stars&&typeof s.stars==="object")?s.stars:{} };
-      }
+      if(s&&Array.isArray(s.groups)&&s.groups.length) dutyRotMerge(s);
     }catch(e){}
   }
-  function saveDutyRot(){ try{ localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){} }
+  function saveDutyRot(){
+    try{ dutyRot.ts=Date.now(); localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){}
+    try{ persistSettings(); }catch(e){}   /* 回写云端：只写本地会在刷新时被 hr_settings 旧值盖回去 */
+  }
   /* ---------- 值日表(按用户纸面表格重做)：项目/时间/负责人 三列，每天一张表 ---------- */
   var DUTYNOTE_LS = "wb_cls_dutynote";
   // 旧版曾把这段作为新用户首次进入的默认值，现已统一不再预填
@@ -7133,7 +7156,7 @@
     if(!s||typeof s!=="object") return;
     if(Array.isArray(s.meeting)&&s.meeting.length){ MEETINGS=s.meeting; DATA.meeting=MEETINGS; }
     if(Array.isArray(s.weekly)&&s.weekly.length){ WEEKLY=s.weekly; DATA.weekly=WEEKLY; }
-    if(s.dutyRot&&typeof s.dutyRot==="object"){ dutyRot=s.dutyRot; }
+    if(s.dutyRot&&typeof s.dutyRot==="object"){ dutyRotMerge(s.dutyRot); }   /* 取新，不再硬覆盖 */
     if(typeof s.dutyNote==="string"&&s.dutyNote){ try{ localStorage.setItem(DUTYNOTE_LS, s.dutyNote); }catch(_){} }
     if(typeof s.clsYear==="string"&&s.clsYear){ CLS_YEAR=s.clsYear; }
     if(typeof s.clsClass==="string"&&s.clsClass){
@@ -13551,7 +13574,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "redflag-2026-09-14";
+  var __APP_VERSION__ = "dutyrot-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
