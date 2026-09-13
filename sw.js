@@ -96,9 +96,10 @@ self.addEventListener("fetch", function(e){
   if(url.origin !== self.location.origin) return;        // 跨域（supabase）不缓存
   var p = url.pathname;
   var isShell = req.mode === "navigate" || p.endsWith("/") || p.endsWith("index.html") || p.endsWith(".html");
-  /* 惰性库（xlsx.full.min.js / pinyin.min.js / qrcode.min.js）：缓存优先 + 后台更新。
-     首屏不再内联这 1.25MB，改为按需加载；缓存后第二次使用秒开、离线可用。 */
-  if(!isShell && (p.endsWith(".js") || p.endsWith(".webmanifest") || p.endsWith(".svg"))){
+  /* 惰性资源（app.css / xlsx.full.min.js / pinyin.min.js / qrcode.min.js）：缓存优先 + 后台更新。
+     首屏不再内联这 1.25MB，改为按需加载；缓存后第二次使用秒开、离线可用。
+     app.css 走同一条路：URL 带 ?v=，改了样式就换地址 → 缓存自动失效（不会一直喂旧样式）。 */
+  if(!isShell && (p.endsWith(".js") || p.endsWith(".css") || p.endsWith(".webmanifest") || p.endsWith(".svg"))){
     e.respondWith((async function(){
       var cache = await caches.open(CACHE);
       var hit = await cache.match(req);
