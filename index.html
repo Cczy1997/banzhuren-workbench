@@ -3656,6 +3656,7 @@
     renderList("duty"); render();
   }
   function askRedFlag(){
+    if(!isHead()){ toast("流动红旗由班主任记录"); return; }   /* 兜底：任何路径都只对班主任开放 */
     var cur=currentDutyGroup();
     if(!cur){ toast("请先设置值日小组"); return; }
     var m=document.getElementById("redflagModal");
@@ -3703,6 +3704,7 @@
     }).catch(function(e){ toast("加分失败："+(e&&e.message||e)); });
   }
   function checkMondayRedFlag(){
+    if(!isHead()) return;            /* 仅班主任：家长 / 科任 / 班干部 / 扫码访客一律不问 */
     if(redflagAskedThisWeek) return;
     var d=new Date();
     if(d.getDay()!==1) return;            // 仅周一
@@ -13549,7 +13551,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "cssout-2026-09-13";
+  var __APP_VERSION__ = "redflag-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
