@@ -2268,8 +2268,21 @@
   ROLE_MODS[ROLE_SUBJECT] = ["materials","schedule","messages","honor","regulations"];   // 荣誉/班级制度：渲染层早就按「家长/科任」成对处理，此前清单漏配（subject-desk-2026-09-12）
   ROLE_MODS[ROLE_PARENT]  = ["phome","duty","honor","honorboard","attendance","materials","schedule","messages","regulations"];
   ROLE_MODS[ROLE_OFFICER]  = ["materials","attendance"];   // 班干部（学生）：登记当天作业上交 + 考勤点名，其余只读
+  /* 「扫码进入的班级视图」（访客）：没有绑定本人账号，只给班级公示类内容。
+     判据两条缺一不可 —— ① isGuestScan()：本次是从 ?c= 扫码链接进来的（改 URL 那一刻
+     成员表还没回来，isGuest() 仍是 false）；② isGuest()：成员表里的 guest 标记，
+     重复扫码 / 刷新 / 从微信收藏点开时 _guestScan 已复位，只靠①会漏判。
+     家长本人账号登录后两条都是 false，完全不受影响。 */
+  function isVisitorView(){ return isGuestScan() || isGuest(); }
+  /* 访客看不到的模块（家长本人登录仍可见）。加模块只改这一行；
+     deploy/audit_identity_matrix.js 会读它，不会误报「越权可见 / 期望可见但未出现」。 */
+  var GUEST_HIDDEN_MODS = ["honorboard"];
   function canSee(key){
     if(isHead()) return true;
+    /* 🏆 荣誉榜 = 全班学生姓名 + 累计积分排名，属学生个人数据 → 未登录本人账号不展示。
+       侧栏消失后，renderList 顶部那套「不可见模块自动落到首个可见模块」会把残留的
+       state.mod="honorboard" 兜回家校首页，不需要额外兜底。 */
+    if(GUEST_HIDDEN_MODS.indexOf(key)>=0 && isVisitorView()) return false;
     var list=ROLE_MODS[curRole]||[];
     return list.indexOf(key)>=0;
   }
@@ -3549,7 +3562,7 @@
   /* 家长自己孩子的号数：只有「本人登录 + 已绑定孩子」才有；扫码访客没有身份 → 一律空 */
   function pbMyNo(){
     try{
-      if(isGuestScan() || isGuest()) return "";
+      if(isVisitorView()) return "";
       var st=parentStudentRow();
       return st?normNo(st["学号"]):"";
     }catch(_){ return ""; }
@@ -3574,7 +3587,7 @@
   function pbHint(what,myNo){
     return '<div class="pb-hint">以下为<b>全班'+what+'公示</b>：名单一律用<b>号数</b>显示，不显示姓名。'
       + (myNo?'其中<b class="pb-mine-tip">蓝色 · 我孩子</b>是您孩子的号数。':'')
-      + (isGuestScan()?'扫码进入的班级视图按全班公示；查看自己孩子的积分 / 留言请点下方「用我的账号登录」。':'')
+      + (isVisitorView()?'扫码进入的班级视图按全班公示；查看自己孩子的积分 / 留言请点下方「用我的账号登录」。':'')
       + '</div>';
   }
   /* 考勤（全班公示）：逐日列出 迟到 / 缺勤 / 早退 / 请假 的号数 */
@@ -9237,7 +9250,7 @@
     ov.innerHTML='<div class="share-card">'
       +'<div class="share-head"><span>📱 班级二维码</span><button class="share-x" data-cqclose title="关闭">×</button></div>'
       +'<div id="cqBody" style="text-align:center;padding:10px 4px;font-size:12.5px;color:#7A86A8">正在准备班级二维码…</div>'
-      +'<div class="share-tip">家长扫码即进入<b>本班家长视图</b>（课表 / 作业 / 值日 / 荣誉榜等与家长端一致）<br>「💬 留言板」需家长用<b>本人账号</b>登录，扫码进入的看不到任何人的私信</div>'
+      +'<div class="share-tip">家长扫码即进入<b>本班家长视图</b>（课表 / 作业 / 值日 / 荣誉 / 班级制度等与家长端一致）<br>「💬 留言板」与「🏆 荣誉榜」需家长用<b>本人账号</b>登录，扫码进入的看不到任何人的私信</div>'
       +'<div class="share-tip" style="color:#5B6FDB">🔒 这个二维码<b>长期有效</b>：保存到相册或打印张贴后可以一直用，家长也只需存一次，不必反复重发；只有你手动点「重新生成」才会更换。</div>'
       +'<div style="display:flex;gap:8px;margin-top:10px">'
       +'<button class="share-dl" style="background:#fff;color:#5B6FDB;border:1px solid #C9D2E8" data-cqcopy>🔗 复制链接</button>'
@@ -9385,7 +9398,7 @@
       +'<div class="ph-wrap"><div class="ph-card"><div class="ph-sec-h">🔒 需登录本人账号</div>'
       +'<div class="ph-empty">您现在是<b>扫码进入的班级视图</b>。留言板是一对一私信，必须用孩子家长的本人账号登录——'
       +'这样您只看到自己孩子与班主任的往来，其他家长看不到您的，您也看不到别人的。<br>'
-      +'除留言板外，课表 / 作业 / 值日 / 荣誉榜等班级功能无需登录，扫码即可查看。</div>'
+      +'除留言板与荣誉榜外，课表 / 作业 / 值日 / 荣誉记录等班级功能无需登录，扫码即可查看。</div>'
       +'<div style="margin-top:12px"><button class="btn-add" data-guestlogin>用我的账号登录</button></div>'
       +'</div></div>';
   }
@@ -9416,8 +9429,8 @@
     var html='<div class="ph-wrap">';
     /* ① 说明 + 登录入口 */
     html+='<div class="ph-card"><div class="ph-sec-h">👋 扫码进入的班级视图</div>'
-      +'<div class="ph-empty">课表、作业上交、值日安排、荣誉榜、班级制度等与家长端完全一致。'
-      +'涉及个人信息的功能（孩子积分 / 一对一留言）需登录孩子家长的本人账号。</div>'
+      +'<div class="ph-empty">课表、作业上交、值日安排、荣誉记录、班级制度等与家长端完全一致。'
+      +'涉及个人信息的功能（孩子积分 / 🏆 荣誉榜 / 一对一留言）需登录孩子家长的本人账号。</div>'
       +'<div style="margin-top:10px"><button class="btn-mini" data-guestlogin>用我的账号登录</button></div>'
       +'<div class="ph-empty" style="margin-top:8px">💡 建议把本页<b>加入微信收藏</b>（或添加到桌面），以后直接点开就能看，不必再扫码。</div></div>';
     /* ② 本周班级概况 */
@@ -15181,7 +15194,7 @@
   }
   /* 防白屏：全局错误边界——任何未捕获异常都记录到「错误角」，再以小红点悬浮窗提示，绝不阻挡主体功能；便于诊断与反馈 */
   /* 拦截 console.error / console.warn，存最近 20 条，便于「复制完整诊断」时一并贴出 */
-  var __APP_VERSION__ = "attprint-2026-09-13";
+  var __APP_VERSION__ = "guest-honor-2026-09-13";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
