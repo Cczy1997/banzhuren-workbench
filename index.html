@@ -42,7 +42,7 @@
      外置后 HTML 瘦掉约 20%，这个文件几乎永不变、由 Service Worker 长期缓存。
      URL 带库版本号：只有升级 supabase-js 才会换地址，缓存不会失效。 -->
 <script src="supabase.min.js?v=2.112.4" onerror="window.__supaLibFailed=1"></script>
-<link rel="stylesheet" href="app.css?v=2026-09-14">
+<link rel="stylesheet" href="app.css?v=2026-09-14b">
 </head>
 <body>
 <div class="layout">
@@ -10435,6 +10435,13 @@
     }
     var cards=groups.map(function(g){
       var ok=g.status["已交"]||0, miss=g.status["未交"]||0, late=g.status["迟交"]||0;
+      /* 今日收交概况：只有今天登记过才显示（未登记不显示，避免误以为「今天没人未交」） */
+      var ts=matTodayStat(g.item, g.type);
+      var todayLine=ts.tot
+        ? ('<div class="mfc-today'+(ts.un.length?" has":"")+'">今日：'+(ts.un.length
+            ? ("未交 <b>"+ts.un.length+"</b> 人"+(ts.late.length?(" · 迟交 "+ts.late.length+" 人"):""))
+            : "已全部交齐 ✓")+'</div>')
+        : '';
       var last=g.lastDate?"最近 "+esc(g.lastDate):(g.total?"尚无日期":"空文件夹 · 尚无记录");
       return '<div class="mat-folder-card" data-matGoItem="'+esc(g.item)+'" data-matGoType="'+esc(g.type)+'">'
         +'<div class="mfc-head"><span class="mfc-icon">📁</span><span class="mfc-title">'+esc(g.item)+'</span><span class="mfc-type">'+esc(g.type)+'</span></div>'
@@ -10444,8 +10451,12 @@
         +(miss?'<span class="mfc-bar no">✗ '+miss+'</span>':'')
         +(late?'<span class="mfc-bar late">⏰ '+late+'</span>':'')
         +'</div>'
+        +todayLine
         +'<div class="mfc-foot"><span class="mfc-go">打开文件夹 →</span>'
+        +'<span class="mfc-acts">'
+        +(canEdit()?'<button type="button" class="mfc-out" data-matOutItem="'+esc(g.item)+'" data-matOutType="'+esc(g.type)+'" title="一键输出今天未交学生的号数与可直接发家长群的文案">📋 今日未交</button>':'')
         +(isHead()?'<button type="button" class="mfc-del" data-matFolderDel data-delitem="'+esc(g.item)+'" data-deltype="'+esc(g.type)+'">🗑 删除</button>':'')
+        +'</span>'
         +'</div>'
         +'</div>';
     }).join("");
@@ -10552,16 +10563,30 @@
       var d=String(r["日期"]||"").slice(0,10); if(d) set[d]=1;
     });
     var arr=Object.keys(set).sort().reverse();
-    if(!arr.length){ var fd=matFixedDate(); if(fd) arr=[fd]; }
+    if(!arr.length){ var fd=matFixedDateOf(item, type); if(fd) arr=[fd]; }
     return arr;
   }
   /* 某一天的收交情况：未交/迟交名单(号数 + 姓名)+ 已登记人数。
      只统计「登记过的」格子——没登记的不算未交，避免误伤还没登记的学生 */
+  /* 按「文件夹(事项+类型)」直接定位某学生某天的记录——不再依赖 gridState，
+     这样在「文件夹卡片」上（尚未打开该文件夹时）也能取到正确数据 */
+  function matRecOf(item, type, no, date){
+    var arr=DATA.materials||[];
+    for(var i=0;i<arr.length;i++){
+      var r=arr[i];
+      if(String(r["日期"]||"")!==date) continue;
+      if(String(r["学号"]||"")!==String(no)) continue;
+      if((r["类型"]||"")!==type) continue;
+      if((r["事项"]||"")!==item) continue;
+      return r;
+    }
+    return null;
+  }
   function matDayPick(item, type, date){
     var un=[], late=[], tot=0;
     gridStudents().forEach(function(s){
       var no=String(s["学号"]||""); if(!no) return;
-      var rec=gridFindRecord("materials", no, date);   // 依赖 gridState.curItem/curType，与当前打开的文件夹一致
+      var rec=matRecOf(item, type, no, date);   // 按文件夹精确定位，与当前打开的文件夹无关
       if(!rec) return;
       tot++;
       var v=String(rec["状态"]||"");
@@ -10569,6 +10594,23 @@
       else if(v==="迟交") late.push({ no:no, name:String(s["姓名"]||"") });
     });
     return { date:date, un:un, late:late, tot:tot };
+  }
+  /* 指定文件夹的「固定日期」：优先登记表创建日 → 老数据取最早记录日 → 今天 */
+  function matFixedDateOf(item, type){
+    var f=(MAT_FOLDERS||[]).filter(function(x){ return x.item===item && x.type===type; })[0];
+    if(f && f.created) return f.created;
+    var min=null;
+    (DATA.materials||[]).forEach(function(r){
+      if(String(r["事项"]||"").trim()!==item) return;
+      if((r["类型"]||"作业提交")!==type) return;
+      var d=String(r["日期"]||""); if(d && (!min || d<min)) min=d;
+    });
+    return min || todayStr();
+  }
+  /* 某文件夹「今天」的收交概况：今天没登记过 → tot=0（卡片上就不显示今日行，避免误导） */
+  function matTodayStat(item, type){
+    var p=matDayPick(item, type, todayStr());
+    return { tot:p.tot, un:p.un, late:p.late };
   }
   /* 拼文案。picks 为若干天的收交情况；单日 → 明细版，多日 → 汇总版 */
   function matNotifyText(picks, opts){
@@ -10619,18 +10661,27 @@
     if(hint){
       var miss=0, late=0;
       picks.forEach(function(p){ miss+=p.un.length; late+=p.late.length; });
-      hint.textContent = miss
+      var pre="";
+      if(matnState.today && matnState.date!==todayStr() && matnState.date!=="__all__")
+        pre="今天还没登记，显示最近一次（"+fmtDate(matnState.date)+"）的名单；";
+      hint.textContent = pre + (miss
         ? ("共 "+miss+" 人次未交"+(late?("、" + late + " 人次迟交"):"")+"，复制后直接发家长群即可")
-        : "这段时间没有未交记录，已生成「全部交齐」版文案";
+        : "这段时间没有未交记录，已生成「全部交齐」版文案");
     }
   }
   function closeMatNotify(){ var m=document.getElementById("matnMask"); if(m) m.remove(); }
-  function openMatNotify(){
+  /* opt(可选)：{ item, type, today }
+     传 item/type → 直接锁定该文件夹（文件夹卡片上的快捷入口用，无需先打开文件夹）；
+     today=true → 优先取「今天」那一天，今天还没登记则回落最近一次登记（弹窗提示会说明） */
+  function openMatNotify(opt){
+    opt=opt||{};
     if(!canEdit()){ toast("仅班主任可操作"); return; }
-    var item=String(gridState.curItem||"").trim(), type=gridState.curType||"作业提交";
+    var item=String(opt.item||gridState.curItem||"").trim(), type=opt.type||gridState.curType||"作业提交";
     if(!item){ toast("请先打开一个材料文件夹"); return; }
     var dates=matNotifyDates(item, type);
-    matnState={ item:item, type:type, dates:dates, date:dates[0]||"", byName:false, withLate:true };
+    var pick=dates[0]||"";
+    if(opt.today && dates.indexOf(todayStr())>=0) pick=todayStr();
+    matnState={ item:item, type:type, dates:dates, date:pick, byName:false, withLate:true, today:!!opt.today };
     var old=document.getElementById("matnMask"); if(old) old.remove();
     var wd=["日","一","二","三","四","五","六"];
     var optHTML="";
@@ -12183,6 +12234,8 @@
     // 材料「事项文件夹」交互：进入/返回/新建
     var matBack=e.target.closest("[data-matBackFolders]");
     if(matBack){ gridState.curItem=""; renderMatGrid(gridState.mod); return; }
+    var matOut=e.target.closest("[data-matOutItem]");
+    if(matOut){ openMatNotify({ item:matOut.getAttribute("data-matOutItem")||"", type:matOut.getAttribute("data-matOutType")||"作业提交", today:true }); return; }
     var matDel=e.target.closest("[data-matFolderDel]");
     if(matDel){ if(!isHead()){ toast("仅班主任可管理文件夹"); return; } deleteMatFolder(matDel.getAttribute("data-delitem")||"", matDel.getAttribute("data-deltype")||"作业提交"); return; }
     var matGo=e.target.closest("[data-matGoItem]");
@@ -13593,7 +13646,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "honorrank-2026-09-14";
+  var __APP_VERSION__ = "matquick-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
