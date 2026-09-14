@@ -10639,8 +10639,8 @@
   var GRID_ST = {
     attendance: { yes:"出勤", late:"迟到", no:"缺勤", leave:"请假",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE, leave:GRID_SVG_LEAVE },
-      // 手动点击只在异常态循环(缺勤→迟到→请假→空)；出勤由「一键补齐」批量默认
-      cycle:["缺勤","迟到","请假",""] },
+      // 手动点击循环：空格首次点击=出勤(统计友好，与材料首点=已交一致)，出勤→缺勤→迟到→请假→空(attclick-2026-09-14)
+      cycle:["出勤","缺勤","迟到","请假",""] },
     materials:  { yes:"已交", late:"迟交", no:"未交", leave:"",
       labels:{ yes:'<span class="gic">✓</span>', no:'<span class="gic">✗</span>', late:GRID_SVG_LATE },
       // 手动点击循环：空格首次点击=已交(统计友好)，已交→迟交→未交→空→已交
@@ -14016,7 +14016,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "leavepts-2026-09-14";
+  var __APP_VERSION__ = "attclick-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
