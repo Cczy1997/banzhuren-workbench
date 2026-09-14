@@ -42,7 +42,7 @@
      外置后 HTML 瘦掉约 20%，这个文件几乎永不变、由 Service Worker 长期缓存。
      URL 带库版本号：只有升级 supabase-js 才会换地址，缓存不会失效。 -->
 <script src="supabase.min.js?v=2.112.4" onerror="window.__supaLibFailed=1"></script>
-<link rel="stylesheet" href="app.css?v=2026-09-14d">
+<link rel="stylesheet" href="app.css?v=2026-09-15a">
 </head>
 <body>
 <div class="layout">
@@ -326,6 +326,19 @@
 </div>
 
 <!-- 加减分规则配置弹窗 -->
+<div class="mask" id="syncMask">
+  <div class="sheet" style="max-width:520px">
+    <h3>🔄 数据同步状态</h3>
+    <button class="x" id="syncMaskClose">×</button>
+    <p class="imp-tip" id="syncTip">按表显示云端拉取结果。打叉的表仍在使用本机上次的数据，可点「强制重新同步」重拉。</p>
+    <div id="syncList" class="sync-list"></div>
+    <div class="actions">
+      <button type="button" class="btn-cancel" id="syncMaskCancel">关闭</button>
+      <button type="button" class="btn-save" id="syncForce">强制重新同步</button>
+    </div>
+  </div>
+</div>
+
 <div class="mask" id="ruleMask">
   <div class="sheet" style="max-width:520px">
     <h3 id="ruleTitle">⚙️ 加减分规则</h3>
@@ -1126,12 +1139,93 @@
   function fmtDate(s){ if(!s) return ""; s=String(s).slice(0,10); var p=s.split("-"); if(p.length<3) return s; return (+p[1])+"月"+(+p[2])+"日"; }
   function stripEmoji(t){ return t.replace(/^[^一-龥]+ /,''); }
 
+  /* ---------- 数据同步守卫（syncguard-2026-09-15） ----------
+     以前只要有一张表拉成功就 setStatus("ok") 显示「已同步」，其余失败的表继续用 localStorage
+     旧快照渲染 → 扫码进来的用户看着"已同步"其实是上次的数据。现在按表记录成败：
+     状态灯会显示「部分未同步(N)」，点它可看明细并对失败项强制重拉。 */
+  var LOAD_FAILS={}, SYNC_BUSY=false, _syncBound=false;
+  function markLoadFail(k,e){
+    if(!k) return;
+    var kind="unknown";
+    try{ kind=classifyError(e).kind; }catch(_){}
+    LOAD_FAILS[k]={ msg:String((e&&e.message)||e||"").slice(0,140), kind:kind, ts:Date.now() };
+  }
+  function clearLoadFail(k){ if(k){ delete LOAD_FAILS[k]; } else { LOAD_FAILS={}; } }
+  function syncFailCount(){ var n=0; for(var k in LOAD_FAILS){ if(Object.prototype.hasOwnProperty.call(LOAD_FAILS,k)) n++; } return n; }
+  function syncPanelHTML(){
+    var ks=(typeof ALLKEYS!=="undefined"&&ALLKEYS)?ALLKEYS:[];
+    var n=syncFailCount();
+    var head = n
+      ? '<div class="sync-warn">有 '+n+' 项没拉到云端最新数据，当前显示的是本机上次的数据。</div>'
+      : '<div class="sync-ok">全部数据已与云端同步 ✓</div>';
+    var rows=ks.map(function(k){
+      var f=LOAD_FAILS[k], label="";
+      try{ label=moduleLabelOf(k); }catch(_){ label=k; }
+      return '<div class="sync-row'+(f?' bad':'')+'"><span class="sr-ic">'+(f?'✗':'✓')+'</span>'
+        +'<span class="sr-nm">'+esc(label)+'</span>'
+        +(f?'<span class="sr-msg">'+esc(f.msg)+'</span>':'<span class="sr-msg"></span>')+'</div>';
+    }).join("");
+    return head+'<div class="sync-list">'+rows+'</div>';
+  }
+  function openSyncPanel(){
+    var m=document.getElementById("syncMask"), box=document.getElementById("syncList");
+    if(box) box.innerHTML=syncPanelHTML();
+    if(m) m.style.display="flex";
+  }
+  function closeSyncPanel(){ var m=document.getElementById("syncMask"); if(m) m.style.display="none"; }
+  /* 强制重新同步：丢掉本机启动快照 → 全表重拉 → 重渲 → 回写快照。
+     用于「扫码进来看着是旧数据」「怀疑没同步上」时一键自救。 */
+  function forceResync(){
+    if(SYNC_BUSY) return;
+    SYNC_BUSY=true; closeSyncPanel(); clearLoadFail();
+    var ks=(typeof ALLKEYS!=="undefined"&&ALLKEYS)?ALLKEYS:[];
+    try{ ks.forEach(function(k){ try{ localStorage.removeItem(shardKey(k)); }catch(_){} }); }catch(_){}
+    setStatus("syncing"); toast("正在重新同步全部数据…");
+    loadPass(ks).then(function(failed){
+      SYNC_BUSY=false;
+      setStatus(failed.length>=ks.length?"offline":"ok");
+      try{ render(); if(state.mod) renderList(state.mod); }catch(e){ console.warn("resync render", e); }
+      try{ if(typeof loadOverviewAffairs==="function") loadOverviewAffairs(); }catch(_){}
+      try{ saveBootCache(); }catch(_){}
+      var n=failed.length;
+      if(n){
+        var nm=failed.slice(0,3).map(function(f){ try{ return moduleLabelOf(f.k); }catch(_){ return f.k; } }).join("、");
+        toast("仍有 "+n+" 项未同步："+nm+(n>3?" 等":""));
+        openSyncPanel();
+      } else { toast("已重新同步全部数据 ✓"); }
+      return failed;
+    }).catch(function(e){
+      SYNC_BUSY=false; setStatus("offline"); console.error(e);
+      toast("重新同步失败："+((e&&e.message)||e));
+    });
+  }
+  function bindSyncGuard(){
+    if(_syncBound) return; _syncBound=true;
+    try{
+      var st=document.getElementById("status");
+      if(st) st.addEventListener("click", function(){ openSyncPanel(); });
+      var c1=document.getElementById("syncMaskClose"); if(c1) c1.addEventListener("click", closeSyncPanel);
+      var c2=document.getElementById("syncMaskCancel"); if(c2) c2.addEventListener("click", closeSyncPanel);
+      var c3=document.getElementById("syncMask");
+      if(c3) c3.addEventListener("click", function(e){ if(e && e.target===c3) closeSyncPanel(); });
+      var sf=document.getElementById("syncForce");
+      if(sf) sf.addEventListener("click", function(){ forceResync(); });
+    }catch(_){}
+  }
+
   function setStatus(s){
     /* 空值保护：这两个元素缺失时若不判断，每次状态变更都会抛 TypeError，
        并连带打断调用它的那段逻辑(同一个按钮于是「点了没反应」) */
     var el=document.getElementById("status"), t=document.getElementById("statusText");
-    if(el) el.className="s-status"+(s==="ok"?"":(s==="offline"?" offline":" syncing"));
-    if(t) t.textContent = s==="ok"?"已同步":(s==="offline"?"离线模式":"同步中");
+    /* 只要有表没拉成功就不能报「已同步」——那会让人以为看到的是最新数据 */
+    var _n=0; try{ _n=syncFailCount(); }catch(_){}
+    var eff=(s==="ok"&&_n>0)?"partial":s;
+    if(el){
+      el.className="s-status"+(eff==="ok"?"":(eff==="offline"?" offline":(eff==="partial"?" partial":" syncing")));
+      try{ el.setAttribute("data-sync",eff); }catch(_){}
+      try{ el.title="点击查看数据同步状态"; }catch(_){}
+    }
+    if(t) t.textContent = eff==="ok"?"已同步":(eff==="offline"?"离线模式":(eff==="partial"?("部分未同步("+_n+")"):"同步中"));
   }
   var toastTimer;
   var _schemaFixSuppressToastUntil = 0;
@@ -1257,10 +1351,11 @@
   /* 批量插入：一次请求插一批(Supabase insert 支持数组)，超出 BATCH 自动分批。
      返回展开后的本地记录数组 [{_id, ...data字段}]，调用方直接 push 进 DATA */
   /* 批量插入(每批 500 行)。onProgress(percent, done, total) 可选，用于导入时实时显示保存进度 */
-  function apiAddBatch(key, propsArray, onProgress){
+  function apiAddBatch(key, propsArray, onProgress, uidOverride){
     if(!propsArray || !propsArray.length) return Promise.resolve([]);
     var BATCH=500;
-    var rows = propsArray.map(function(p){ return { user_id: curUid, data: p }; });
+    /* uidOverride：班干部/科任登记要落到班主任名下(MSG_OWNER)，否则班主任端看不见 */
+    var rows = propsArray.map(function(p){ return { user_id: uidOverride||curUid, data: p }; });
     var out=[];
     var chain=Promise.resolve();
     var totalN=rows.length, doneN=0;
@@ -6964,9 +7059,16 @@
   /* 单轮加载：返回失败模块 key 列表(每个 key 内部已自带重试) */
   function loadPass(keys){
     return mapLimit(keys, 5, function(k){
-      if(k==="materials"){ return loadMaterialsSafe().then(function(rows){ DATA.materials=rows; sortData("materials"); }); }
-      return apiQuery(k).then(function(res){ DATA[k]=res.results||[]; sortData(k); });
-    }).then(function(res){ return res.filter(function(x){return !x.ok;}).map(function(x){return {k:x.k, e:x.e};}); });
+      var job=(k==="materials")
+        ? loadMaterialsSafe().then(function(rows){ DATA.materials=rows; sortData("materials"); })
+        : apiQuery(k).then(function(res){ DATA[k]=res.results||[]; sortData(k); });
+      /* 成功清掉旧失败标记、失败记下来 —— 状态灯据此显示「部分未同步(N)」 */
+      return job.then(function(){ clearLoadFail(k); }, function(e){ markLoadFail(k,e); throw e; });
+    }).then(function(res){
+      var failed=res.filter(function(x){return !x.ok;}).map(function(x){return {k:x.k, e:x.e};});
+      try{ setStatus("ok"); }catch(_){}   /* 内部会按 LOAD_FAILS 自动降级成 partial */
+      return failed;
+    });
   }
   /* 只重载单个模块(并刷新相关视图)，避免批量操作时 refreshAll 整包——那是加载慢的主因 */
   function refreshModule(key){
@@ -9813,7 +9915,8 @@
     var students=(DATA.students||[]).slice().sort(byNo);
     var created=0, names=[];
     setStatus("syncing");
-    var chain=Promise.resolve();
+    /* bulkfill-2026-09-15：同样从逐条串行改为一次批量写入 */
+    var bulk=[];
     students.forEach(function(s){
       var name=String(s["姓名"]||"").trim();
       var no=String(s["学号"]||"").trim();
@@ -9824,10 +9927,18 @@
       if(isMat){ props["类型"]=type; if(item) props["事项"]=item; }
       else { if(reason) props["事由"]=reason; }
       created++; names.push(name);
-      chain=chain.then(function(){ return isMat ? apiAddMat(props) : apiAddAtt(props); });
+      bulk.push(props);
     });
     if(!created){ toast("没有可保存的记录"); return; }
-    chain.then(function(){
+    var _uid=(!isHead() && MSG_OWNER) ? MSG_OWNER : undefined;
+    var runR = (isMat && matUseLocal)
+      ? bulk.reduce(function(c,p){ return c.then(function(){ return apiAddMat(p); }); }, Promise.resolve()).then(function(){ return []; })
+      : apiAddBatch(isMat?"materials":"attendance", bulk, null, _uid);
+    runR.then(function(rows){
+      if(rows && rows.length){
+        if(isMat) DATA.materials=(DATA.materials||[]).concat(rows);
+        else DATA.attendance=(DATA.attendance||[]).concat(rows);
+      }
       closeRoster();
       toast("已为 "+created+" 名学生登记 ✓");
       return refreshAll();
@@ -11877,7 +11988,8 @@
       +(skipLv?("其中今日请假涉及 "+skipLv+" 人，请假时段会跳过（保持「请假」标记）。\n"):"")
       +"（只补缺失的时段，已手动标记的同学不受影响；之后可点单元格改回）")) return;
     setStatus("syncing");
-    var chain=Promise.resolve();
+    /* bulkfill-2026-09-15：原先逐条串行 await（上百次往返要 20s+），改为一次批量写入 */
+    var bulk=[];
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
       periodsOf().forEach(function(per){
@@ -11886,14 +11998,20 @@
         var props={ 日期:today, 学号:no, 学生姓名:nm, 状态:def };
         if(mod==="attendance" && per) props.时段=per;
         if(mod==="materials"){ props.类型=gridState.curType||"作业提交"; props.事项=gridState.curItem||""; }
-        chain=chain.then(function(){
-          if(mod==="materials") return apiAddMat(props);
-          return apiAddAtt(props).then(function(o){ (DATA.attendance=DATA.attendance||[]).push(Object.assign({_id:o._id},props)); });
-        });
+        bulk.push(props);
       });
     });
-    chain.then(function(){
-      toast("已为今日补齐 "+missing+" 个时段/记录（"+def+"）✓（其余日期不受影响）");
+    if(!bulk.length){ toast("今日（"+today+"）同学均已登记，无需补齐"); return; }
+    var _uid=(!isHead() && MSG_OWNER) ? MSG_OWNER : undefined;
+    var run = (mod==="materials" && matUseLocal)
+      ? bulk.reduce(function(c,p){ return c.then(function(){ return apiAddMat(p); }); }, Promise.resolve()).then(function(){ return []; })
+      : apiAddBatch(mod==="materials"?"materials":"attendance", bulk, null, _uid);
+    run.then(function(rows){
+      if(rows && rows.length){
+        if(mod==="materials") DATA.materials=(DATA.materials||[]).concat(rows);
+        else DATA.attendance=(DATA.attendance||[]).concat(rows);
+      }
+      toast("已为今日补齐 "+bulk.length+" 个时段/记录（"+def+"）✓（其余日期不受影响）");
       return refreshModule(mod);
     }).then(function(){ renderGrid(); setStatus("ok"); autoApply(mod); })
      .catch(function(e){ console.error(e); setStatus("offline"); toast("补齐失败："+(e&&e.message||e)); });
@@ -13933,7 +14051,7 @@
     return loadPass([key]).then(function(){
       _modLoaded[key]=1;
       if(state.mod===key) render();
-    }).catch(function(e){ console.warn("模块加载失败", key, e); });
+    }).catch(function(e){ markLoadFail(key,e); console.warn("模块加载失败", key, e); });
   }
   function bootLoad(){
     setStatus("syncing");
@@ -14016,7 +14134,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "attclick-2026-09-14";
+  var __APP_VERSION__ = "syncbulk-2026-09-15";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -14106,6 +14224,7 @@
 
   // 启动：先渲染可用界面（登录/连接），绝不阻塞在「加载中」；再异步取会话，有则直接进应用
   function boot(){
+    try{ bindSyncGuard(); }catch(_){}
     /* 登录封面：角色卡按钮交互 */
     try{
       function showAuthCard(role){

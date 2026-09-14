@@ -33,7 +33,9 @@ async function jfetch(url, opts) {
 }
 async function main() {
   const pushKey = (() => { const i = process.argv.indexOf('--push'); return i > 0 ? String(process.argv[i + 1] || '').trim() : ''; })();
-  const date = localDate();
+  /* --date=YYYY-MM-DD：补推/调试用（默认今天）。补推昨天：--date=2026-09-14 */
+  const dateArg = (() => { const a = process.argv.find(x => x.indexOf('--date=') === 0); return a ? a.slice(7).trim() : ''; })();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateArg) ? dateArg : localDate();
   const H = { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
 
   // 1. 匿名读班级口令(hr_classpass 允许匿名读)
@@ -107,12 +109,32 @@ async function main() {
 
   if (!lines.length) { console.log(JSON.stringify({ push: false, date, reason: '今天所有作业事项都已交齐(或仅请假豁免)，未交/迟交均为 0' }, null, 2)); return; }
 
-  const title = CLS_NAME + ' 作业未交提醒（' + date.slice(5).replace('-', '/') + '）';
-  const desp = '**' + title + '**\n\n' + lines.join('\n\n')
+  /* 文案两版（parentpush-2026-09-15）：
+     group = 家长群可直发（纯文本、无 Markdown、无刺眼符号，微信群里粘贴不变形）
+     md    = 原来的 Markdown 版（Server酱/方糖富文本） */
+  const fmN = list => list.map(x => x.no + '号').join('、');
+  const buildGroup = () => {
+    const m = String(Number(date.slice(5, 7))), d = String(Number(date.slice(8, 10)));
+    const body = detail.map((x, i) => {
+      const s = [];
+      if (x.un.length) s.push('未交：' + fmN(x.un));
+      if (x.late.length) s.push('迟交：' + fmN(x.late));
+      if (x.leave.length) s.push('请假：' + x.leave.map(a => a.no + '号' + (a.part && a.part !== '全天' ? '（' + a.part + '）' : '')).join('、'));
+      return (i + 1) + '、' + x.item + '\n　　' + s.join('\n　　');
+    }).join('\n');
+    return '【作业提醒】' + m + '月' + d + '日 · ' + CLS_NAME + '\n\n'
+      + '各位家长晚上好，今天的作业提交情况如下：\n\n' + body + '\n\n'
+      + '请未交的同学今晚补完，明天带来；已交的同学不用回复。\n'
+      + '辛苦各位家长督促，谢谢配合！';
+  };
+  const title = '【作业提醒】' + Number(date.slice(5, 7)) + '月' + Number(date.slice(8, 10)) + '日 · ' + CLS_NAME;
+  const groupText = buildGroup();
+  const despMD = '**' + title + '**\n\n' + lines.join('\n\n')
     + '\n\n> 数据来自班级小台「材料收集」，口径与「📋 今日未交」一致：请假豁免、迟交单列。';
+  const desp = (process.env.MATPUSH_FMT === 'md') ? despMD : groupText;
 
   // 7. 输出 / 推送
-  const result = { push: true, date, title, desp, items: detail, clsName: CLS_NAME };
+  const result = { push: true, date, title, desp, groupText, despMD, items: detail, clsName: CLS_NAME };
   console.log(JSON.stringify(result, null, 2));
   if (pushKey) {
     const body = new URLSearchParams({ title, desp });
