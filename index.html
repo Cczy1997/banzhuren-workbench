@@ -42,7 +42,7 @@
      外置后 HTML 瘦掉约 20%，这个文件几乎永不变、由 Service Worker 长期缓存。
      URL 带库版本号：只有升级 supabase-js 才会换地址，缓存不会失效。 -->
 <script src="supabase.min.js?v=2.112.4" onerror="window.__supaLibFailed=1"></script>
-<link rel="stylesheet" href="app.css?v=2026-09-14b">
+<link rel="stylesheet" href="app.css?v=2026-09-14c">
 </head>
 <body>
 <div class="layout">
@@ -2712,6 +2712,96 @@
   function saveDutyRot(){
     try{ dutyRot.ts=Date.now(); localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){}
     try{ persistSettings(); }catch(e){}   /* 回写云端：只写本地会在刷新时被 hr_settings 旧值盖回去 */
+  }
+
+  /* ---------- 当天请假(leave-2026-09-14) ----------
+     与「固定请假 / 周几请假」不同：那是学生档案上的长期规则(且仅晚自习)；这里是**某一天**的
+     临时请假，由班主任按日期设置，考勤与材料两个模块共用同一份名单：
+       · 考勤：该生当天所有时段显示「请假」专属格，不计缺勤
+       · 材料：当天显示请假标记，不计入未交 / 迟交(家长群文案里单列「请假」)
+     数据落 hr_settings.leaves(与 dutyRot 同机制：本地 + 云端按 ts 取新)，跨设备一致。
+     结构 { "2026-09-14": { ts:<ms>, list:{ "7":{n:"张三", r:"病假"} } } } —— 号数已去前导零 */
+  var LEAVE_LS = "wb_cls_leave";
+  var LEAVE = {};
+  var LEAVE_KEEP_DAYS = 180;      /* 只留近半年，防 settings 无限膨胀 */
+  function leaveNoKey(no){ return String(no==null?"":no).trim().replace(/^0+(?=\d)/,""); }
+  function leaveDay(date){
+    var d=LEAVE[String(date||"")];
+    return (d && typeof d==="object" && d.list && typeof d.list==="object") ? d.list : {};
+  }
+  function leaveOn(no, date){ var k=leaveNoKey(no); return !!(k && leaveDay(date)[k]); }
+  function leaveInfo(no, date){
+    var k=leaveNoKey(no), o=leaveDay(date)[k];
+    return o ? { n:String(o.n||""), r:String(o.r||"") } : null;
+  }
+  function leaveNos(date){
+    return Object.keys(leaveDay(date)).sort(function(a,b){
+      var na=parseInt(a,10), nb=parseInt(b,10);
+      if(isNaN(na)&&isNaN(nb)) return String(a).localeCompare(String(b));
+      if(isNaN(na)) return 1;
+      if(isNaN(nb)) return -1;
+      return na-nb;
+    });
+  }
+  function leaveCount(date){ return leaveNos(date).length; }
+  /* 覆盖式写某天的名单(空 → 整天移除，保持 settings 干净) */
+  function setDayLeave(date, nos, reason){
+    date=String(date||"").trim(); if(!date) return false;
+    var list={}, seen={};
+    (nos||[]).forEach(function(x){
+      var k=leaveNoKey(x); if(!k || seen[k]) return; seen[k]=1;
+      var nm=""; try{ nm=studentNameByGridNo(k)||""; }catch(_){}
+      list[k]={ n:nm, r:String(reason||"").trim() };
+    });
+    if(Object.keys(list).length) LEAVE[date]={ ts:Date.now(), list:list };
+    else delete LEAVE[date];
+    saveLeave();
+    return true;
+  }
+  /* 撤销某人某天的请假(学生在网格里被点成非「请假」时自动销假) */
+  function removeDayLeave(no, date){
+    date=String(date||"").trim();
+    var k=leaveNoKey(no); if(!date || !k) return false;
+    var d=LEAVE[date]; if(!d || !d.list || !d.list[k]) return false;
+    delete d.list[k];
+    if(Object.keys(d.list).length) d.ts=Date.now(); else delete LEAVE[date];
+    saveLeave();
+    return true;
+  }
+  function leavePrune(){
+    var dt=new Date(todayStr()+"T00:00:00");
+    if(isNaN(dt.getTime())) return;
+    dt.setDate(dt.getDate()-LEAVE_KEEP_DAYS);
+    var cut=fmtISO(dt);
+    Object.keys(LEAVE).forEach(function(d){ if(d<cut) delete LEAVE[d]; });
+  }
+  function saveLeave(){
+    try{ leavePrune(); localStorage.setItem(LEAVE_LS, JSON.stringify(LEAVE)); }catch(e){}
+    try{ persistSettings(); }catch(e){}   /* 回写云端：只写本地会在刷新时被 hr_settings 旧值盖回去 */
+  }
+  /* 本地 / 云端合并：逐日期按 ts 取新(各天互不干扰，任一边有就保留) */
+  function leaveMerge(c){
+    if(!c||typeof c!=="object") return;
+    var l=LEAVE;
+    try{ var raw=localStorage.getItem(LEAVE_LS); if(raw) l=JSON.parse(raw)||{}; }catch(e){}
+    if(!l||typeof l!=="object") l={};
+    var out={};
+    Object.keys(l).concat(Object.keys(c)).forEach(function(d){
+      if(out[d]) return;
+      var a=l[d], b=c[d];
+      var oa=!!(a && typeof a==="object" && a.list), ob=!!(b && typeof b==="object" && b.list);
+      if(oa && !ob) out[d]=a;
+      else if(ob && !oa) out[d]=b;
+      else if(oa && ob) out[d]=((+b.ts||0)>(+a.ts||0))?b:a;
+    });
+    LEAVE=out; leavePrune();
+    try{ localStorage.setItem(LEAVE_LS, JSON.stringify(LEAVE)); }catch(_){}
+  }
+  function loadLeave(){
+    try{
+      var s=JSON.parse(localStorage.getItem(LEAVE_LS)||"{}");
+      if(s && typeof s==="object" && !Array.isArray(s)) leaveMerge(s);
+    }catch(e){}
   }
   /* ---------- 值日表(按用户纸面表格重做)：项目/时间/负责人 三列，每天一张表 ---------- */
   var DUTYNOTE_LS = "wb_cls_dutynote";
@@ -7176,6 +7266,7 @@
     if(Array.isArray(s.meeting)&&s.meeting.length){ MEETINGS=s.meeting; DATA.meeting=MEETINGS; }
     if(Array.isArray(s.weekly)&&s.weekly.length){ WEEKLY=s.weekly; DATA.weekly=WEEKLY; }
     if(s.dutyRot&&typeof s.dutyRot==="object"){ dutyRotMerge(s.dutyRot); }   /* 取新，不再硬覆盖 */
+    if(s.leaves&&typeof s.leaves==="object"){ leaveMerge(s.leaves); }        /* 当天请假：同样按 ts 取新 */
     if(typeof s.dutyNote==="string"&&s.dutyNote){ try{ localStorage.setItem(DUTYNOTE_LS, s.dutyNote); }catch(_){} }
     if(typeof s.clsYear==="string"&&s.clsYear){ CLS_YEAR=s.clsYear; }
     if(typeof s.clsClass==="string"&&s.clsClass){
@@ -7192,7 +7283,7 @@
     if(settingsTableMissing || !isHead()) return;   // 仅班主任写；成员只读，绝不回写
     var blob={
       meeting: MEETINGS||[], weekly: WEEKLY||[],
-      dutyRot: dutyRot||{}, dutyNote: getDutyNote()||"",
+      dutyRot: dutyRot||{}, dutyNote: getDutyNote()||"", leaves: LEAVE||{},
       clsYear: CLS_YEAR||"初一", clsClass: CLS_CLASS||"(1)班",
       ruleCats: RULE_CATS||[], ruleCfg: RULE_CFG||{}, matFolders: MAT_FOLDERS||[]
     };
@@ -8561,6 +8652,7 @@
     }).then(function(failed){
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
+      loadLeave();
       loadRuleCats();
       loadMeetings();
       loadWeekly();
@@ -9493,11 +9585,24 @@
     document.getElementById("rosterItem").value = "";
     document.getElementById("rosterReason").value = "";
     var tip = document.getElementById("rosterTip");
+    /* ⚠️ 顺序要紧：lvSkip / students 必须在拼 tip 之前就绪（var 只提升声明不提升赋值） */
+    var students=(DATA.students||[]).slice().sort(byNo);
+    /* 材料花名册：当天请假的学生不列入(他们不该被记成未交 / 迟交；要单独登记请进网格点格子) */
+    var lvSkip=[];
+    if(isMat){
+      students=students.filter(function(s0){
+        var no0=String(s0["学号"]||"").trim();
+        if(no0 && leaveOn(no0, todayStr())){ lvSkip.push(String(s0["姓名"]||"").trim()); return false; }
+        return true;
+      });
+    }
+    var lvToday=leaveNos(todayStr()).length;
     tip.innerHTML = isMat
       ? '按班级名单逐一点选每位学生的上交状态，确认后为全班创建记录。默认全员「已交」，只需把例外改成「迟交 / 未交」。'
+        + (lvSkip.length ? '<br><b style="color:#4636C4">🩺 今日请假的 '+lvSkip.length+' 人（'+esc(lvSkip.join("、"))+'）已跳过：请假不计未交。若要单独登记，请进网格点该生格子。</b>' : '')
         + (matUseLocal ? '<br><b style="color:#d8453f">⚠️ 当前为「本机存储」模式（Supabase 未建表），本次将只存本设备；执行 hr_materials 建表 SQL 后刷新即自动转云端并迁移。</b>' : '')
-      : '按班级名单逐一点选每位学生的考勤状态，确认后为全班创建记录。默认全员「出勤」，只需把例外（迟到 / 缺勤 / 请假）改成对应状态即可。';
-    var students=(DATA.students||[]).slice().sort(byNo);
+      : '按班级名单逐一点选每位学生的考勤状态，确认后为全班创建记录。默认全员「出勤」，只需把例外（迟到 / 缺勤 / 请假）改成对应状态即可。'
+        + (lvToday ? '<br><b style="color:#4636C4">🩺 今日请假的 '+lvToday+' 人已默认选「请假」，不用再点。</b>' : '');
     var html="";
     if(!students.length){
       html='<div class="empty-state">还没有学生档案，请先在「学生档案」添加学生。</div>';
@@ -9505,10 +9610,12 @@
       html = students.map(function(s){
         var name=String(s["姓名"]||"").trim(), no=String(s["学号"]||"").trim();
         if(!name) return "";
-        rosterState.sel[name]=def;
-        return '<div class="roster-row" data-name="'+esc(name)+'">'
+        /* 考勤：当天请假的学生默认预选「请假」，省得老师再逐个点 */
+        var dv=(!isMat && no && leaveOn(no, todayStr())) ? "请假" : def;
+        rosterState.sel[name]=dv;
+        return '<div class="roster-row'+(dv==="请假"?" is-leave":"")+'" data-name="'+esc(name)+'">'
           +'<div class="rr-name">'+esc(name)+(no?' <span class="rr-no">'+esc(no)+'</span>':'')+'</div>'
-          +'<div class="rr-opts">'+opts.map(function(o){ return '<button class="rstat'+(o[0]===def?' sel':'')+'" data-v="'+o[0]+'">'+o[0]+'</button>'; }).join("")+'</div>'
+          +'<div class="rr-opts">'+opts.map(function(o){ return '<button class="rstat'+(o[0]===dv?' sel':'')+'" data-v="'+o[0]+'">'+o[0]+'</button>'; }).join("")+'</div>'
           +'</div>';
       }).filter(Boolean).join("");
     }
@@ -10166,6 +10273,113 @@
             .catch(function(e){ console.error(e); setStatus("offline"); toast("保存失败："+(e&&e.message||e)); });
     };
   }
+  /* ---------- 🩺 当天请假：一键标记今天谁请假(考勤 / 材料共用同一份名单) ---------- */
+  function dayLeaveBtnHTML(){
+    var n=leaveCount(todayStr());
+    return '<button class="gt-btn" data-dayleave="1" title="标记今天请假的学生：考勤显示「请假」专属格(不计缺勤)，材料显示请假标记(不计未交)；点开可增删">'
+      +'🩺 今日请假'+(n?(' <b class="gt-lvn">'+n+'</b>'):'')+'</button>';
+  }
+  var dayLeaveState = { date:"", set:{}, reason:"" };
+  function openDayLeave(){
+    if(!isHead()){ toast("当天请假由班主任设置"); return; }
+    var old0=document.getElementById("dayLeaveMask"); if(old0) old0.remove();
+    dayLeaveState.date=todayStr(); dayLeaveState.set={}; dayLeaveState.reason="";
+    leaveNos(dayLeaveState.date).forEach(function(k){ dayLeaveState.set[k]=1; });
+    var studs=gridStudents();
+    var body = studs.length
+      ? '<div class="dlv-grid">'+studs.map(function(s){
+          var no=String(s["学号"]||"").trim(), nm=String(s["姓名"]||"").trim();
+          if(!nm) return "";
+          var k=leaveNoKey(no);
+          var on=!!dayLeaveState.set[k];
+          return '<div class="dlv-card'+(on?" on":"")+'" data-dlvNo="'+esc(k)+'" data-dlvName="'+esc(nm)+'">'
+            +'<span class="dlv-no">'+esc(no||"--")+'</span><span class="dlv-nm">'+esc(nm)+'</span>'
+            +'<span class="dlv-tick">'+(on?"✓":"")+'</span></div>';
+        }).filter(Boolean).join("")+'</div>'
+      : '<div class="empty-state">还没有学生档案，请先在「学生档案」添加学生。</div>';
+    var html='<div class="mask show" id="dayLeaveMask" style="z-index:80">'
+      +'<div class="modal-box" style="max-width:660px">'
+      +'<div class="modal-h">🩺 当天请假<span class="modal-close" data-dlvClose>×</span></div>'
+      +'<div class="modal-b" style="max-height:58vh;overflow:auto">'
+      +'<div class="hint" style="padding:0 0 10px">点选今天请假的学生。保存后：<b>考勤</b>里该生当天显示「请假」专属格(不计缺勤)，<b>材料收集</b>里显示请假标记(不计入未交 / 迟交)。取消勾选即可撤销；学生在网格里被点成非「请假」时也会自动销假。<br><span style="color:#7a7a86">已经单独登记过考勤 / 材料的学生以登记为准，本标记只补在「尚未登记」的格子上。</span></div>'
+      +'<div class="dlv-bar">'
+      +'<label class="dlv-lb">日期 <input type="date" id="dlvDate" value="'+esc(dayLeaveState.date)+'"></label>'
+      +'<input id="dlvReason" class="dlv-reason" maxlength="20" placeholder="事由（选填，如：病假）" value="'+esc(dayLeaveState.reason)+'">'
+      +'<span style="flex:1"></span>'
+      +'<button type="button" class="btn-mini" data-dlvAll>全选</button>'
+      +'<button type="button" class="btn-mini" data-dlvNone>清空</button>'
+      +'</div>'
+      + body
+      +'<div class="dlv-tip" id="dlvTip"></div>'
+      +'</div>'
+      +'<div class="modal-f"><button class="btn-mini" data-dlvClose>取消</button><button class="btn-mini primary" data-dlvSave>✓ 保存</button></div>'
+      +'</div></div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    var ov=document.getElementById("dayLeaveMask");
+    if(!ov) return;
+    function syncCards(){
+      ov.querySelectorAll("[data-dlvNo]").forEach(function(c){
+        var k=c.getAttribute("data-dlvNo"), on=!!dayLeaveState.set[k];
+        c.classList.toggle("on", on);
+        var tk=c.querySelector(".dlv-tick"); if(tk) tk.textContent=on?"✓":"";
+      });
+      var t=document.getElementById("dlvTip");
+      if(t){
+        var ks=leaveNos(dayLeaveState.date).filter(function(k){ return dayLeaveState.set[k]; });
+        t.innerHTML = ks.length
+          ? ('已选 <b>'+ks.length+'</b> 人：'+esc(ks.map(function(k){ return k+"号"; }).join("、")))
+          : (leaveNos(dayLeaveState.date).length ? '已全部取消，保存后该日请假名单将清空' : '这一天还没有请假的学生');
+      }
+    }
+    function loadDate(d){
+      dayLeaveState.date=String(d||"").trim()||todayStr();
+      dayLeaveState.set={}; dayLeaveState.reason="";
+      leaveNos(dayLeaveState.date).forEach(function(k){ dayLeaveState.set[k]=1; });
+      var rs=document.getElementById("dlvReason"); if(rs) rs.value="";
+      syncCards();
+    }
+    ov.addEventListener("click", function(e){
+      if(e.target===ov || e.target.closest("[data-dlvClose]")){ ov.remove(); return; }
+      var card=e.target.closest("[data-dlvNo]");
+      if(card){
+        var k=card.getAttribute("data-dlvNo");
+        if(dayLeaveState.set[k]) delete dayLeaveState.set[k]; else dayLeaveState.set[k]=1;
+        syncCards(); return;
+      }
+      if(e.target.closest("[data-dlvAll]")){
+        ov.querySelectorAll("[data-dlvNo]").forEach(function(c){
+          var k=c.getAttribute("data-dlvNo"); if(k) dayLeaveState.set[k]=1;
+        });
+        syncCards(); return;
+      }
+      if(e.target.closest("[data-dlvNone]")){ dayLeaveState.set={}; syncCards(); return; }
+      if(e.target.closest("[data-dlvSave]")){
+        var ks=Object.keys(dayLeaveState.set);
+        setDayLeave(dayLeaveState.date, ks, dayLeaveState.reason);
+        ov.remove();
+        toast(ks.length ? ("已标记 "+ks.length+" 人 "+fmtDate(dayLeaveState.date)+" 请假 ✓ (考勤 / 材料已同步)")
+                        : ("已清空 "+fmtDate(dayLeaveState.date)+" 的请假名单"));
+        /* ⚠️ render() → renderInlineGrid() 会把材料模块重置成「文件夹列表」(gridState.curItem="")
+           → 老师刚在某个文件夹网格里设完请假就被弹回卡片列表，看不到请假格。
+           所以先记住当前位置，渲染完再恢复，最后按位置重绘（e2e 抓到的，不是理论问题）。 */
+        var _cm=gridState.mod, _ci=gridState.curItem, _ct=gridState.curType;
+        try{ render(); }catch(_){}
+        try{
+          if(_cm){
+            gridState.mod=_cm; gridState.curItem=_ci||""; gridState.curType=_ct||gridState.curType;
+            if(_cm==="materials" && !gridState.curItem) renderMatFolders(); else renderGrid();
+          }
+        }catch(_){}
+        try{ refreshTodayPanel(); }catch(_){}
+        return;
+      }
+    });
+    var dt=document.getElementById("dlvDate");
+    if(dt) dt.addEventListener("change", function(){ loadDate(dt.value); });
+    var ri=document.getElementById("dlvReason");
+    if(ri) ri.addEventListener("input", function(){ dayLeaveState.reason=String(ri.value||""); });
+    syncCards();
+  }
   function saveRulesConfig(){
     var a=parseFloat(document.getElementById("ruleAttBonus").value);
     var ab=parseFloat(document.getElementById("ruleAttAbsent").value);
@@ -10437,10 +10651,13 @@
       var ok=g.status["已交"]||0, miss=g.status["未交"]||0, late=g.status["迟交"]||0;
       /* 今日收交概况：只有今天登记过才显示（未登记不显示，避免误以为「今天没人未交」） */
       var ts=matTodayStat(g.item, g.type);
-      var todayLine=ts.tot
-        ? ('<div class="mfc-today'+(ts.un.length?" has":"")+'">今日：'+(ts.un.length
-            ? ("未交 <b>"+ts.un.length+"</b> 人"+(ts.late.length?(" · 迟交 "+ts.late.length+" 人"):""))
-            : "已全部交齐 ✓")+'</div>')
+      var _lvN=(ts.leave||[]).length, _tp=[];
+      if(ts.tot) _tp.push(ts.un.length
+        ? ("未交 <b>"+ts.un.length+"</b> 人"+(ts.late.length?(" · 迟交 "+ts.late.length+" 人"):""))
+        : "已全部交齐 ✓");
+      if(_lvN) _tp.push('<span class="mfc-lv">请假 '+_lvN+' 人</span>');   /* 当天请假：单列，不计未交 */
+      var todayLine=_tp.length
+        ? ('<div class="mfc-today'+(ts.un.length?" has":"")+'">今日：'+_tp.join(" · ")+'</div>')
         : '';
       var last=g.lastDate?"最近 "+esc(g.lastDate):(g.total?"尚无日期":"空文件夹 · 尚无记录");
       return '<div class="mat-folder-card" data-matGoItem="'+esc(g.item)+'" data-matGoType="'+esc(g.type)+'">'
@@ -10583,17 +10800,21 @@
     return null;
   }
   function matDayPick(item, type, date){
-    var un=[], late=[], tot=0;
+    var un=[], late=[], tot=0, lv=[];
     gridStudents().forEach(function(s){
       var no=String(s["学号"]||""); if(!no) return;
       var rec=matRecOf(item, type, no, date);   // 按文件夹精确定位，与当前打开的文件夹无关
-      if(!rec) return;
+      if(!rec){
+        /* 当天请假且未登记上交：不计未交，单列「请假」(leave-2026-09-14) */
+        if(leaveOn(no, date)) lv.push({ no:no, name:String(s["姓名"]||""), why:((leaveInfo(no,date)||{}).r)||"" });
+        return;
+      }
       tot++;
       var v=String(rec["状态"]||"");
       if(v==="未交") un.push({ no:no, name:String(s["姓名"]||"") });
       else if(v==="迟交") late.push({ no:no, name:String(s["姓名"]||"") });
     });
-    return { date:date, un:un, late:late, tot:tot };
+    return { date:date, un:un, late:late, leave:lv, tot:tot };
   }
   /* 指定文件夹的「固定日期」：优先登记表创建日 → 老数据取最早记录日 → 今天 */
   function matFixedDateOf(item, type){
@@ -10610,7 +10831,7 @@
   /* 某文件夹「今天」的收交概况：今天没登记过 → tot=0（卡片上就不显示今日行，避免误导） */
   function matTodayStat(item, type){
     var p=matDayPick(item, type, todayStr());
-    return { tot:p.tot, un:p.un, late:p.late };
+    return { tot:p.tot, un:p.un, late:p.late, leave:p.leave };
   }
   /* 拼文案。picks 为若干天的收交情况；单日 → 明细版，多日 → 汇总版 */
   function matNotifyText(picks, opts){
@@ -10630,16 +10851,27 @@
       if(withLate && p.late.length) l.push("迟交（"+p.late.length+"人）："+names(p.late));
       return l;
     }
+    /* 请假单列：请假不算未交(leave-2026-09-14)；所有人事由一致时括注事由 */
+    function leaveLine(p){
+      var lv=p.leave||[]; if(!lv.length) return "";
+      var s=lv.map(function(x){ return byName ? (x.name||x.no) : (x.no+"号"); }).join("、");
+      var whys={}, first="";
+      lv.forEach(function(x){ var w=String(x.why||"").trim(); if(!w) return; if(!first) first=w; whys[w]=1; });
+      var same = first && Object.keys(whys).length===1;
+      return "请假（"+lv.length+"人）："+s+(same?("（"+first+"）"):"");
+    }
     if(picks.length===1){
-      var p=picks[0], ls=missLines(p);
-      if(!ls.length) return head+" "+fmtDate(p.date)+"收交\n✅ 全班已交齐，感谢各位家长的配合！";
-      return head+" "+fmtDate(p.date)+"收交\n"+ls.join("\n")+"\n请相关家长提醒孩子明天补交，感谢配合 🙏";
+      var p=picks[0], ls=missLines(p), lv=leaveLine(p);
+      if(!ls.length && !lv) return head+" "+fmtDate(p.date)+"收交\n✅ 全班已交齐，感谢各位家长的配合！";
+      return head+" "+fmtDate(p.date)+"收交\n"+ls.concat(lv?[lv]:[]).join("\n")
+        +"\n"+(ls.length?"请相关家长提醒孩子明天补交，感谢配合 🙏":"其余同学均已交齐，感谢配合 🙏");
     }
     var any=false;
     var body=picks.map(function(p){
-      var ls=missLines(p);
+      var ls=missLines(p), lv=leaveLine(p);
       if(ls.length) any=true;
-      return fmtDate(p.date)+"  "+(ls.length?ls.join("；"):"已全部交齐 ✅");
+      var parts=ls.concat(lv?[lv]:[]);
+      return fmtDate(p.date)+"  "+(parts.length?parts.join("；"):"已全部交齐 ✅");
     }).join("\n");
     var ds=picks.map(function(p){ return p.date; }).sort();
     return head+" "+fmtDate(ds[0])+"–"+fmtDate(ds[ds.length-1])+" 收交汇总\n"+body
@@ -10659,14 +10891,14 @@
     });
     var hint=document.getElementById("matnHint");
     if(hint){
-      var miss=0, late=0;
-      picks.forEach(function(p){ miss+=p.un.length; late+=p.late.length; });
+      var miss=0, late=0, lvn=0;
+      picks.forEach(function(p){ miss+=p.un.length; late+=p.late.length; lvn+=(p.leave||[]).length; });
       var pre="";
       if(matnState.today && matnState.date!==todayStr() && matnState.date!=="__all__")
         pre="今天还没登记，显示最近一次（"+fmtDate(matnState.date)+"）的名单；";
       hint.textContent = pre + (miss
-        ? ("共 "+miss+" 人次未交"+(late?("、" + late + " 人次迟交"):"")+"，复制后直接发家长群即可")
-        : "这段时间没有未交记录，已生成「全部交齐」版文案");
+        ? ("共 "+miss+" 人次未交"+(late?("、" + late + " 人次迟交"):"")+(lvn?("、" + lvn + " 人次请假"):"")+"，复制后直接发家长群即可")
+        : (lvn ? ("没有未交记录；另有 "+lvn+" 人次请假（请假不计未交），已一并写入文案") : "这段时间没有未交记录，已生成「全部交齐」版文案"));
     }
   }
   function closeMatNotify(){ var m=document.getElementById("matnMask"); if(m) m.remove(); }
@@ -10933,7 +11165,8 @@
       });
       buckets = [
         { key:"abs",    cls:"abs",  label:"缺勤", noList:abs  },
-        { key:"late",   cls:"late", label:"迟到", noList:late }
+        { key:"late",   cls:"late", label:"迟到", noList:late },
+        { key:"leave",  cls:"leave",label:"请假", noList:leaveNos(today) }
       ];
     } else {
       var unc=[], latemat=[];
@@ -10947,7 +11180,8 @@
       });
       buckets = [
         { key:"unc",    cls:"abs",  label:"未交", noList:unc      },
-        { key:"latemat",cls:"late", label:"迟交", noList:latemat }
+        { key:"latemat",cls:"late", label:"迟交", noList:latemat },
+        { key:"leave",  cls:"leave",label:"请假", noList:leaveNos(today) }
       ];
     }
     var dt=new Date(today+"T00:00:00");
@@ -11180,6 +11414,7 @@
        +'<span class="gt-sep"></span>'
        +'<button class="gt-btn primary" data-filltoday="'+mod+'" title="把今日尚未登记的同学一键标记为已交（只补当天）">🪄 一键补齐已交</button>'
        +(canMarkMat()?'<button class="gt-btn primary" data-quickno="'+mod+'" title="直接输入没交的号数，一次标记到位">🔢 号数快登</button>':'')
+       +(isHead()?dayLeaveBtnHTML():'')
        +(canEdit()?'<button class="gt-btn" data-matnotify="materials" title="把当前文件夹的未交 / 迟交名单拼成一段可直接发家长群的通知文案（号数版保护隐私，姓名版便于私发）">📋 生成通知</button>':'')
        +(off?''
           :'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
@@ -11205,6 +11440,7 @@
          ?'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="晚自习" title="把今日尚未手动点击的学生标记为 '+st.yes+'（只补当天晚自习）">🪄 一键补齐晚自习 '+st.yes+'</button>'
          :'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="上午" title="把今日上午尚未手动点击的学生标记为 '+st.yes+'（只补当天；已手动点过的时段不动）">🪄 一键补齐上午 '+st.yes+'</button>'
           +'<button class="gt-btn primary" data-filltoday="'+mod+'" data-fillPeriod="下午" title="把今日下午尚未手动点击的学生标记为 '+st.yes+'（只补当天；已手动点过的时段不动）">🪄 一键补齐下午 '+st.yes+'</button>')
+       +(isHead()?dayLeaveBtnHTML():'')
        +'<button class="gt-btn primary" data-quickno="'+mod+'" title="直接输入缺勤 / 迟到的号数，一次标记到位">🔢 号数快登</button>'
        +'<button class="gt-btn rule" data-savecompute="'+mod+'" title="录入完成后保存并计算积分">✅ 保存并计算积分</button>'
        +'<button class="gt-btn rule" data-ruleapply="'+mod+'">✅ 应用规则</button>'
@@ -11257,6 +11493,7 @@
             // 固定请假/周几请假的学生：渲染为「请假」且不可点(标记 hover 提示)
             if(studentFixedLeave(no,"晚自习")){ clsN="grid-cell s-leave fixed"; iconN=st.labels.leave||st.leave; }
             else if(studentWeekdayLeave(no, "晚自习", new Date(d+"T00:00:00").getDay())){ clsN="grid-cell s-leave fixed"; iconN=st.labels.leave||st.leave; }
+            else if(!recN && leaveOn(no, d)){ clsN="grid-cell s-leave day"; iconN=st.labels.leave||st.leave; }   /* 当天请假：专属格 */
             if(typeof iconN==="undefined" || iconN==null) iconN="＋";
             html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'" data-period="晚自习"><div class="'+clsN+'">'+iconN+'</div></td>';
           } else {
@@ -11270,6 +11507,7 @@
               else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
               else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
               else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
+              else if(!rec && leaveOn(no, d)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：专属格 */
               if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
               if(typeof icon==="undefined" || icon==null) icon="＋";
               var tag = per==="下午" ? '<span class="per-tag">下</span>' : '';
@@ -11287,6 +11525,7 @@
           else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
           else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
           else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
+          else if(!rec && leaveOn(no, d)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：专属格(不计未交) */
           if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
           if(typeof icon==="undefined" || icon==null) icon="＋"; // 兜底：避免任何情况下渲染出 "undefined"
           html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
@@ -11318,6 +11557,7 @@
     else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
     else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
     else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
+    if(!rec && leaveOn(no, date)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假 */
     if(mod==="attendance" && isNight){
       if(studentFixedLeave(no,"晚自习")){ cls="grid-cell s-leave fixed"; icon=st.labels.leave||st.leave; }
       else if(studentWeekdayLeave(no,"晚自习",new Date(date+"T00:00:00").getDay())){ cls="grid-cell s-leave fixed"; icon=st.labels.leave||st.leave; }
@@ -11363,6 +11603,8 @@
     var curIdx = rec ? st.cycle.indexOf(rec["状态"]||"") : st.cycle.length-1;
     var next = st.cycle[(curIdx+1) % st.cycle.length];
     setStatus("syncing");
+    /* 手动点成非「请假」= 学生当天返校 → 同步撤销当天请假标记(考勤 / 材料保持一致) */
+    if(next!=="请假" && leaveOn(no, date)){ try{ removeDayLeave(no, date); }catch(_){} }
     var props = { 日期:date, 学号:String(no||""), 学生姓名:studentNameByGridNo(no)||"", 状态:next };
     if(mod==="materials"){ props.类型 = gridState.curType||"作业提交"; props.事项 = gridState.curItem||""; }
     else if(period){ props.时段 = period; }   // 考勤：记录时段（上午/下午）
@@ -11447,6 +11689,7 @@
     var chain=Promise.resolve();
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
+      if(leaveOn(no, date)) return;   /* 今日请假：标记模式跳过(leave-2026-09-14) */
       var value = gridMark.picked.has(no) ? st.no : st.yes;
       var periods = (mod==="attendance") ? ((gridState.curItem==="晚自习")?["晚自习"]:["上午","下午"]) : [null];   // 考勤标记：晚自习单格，常规双格
       periods.forEach(function(per){
@@ -11504,17 +11747,21 @@
     var studs=gridStudents();
     // 仅补当天缺失的时段/记录（考勤按上午+下午分别判断；材料按当前类型/事项判断）
     var periodsOf=function(){ if(mod!=="attendance") return [null]; if(onlyPeriod) return [onlyPeriod]; return (gridState.curItem==="晚自习") ? ["晚自习"] : ["上午","下午"]; };
-    var missing=0;
+    var missing=0, skipLv=0;
     studs.forEach(function(s){
       var no=String(s["学号"]||"");
+      if(leaveOn(no, today)){ skipLv++; return; }   /* 今日请假：跳过，保持「请假」标记不被写成出勤 / 已交 */
       periodsOf().forEach(function(per){ if(!gridFindRecord(mod, no, today, per)) missing++; });
     });
     if(!missing){ toast("今日（"+today+"）同学均已登记，无需补齐"); return; }
-    if(!confirm("将把今日（"+today+"）尚未登记的 "+missing+" 个时段/记录一键标记为「"+def+"」？\n（只补缺失的时段，已手动标记的同学不受影响；之后可点单元格改回）")) return;
+    if(!confirm("将把今日（"+today+"）尚未登记的 "+missing+" 个时段/记录一键标记为「"+def+"」？\n"
+      +(skipLv?("其中今日请假的 "+skipLv+" 人会跳过（保持「请假」标记）。\n"):"")
+      +"（只补缺失的时段，已手动标记的同学不受影响；之后可点单元格改回）")) return;
     setStatus("syncing");
     var chain=Promise.resolve();
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
+      if(leaveOn(no, today)) return;   // 今日请假：不补齐(leave-2026-09-14)
       periodsOf().forEach(function(per){
         if(gridFindRecord(mod, no, today, per)) return;   // 该时段已有记录则不覆盖
         var props={ 日期:today, 学号:no, 学生姓名:nm, 状态:def };
@@ -12202,6 +12449,9 @@
     // 晚自习固定请假管理
     var afl=e.target.closest("[data-attFixedLeave]");
     if(afl){ openFixedLeaveMgr(); return; }
+    /* 🩺 当天请假(leave-2026-09-14)：工具栏入口 */
+    var dlvBtn=e.target.closest("[data-dayleave]");
+    if(dlvBtn){ openDayLeave(); return; }
     // 当日号数面板：复制号数到剪贴板
     var cpc=e.target.closest("[data-copytoday]");
     if(cpc){
@@ -13532,6 +13782,7 @@
       if(badKeys.length) setTimeout(function(){ retryTables(badKeys); }, 3000);
       pruneOldOverrides().catch(function(){});
       loadDutyRot();
+      loadLeave();
       loadRuleCats();
       loadMeetings();
       loadWeekly();
@@ -13646,7 +13897,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "matquick-2026-09-14";
+  var __APP_VERSION__ = "leave-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
