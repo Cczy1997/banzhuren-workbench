@@ -1,0 +1,28 @@
+name: 晚九点作业未交推送
+
+# 每天北京时间 21:00 自动跑一次（GitHub Actions 的 cron 用 UTC：
+# 13:00 UTC = 21:00 北京时间，中国不实行夏令时，全年固定不用调）
+# 也可以在 GitHub 网页 Actions 页手动点「Run workflow」立刻跑一次
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+
+jobs:
+  matpush:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 生成未交名单并推送到微信
+        env:
+          SCT_KEY: ${{ secrets.SCT_KEY }}
+        run: node tools/matpush_report.js --push "$SCT_KEY"
