@@ -42,7 +42,7 @@
      外置后 HTML 瘦掉约 20%，这个文件几乎永不变、由 Service Worker 长期缓存。
      URL 带库版本号：只有升级 supabase-js 才会换地址，缓存不会失效。 -->
 <script src="supabase.min.js?v=2.112.4" onerror="window.__supaLibFailed=1"></script>
-<link rel="stylesheet" href="app.css?v=2026-09-13">
+<link rel="stylesheet" href="app.css?v=2026-09-14">
 </head>
 <body>
 <div class="layout">
@@ -5775,7 +5775,8 @@
       else { var t=(r["类型"]==="减分")?-v:v; total[nm]=(total[nm]||0)+t; cur[nm]=(cur[nm]||0)+t; }
     });
     Object.keys(total).forEach(function(n){ if(!(n in cur)) cur[n]=total[n]; });
-    var ind=Object.keys(total).map(function(n){return {n:n,t:total[n],c:cur[n]};}).sort(function(a,b){return b.t-a.t;}).slice(0,3);
+    var all=Object.keys(total).map(function(n){return {n:n,t:total[n],c:cur[n]};}).sort(function(a,b){return b.t-a.t;});
+    var ind=all.slice(0,3);
     // 小组积分 = 组内成员个人积分之和(学习小组来自学生档案)
     var gmap={};
     DATA.students.forEach(function(s){
@@ -5829,6 +5830,24 @@
           +'</div></div>';
       });
       html+='</div>';
+    }
+    if(isHead()){
+      /* 全班积分明细：仅班主任可见——领奖台只露头部，全班名次与「可用」余额在这里一眼扫完 */
+      html+='<div class="honor-sub">📋 全班积分明细（仅班主任可见 · 共 '+all.length+' 人）</div>';
+      if(!all.length){
+        html+='<div class="empty">暂无学生，请先在「学生档案」添加学生。</div>';
+      } else {
+        html+='<div class="frank-list">';
+        all.forEach(function(x,i){
+          html+='<div class="frank'+(x.t<0?' frank-neg':'')+'">'
+            +'<span class="frank-rank">'+(i<3?medal[i]:(i+1))+'</span>'
+            +'<span class="frank-nm" data-profile="'+esc(x.n)+'">'+esc(x.n)+'</span>'
+            +'<span class="gb-sc '+(x.t>=0?'pos':'neg')+'">'+fmtPts(x.t)+'</span>'
+            +(x.t!==x.c?'<span class="gb-cur">可用 '+fmtPts(x.c)+'</span>':'')
+            +'</div>';
+        });
+        html+='</div>';
+      }
     }
     return html+'</div>';
   }
@@ -13574,7 +13593,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "dutyrot-2026-09-14";
+  var __APP_VERSION__ = "honorrank-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
@@ -13852,6 +13871,29 @@
       });
     }catch(_){}
   }
+  /* 版本自检：拉 version.txt（几十字节，SW 不拦截、不进缓存）与本页 __APP_VERSION__ 比对。
+     不一致 = 当前页面是 Service Worker 喂的旧版 → 带 ?fresh=1 重载一次（SW 直连网络并回写缓存）。
+     ⚠️ 别改成 fetch index.html 比对：SW 是缓存优先，fetch 回来的还是旧副本，永远"一致"。 */
+  function autoVersionCheck(){
+    if(location.protocol!=='https:') return;
+    var cur=(typeof __APP_VERSION__!=='undefined')?__APP_VERSION__:'';
+    if(!cur) return;
+    try{ if(sessionStorage.getItem('wb_vchk')) return; }catch(_){}
+    var base=location.pathname.replace(/[^\/]*$/,'');
+    fetch(location.origin+base+'version.txt?t='+Date.now(), {cache:'no-cache'}).then(function(r){
+      if(!r||r.status!==200) return null;
+      return r.text();
+    }).then(function(t){
+      if(!t) return;
+      var v=String(t).replace(/\s+/g,'');
+      if(!v||v===cur) return;
+      try{ sessionStorage.setItem('wb_vchk','1'); }catch(_){}
+      var q=location.search||'';
+      if(q.indexOf('fresh=')>=0) return;
+      location.replace(location.origin+location.pathname+(q?q+'&':'?')+'fresh=1');
+    }).catch(function(){});
+  }
+  window.addEventListener('load', function(){ try{ setTimeout(autoVersionCheck, 3000); }catch(_){} });
   /* SW 后台静默更新完成后会 postMessage('sw-update')，这里弹一个低调提示条：
      既做到"刷新秒开"（缓存优先），又不会回到"改了版本用户要刷好几次才看得到"的老问题。 */
   function showUpdateBar(){

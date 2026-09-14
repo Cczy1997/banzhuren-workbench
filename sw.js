@@ -54,8 +54,17 @@ self.addEventListener("message", function(e){
         var cache = await caches.open(CACHE);
         var cs = await self.clients.matchAll({ includeUncontrolled:true });
         lastCheck = Date.now();
+        /* ⚠️ 缓存键是「origin+pathname」规范化过的（见 fetch 里 canonReq），而 client.url
+           常带 ?c=班级码 / ?fresh=1。以前这里直接拿 c.url 去 cache.match → 永远匹配不上，
+           checkShell 判定成"首次缓存"只 put 不通知 → 扫码进来的用户永远收不到更新提示。 */
+        var seen = {};
         await Promise.all(cs.map(function(c){
-          return checkShell(new Request(c.url, { cache:"no-cache" }), cache);
+          var req;
+          try{ var u = new URL(c.url); req = new Request(u.origin + u.pathname); }
+          catch(_){ req = new Request(c.url); }
+          if(seen[req.url]) return null;
+          seen[req.url] = 1;
+          return checkShell(req, cache);
         }));
       }catch(_){}
     })());

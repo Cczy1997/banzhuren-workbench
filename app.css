@@ -1737,3 +1737,17 @@
     .share-card{padding:10px 10px 12px;border-radius:14px}
     .share-tip br{display:none}
   }
+
+  /* honor · 全班积分明细（仅班主任可见） */
+  .frank-list{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+  .frank{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border:1px solid #f0ece2;border-radius:10px;font-size:13px}
+  .frank:nth-child(odd){background:#FFFDF7}
+  .frank-rank{flex:0 0 28px;text-align:center;font-weight:800;color:var(--ink-soft)}
+  .frank-nm{flex:1;min-width:0;font-weight:700;color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .frank-neg{border-color:#F3D9D9;background:#FFFAF9}
+  .frank .gb-sc{flex:0 0 auto}
+  .frank .gb-cur{flex:0 0 auto}
+  @media (max-width:480px){
+    .frank{font-size:14px;padding:8px 10px}
+    .frank-rank{flex-basis:30px}
+  }
