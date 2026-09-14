@@ -42,7 +42,7 @@
      外置后 HTML 瘦掉约 20%，这个文件几乎永不变、由 Service Worker 长期缓存。
      URL 带库版本号：只有升级 supabase-js 才会换地址，缓存不会失效。 -->
 <script src="supabase.min.js?v=2.112.4" onerror="window.__supaLibFailed=1"></script>
-<link rel="stylesheet" href="app.css?v=2026-09-14c">
+<link rel="stylesheet" href="app.css?v=2026-09-14d">
 </head>
 <body>
 <div class="layout">
@@ -2717,10 +2717,11 @@
   /* ---------- 当天请假(leave-2026-09-14) ----------
      与「固定请假 / 周几请假」不同：那是学生档案上的长期规则(且仅晚自习)；这里是**某一天**的
      临时请假，由班主任按日期设置，考勤与材料两个模块共用同一份名单：
-       · 考勤：该生当天所有时段显示「请假」专属格，不计缺勤
-       · 材料：当天显示请假标记，不计入未交 / 迟交(家长群文案里单列「请假」)
+       · 考勤：按所选时段(全天 / 上午 / 下午)显示「请假」专属格，不计缺勤；晚自习只在全天假时标
+       · 材料：全天 / 上午假显示请假标记，不计入未交(材料上午收)；只请下午的照常收
      数据落 hr_settings.leaves(与 dutyRot 同机制：本地 + 云端按 ts 取新)，跨设备一致。
-     结构 { "2026-09-14": { ts:<ms>, list:{ "7":{n:"张三", r:"病假"} } } } —— 号数已去前导零 */
+     结构 { "2026-09-14": { ts:<ms>, list:{ "7":{n:"张三", r:"病假", p:"全天"} } } }
+     —— 号数已去前导零；p=全天|上午|下午，旧数据无 p 按全天处理 (leavehalf-2026-09-14) */
   var LEAVE_LS = "wb_cls_leave";
   var LEAVE = {};
   var LEAVE_KEEP_DAYS = 180;      /* 只留近半年，防 settings 无限膨胀 */
@@ -2732,7 +2733,8 @@
   function leaveOn(no, date){ var k=leaveNoKey(no); return !!(k && leaveDay(date)[k]); }
   function leaveInfo(no, date){
     var k=leaveNoKey(no), o=leaveDay(date)[k];
-    return o ? { n:String(o.n||""), r:String(o.r||"") } : null;
+    var p=String((o&&o.p)||"全天"); if(LEAVE_PARTS.indexOf(p)<0) p="全天";
+    return o ? { n:String(o.n||""), r:String(o.r||""), p:p } : null;
   }
   function leaveNos(date){
     return Object.keys(leaveDay(date)).sort(function(a,b){
@@ -2744,14 +2746,39 @@
     });
   }
   function leaveCount(date){ return leaveNos(date).length; }
-  /* 覆盖式写某天的名单(空 → 整天移除，保持 settings 干净) */
-  function setDayLeave(date, nos, reason){
+  var LEAVE_PARTS=["全天","上午","下午"];
+  /* 某人某天的请假时段："全天"|"上午"|"下午"；没请假返回 null（旧数据无 p → 全天） */
+  function leavePart(no, date){
+    var k=leaveNoKey(no), o=leaveDay(date)[k];
+    if(!o) return null;
+    var p=String(o.p||"全天");
+    return LEAVE_PARTS.indexOf(p)>=0 ? p : "全天";
+  }
+  /* 考勤格级判断：晚自习只有全天假才标；上午 / 下午格按半天精确匹配 */
+  function leaveOnCell(no, date, period){
+    var p=leavePart(no, date); if(!p) return false;
+    if(p==="全天") return true;
+    return p===String(period||"");
+  }
+  /* 材料判断：全天 / 上午假 → 豁免（材料上午收）；只请下午 → 照常算未交 */
+  function leaveMatOn(no, date){
+    var p=leavePart(no, date);
+    return p==="全天" || p==="上午";
+  }
+  /* 覆盖式写某天的名单(空 → 整天移除，保持 settings 干净)
+     entries 兼容三种形态：数组[学号...] / 数组[{k,no,p}...] / 对象{学号:"全天|上午|下午"} */
+  function setDayLeave(date, entries, reason){
     date=String(date||"").trim(); if(!date) return false;
     var list={}, seen={};
-    (nos||[]).forEach(function(x){
-      var k=leaveNoKey(x); if(!k || seen[k]) return; seen[k]=1;
+    var isObj = !!entries && !Array.isArray(entries) && typeof entries==="object";
+    (isObj ? Object.keys(entries) : (entries||[])).forEach(function(x0){
+      var k, pp;
+      if(isObj){ k=leaveNoKey(x0); pp=LEAVE_PARTS.indexOf(entries[x0])>=0?entries[x0]:"全天"; }
+      else if(x0 && typeof x0==="object"){ k=leaveNoKey(x0.k!=null?x0.k:x0.no); pp=LEAVE_PARTS.indexOf(x0.p)>=0?x0.p:"全天"; }
+      else { k=leaveNoKey(x0); pp="全天"; }
+      if(!k || seen[k]) return; seen[k]=1;
       var nm=""; try{ nm=studentNameByGridNo(k)||""; }catch(_){}
-      list[k]={ n:nm, r:String(reason||"").trim() };
+      list[k]={ n:nm, r:String(reason||"").trim(), p:pp };
     });
     if(Object.keys(list).length) LEAVE[date]={ ts:Date.now(), list:list };
     else delete LEAVE[date];
@@ -2766,6 +2793,14 @@
     delete d.list[k];
     if(Object.keys(d.list).length) d.ts=Date.now(); else delete LEAVE[date];
     saveLeave();
+    return true;
+  }
+  /* 只改某人某天的请假时段(其余人不动；返回 false 表示当天没有这个人的请假) */
+  function setDayLeavePart(no, date, p){
+    date=String(date||"").trim(); var k=leaveNoKey(no);
+    if(!date || !k || LEAVE_PARTS.indexOf(p)<0) return false;
+    var d=LEAVE[date]; if(!d || !d.list || !d.list[k]) return false;
+    d.list[k].p=p; d.ts=Date.now(); saveLeave();
     return true;
   }
   function leavePrune(){
@@ -9587,12 +9622,12 @@
     var tip = document.getElementById("rosterTip");
     /* ⚠️ 顺序要紧：lvSkip / students 必须在拼 tip 之前就绪（var 只提升声明不提升赋值） */
     var students=(DATA.students||[]).slice().sort(byNo);
-    /* 材料花名册：当天请假的学生不列入(他们不该被记成未交 / 迟交；要单独登记请进网格点格子) */
+    /* 材料花名册：全天 / 上午请假的学生不列入(不该被记成未交 / 迟交)；只请下午的照常列入 */
     var lvSkip=[];
     if(isMat){
       students=students.filter(function(s0){
         var no0=String(s0["学号"]||"").trim();
-        if(no0 && leaveOn(no0, todayStr())){ lvSkip.push(String(s0["姓名"]||"").trim()); return false; }
+        if(no0 && leaveMatOn(no0, todayStr())){ lvSkip.push(String(s0["姓名"]||"").trim()); return false; }
         return true;
       });
     }
@@ -9610,8 +9645,8 @@
       html = students.map(function(s){
         var name=String(s["姓名"]||"").trim(), no=String(s["学号"]||"").trim();
         if(!name) return "";
-        /* 考勤：当天请假的学生默认预选「请假」，省得老师再逐个点 */
-        var dv=(!isMat && no && leaveOn(no, todayStr())) ? "请假" : def;
+        /* 考勤：花名册按上午落记录 → 全天 / 上午假才默认预选「请假」；只请下午的默认出勤(leavehalf-2026-09-14) */
+        var dv=(!isMat && no && leaveOnCell(no, todayStr(), "上午")) ? "请假" : def;
         rosterState.sel[name]=dv;
         return '<div class="roster-row'+(dv==="请假"?" is-leave":"")+'" data-name="'+esc(name)+'">'
           +'<div class="rr-name">'+esc(name)+(no?' <span class="rr-no">'+esc(no)+'</span>':'')+'</div>'
@@ -10284,7 +10319,7 @@
     if(!isHead()){ toast("当天请假由班主任设置"); return; }
     var old0=document.getElementById("dayLeaveMask"); if(old0) old0.remove();
     dayLeaveState.date=todayStr(); dayLeaveState.set={}; dayLeaveState.reason="";
-    leaveNos(dayLeaveState.date).forEach(function(k){ dayLeaveState.set[k]=1; });
+    leaveNos(dayLeaveState.date).forEach(function(k){ dayLeaveState.set[k]=leavePart(k, dayLeaveState.date)||"全天"; });
     var studs=gridStudents();
     var body = studs.length
       ? '<div class="dlv-grid">'+studs.map(function(s){
@@ -10294,14 +10329,17 @@
           var on=!!dayLeaveState.set[k];
           return '<div class="dlv-card'+(on?" on":"")+'" data-dlvNo="'+esc(k)+'" data-dlvName="'+esc(nm)+'">'
             +'<span class="dlv-no">'+esc(no||"--")+'</span><span class="dlv-nm">'+esc(nm)+'</span>'
-            +'<span class="dlv-tick">'+(on?"✓":"")+'</span></div>';
+            +'<span class="dlv-tick">'+(on?"✓":"")+'</span>'
+            +'<span class="dlv-per">'+["全天","上午","下午"].map(function(pp){
+                return '<button type="button" class="dlv-pb'+(on && dayLeaveState.set[k]===pp?" sel":"")+'" data-dlvPer="'+pp+'">'+pp+'</button>';
+              }).join('')+'</span></div>';
         }).filter(Boolean).join("")+'</div>'
       : '<div class="empty-state">还没有学生档案，请先在「学生档案」添加学生。</div>';
     var html='<div class="mask show" id="dayLeaveMask" style="z-index:80">'
       +'<div class="modal-box" style="max-width:660px">'
       +'<div class="modal-h">🩺 当天请假<span class="modal-close" data-dlvClose>×</span></div>'
       +'<div class="modal-b" style="max-height:58vh;overflow:auto">'
-      +'<div class="hint" style="padding:0 0 10px">点选今天请假的学生。保存后：<b>考勤</b>里该生当天显示「请假」专属格(不计缺勤)，<b>材料收集</b>里显示请假标记(不计入未交 / 迟交)。取消勾选即可撤销；学生在网格里被点成非「请假」时也会自动销假。<br><span style="color:#7a7a86">已经单独登记过考勤 / 材料的学生以登记为准，本标记只补在「尚未登记」的格子上。</span></div>'
+      +'<div class="hint" style="padding:0 0 10px">点选今天请假的学生，并给每人选<b>全天 / 上午 / 下午</b>。保存后：<b>考勤</b>按所选时段显示「请假」专属格(不计缺勤，晚自习只在全天假时标)；<b>材料收集</b>在全天 / 上午假时显示请假标记(不计入未交)，只请下午的照常收。取消勾选即可撤销；格子被点成非「请假」时：全天假只销被点的那半天，半天假整条销。<br><span style="color:#7a7a86">已经单独登记过考勤 / 材料的学生以登记为准，本标记只补在「尚未登记」的格子上。</span></div>'
       +'<div class="dlv-bar">'
       +'<label class="dlv-lb">日期 <input type="date" id="dlvDate" value="'+esc(dayLeaveState.date)+'"></label>'
       +'<input id="dlvReason" class="dlv-reason" maxlength="20" placeholder="事由（选填，如：病假）" value="'+esc(dayLeaveState.reason)+'">'
@@ -10322,42 +10360,62 @@
         var k=c.getAttribute("data-dlvNo"), on=!!dayLeaveState.set[k];
         c.classList.toggle("on", on);
         var tk=c.querySelector(".dlv-tick"); if(tk) tk.textContent=on?"✓":"";
+        c.querySelectorAll("[data-dlvPer]").forEach(function(pb){
+          pb.classList.toggle("sel", on && dayLeaveState.set[k]===pb.getAttribute("data-dlvPer"));
+        });
       });
       var t=document.getElementById("dlvTip");
       if(t){
         var ks=leaveNos(dayLeaveState.date).filter(function(k){ return dayLeaveState.set[k]; });
-        t.innerHTML = ks.length
-          ? ('已选 <b>'+ks.length+'</b> 人：'+esc(ks.map(function(k){ return k+"号"; }).join("、")))
-          : (leaveNos(dayLeaveState.date).length ? '已全部取消，保存后该日请假名单将清空' : '这一天还没有请假的学生');
+        if(ks.length){
+          var cnt={ "全天":0, "上午":0, "下午":0 };
+          ks.forEach(function(k){ var p=dayLeaveState.set[k]||"全天"; cnt[p]=(cnt[p]||0)+1; });
+          var lst=ks.map(function(k){
+            var p=dayLeaveState.set[k]||"全天";
+            return k+"号"+(p==="全天"?"":"（"+p+"）");
+          }).join("、");
+          t.innerHTML = '已选 <b>'+ks.length+'</b> 人：'+esc(lst)
+            +' <span style="color:#8b87a8">（全天 '+cnt["全天"]+' · 上午 '+cnt["上午"]+' · 下午 '+cnt["下午"]+'）</span>';
+        } else {
+          t.innerHTML = leaveNos(dayLeaveState.date).length ? '已全部取消，保存后该日请假名单将清空' : '这一天还没有请假的学生';
+        }
       }
     }
     function loadDate(d){
       dayLeaveState.date=String(d||"").trim()||todayStr();
       dayLeaveState.set={}; dayLeaveState.reason="";
-      leaveNos(dayLeaveState.date).forEach(function(k){ dayLeaveState.set[k]=1; });
+      leaveNos(dayLeaveState.date).forEach(function(k){ dayLeaveState.set[k]=leavePart(k, dayLeaveState.date)||"全天"; });
       var rs=document.getElementById("dlvReason"); if(rs) rs.value="";
       syncCards();
     }
     ov.addEventListener("click", function(e){
       if(e.target===ov || e.target.closest("[data-dlvClose]")){ ov.remove(); return; }
+      var pb=e.target.closest("[data-dlvPer]");
+      if(pb){
+        var pc=pb.closest("[data-dlvNo]");
+        if(pc){ dayLeaveState.set[pc.getAttribute("data-dlvNo")]=pb.getAttribute("data-dlvPer"); syncCards(); }
+        return;
+      }
       var card=e.target.closest("[data-dlvNo]");
       if(card){
         var k=card.getAttribute("data-dlvNo");
-        if(dayLeaveState.set[k]) delete dayLeaveState.set[k]; else dayLeaveState.set[k]=1;
+        if(dayLeaveState.set[k]) delete dayLeaveState.set[k]; else dayLeaveState.set[k]="全天";
         syncCards(); return;
       }
       if(e.target.closest("[data-dlvAll]")){
         ov.querySelectorAll("[data-dlvNo]").forEach(function(c){
-          var k=c.getAttribute("data-dlvNo"); if(k) dayLeaveState.set[k]=1;
+          var k=c.getAttribute("data-dlvNo"); if(k) dayLeaveState.set[k]="全天";
         });
         syncCards(); return;
       }
       if(e.target.closest("[data-dlvNone]")){ dayLeaveState.set={}; syncCards(); return; }
       if(e.target.closest("[data-dlvSave]")){
         var ks=Object.keys(dayLeaveState.set);
-        setDayLeave(dayLeaveState.date, ks, dayLeaveState.reason);
+        var half=ks.filter(function(k){ var p=dayLeaveState.set[k]; return p==="上午"||p==="下午"; });
+        setDayLeave(dayLeaveState.date, dayLeaveState.set, dayLeaveState.reason);
         ov.remove();
-        toast(ks.length ? ("已标记 "+ks.length+" 人 "+fmtDate(dayLeaveState.date)+" 请假 ✓ (考勤 / 材料已同步)")
+        toast(ks.length ? ("已标记 "+ks.length+" 人 "+fmtDate(dayLeaveState.date)+" 请假 ✓"
+              +(half.length?("（含半天 "+half.length+" 人）"):"")+" (考勤 / 材料已同步)")
                         : ("已清空 "+fmtDate(dayLeaveState.date)+" 的请假名单"));
         /* ⚠️ render() → renderInlineGrid() 会把材料模块重置成「文件夹列表」(gridState.curItem="")
            → 老师刚在某个文件夹网格里设完请假就被弹回卡片列表，看不到请假格。
@@ -10805,8 +10863,8 @@
       var no=String(s["学号"]||""); if(!no) return;
       var rec=matRecOf(item, type, no, date);   // 按文件夹精确定位，与当前打开的文件夹无关
       if(!rec){
-        /* 当天请假且未登记上交：不计未交，单列「请假」(leave-2026-09-14) */
-        if(leaveOn(no, date)) lv.push({ no:no, name:String(s["姓名"]||""), why:((leaveInfo(no,date)||{}).r)||"" });
+        /* 当天请假(全天/上午)且未登记上交：不计未交，单列「请假」；只请下午照常算(leavehalf-2026-09-14) */
+        if(leaveMatOn(no, date)) lv.push({ no:no, name:String(s["姓名"]||""), why:((leaveInfo(no,date)||{}).r)||"", part:leavePart(no,date) });
         return;
       }
       tot++;
@@ -10854,7 +10912,11 @@
     /* 请假单列：请假不算未交(leave-2026-09-14)；所有人事由一致时括注事由 */
     function leaveLine(p){
       var lv=p.leave||[]; if(!lv.length) return "";
-      var s=lv.map(function(x){ return byName ? (x.name||x.no) : (x.no+"号"); }).join("、");
+      var s=lv.map(function(x){
+        var t=byName ? (x.name||x.no) : (x.no+"号");
+        if(x.part && x.part!=="全天") t+="（"+x.part+"）";   // 半天假标注时段
+        return t;
+      }).join("、");
       var whys={}, first="";
       lv.forEach(function(x){ var w=String(x.why||"").trim(); if(!w) return; if(!first) first=w; whys[w]=1; });
       var same = first && Object.keys(whys).length===1;
@@ -11181,7 +11243,7 @@
       buckets = [
         { key:"unc",    cls:"abs",  label:"未交", noList:unc      },
         { key:"latemat",cls:"late", label:"迟交", noList:latemat },
-        { key:"leave",  cls:"leave",label:"请假", noList:leaveNos(today) }
+        { key:"leave",  cls:"leave",label:"请假", noList:leaveNos(today).filter(function(k){ return leaveMatOn(k, today); }) }
       ];
     }
     var dt=new Date(today+"T00:00:00");
@@ -11493,7 +11555,7 @@
             // 固定请假/周几请假的学生：渲染为「请假」且不可点(标记 hover 提示)
             if(studentFixedLeave(no,"晚自习")){ clsN="grid-cell s-leave fixed"; iconN=st.labels.leave||st.leave; }
             else if(studentWeekdayLeave(no, "晚自习", new Date(d+"T00:00:00").getDay())){ clsN="grid-cell s-leave fixed"; iconN=st.labels.leave||st.leave; }
-            else if(!recN && leaveOn(no, d)){ clsN="grid-cell s-leave day"; iconN=st.labels.leave||st.leave; }   /* 当天请假：专属格 */
+            else if(!recN && leaveOnCell(no, d, "晚自习")){ clsN="grid-cell s-leave day"; iconN=st.labels.leave||st.leave; }   /* 当天请假：全天假才标晚自习(leavehalf-2026-09-14) */
             if(typeof iconN==="undefined" || iconN==null) iconN="＋";
             html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'" data-period="晚自习"><div class="'+clsN+'">'+iconN+'</div></td>';
           } else {
@@ -11507,7 +11569,7 @@
               else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
               else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
               else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
-              else if(!rec && leaveOn(no, d)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：专属格 */
+              else if(!rec && leaveOnCell(no, d, per)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：半天精确到时段(leavehalf-2026-09-14) */
               if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
               if(typeof icon==="undefined" || icon==null) icon="＋";
               var tag = per==="下午" ? '<span class="per-tag">下</span>' : '';
@@ -11525,7 +11587,7 @@
           else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
           else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
           else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
-          else if(!rec && leaveOn(no, d)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：专属格(不计未交) */
+          else if(!rec && leaveMatOn(no, d)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：全天/上午假豁免材料(leavehalf-2026-09-14) */
           if(gridMark && gridMark.date===d && gridMark.picked.has(no)){ cls="grid-cell mark-pick"; icon=""; }
           if(typeof icon==="undefined" || icon==null) icon="＋"; // 兜底：避免任何情况下渲染出 "undefined"
           html+='<td data-cell="1" data-no="'+esc(no)+'" data-date="'+esc(d)+'"><div class="'+cls+'">'+icon+'</div></td>';
@@ -11557,7 +11619,7 @@
     else if(st.no && v===st.no){ cls="grid-cell s-no"; icon=st.labels.no||st.no; }
     else if(st.late && v===st.late){ cls="grid-cell s-late"; icon=st.labels.late||st.late; }
     else if(st.leave && v===st.leave){ cls="grid-cell s-leave"; icon=st.labels.leave||st.leave; }
-    if(!rec && leaveOn(no, date)){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假 */
+    if(!rec && (mod==="attendance" ? leaveOnCell(no, date, period||"上午") : leaveMatOn(no, date))){ cls="grid-cell s-leave day"; icon=st.labels.leave||st.leave; }   /* 当天请假：考勤按格时段、材料全天/上午 */
     if(mod==="attendance" && isNight){
       if(studentFixedLeave(no,"晚自习")){ cls="grid-cell s-leave fixed"; icon=st.labels.leave||st.leave; }
       else if(studentWeekdayLeave(no,"晚自习",new Date(date+"T00:00:00").getDay())){ cls="grid-cell s-leave fixed"; icon=st.labels.leave||st.leave; }
@@ -11603,8 +11665,20 @@
     var curIdx = rec ? st.cycle.indexOf(rec["状态"]||"") : st.cycle.length-1;
     var next = st.cycle[(curIdx+1) % st.cycle.length];
     setStatus("syncing");
-    /* 手动点成非「请假」= 学生当天返校 → 同步撤销当天请假标记(考勤 / 材料保持一致) */
-    if(next!=="请假" && leaveOn(no, date)){ try{ removeDayLeave(no, date); }catch(_){} }
+    /* 手动点成非「请假」= 该时段返校：
+       全天假 → 只销被点的这半天(降级为另一个半天)；半天假(正是被点时段) → 整条销；
+       材料格点成非「请假」→ 整条销。其余时段的假不受影响 (leavehalf-2026-09-14) */
+    if(next!=="请假"){
+      var _lp=leavePart(no, date);
+      if(_lp){
+        var _cellLv=(mod==="materials") ? leaveMatOn(no, date) : leaveOnCell(no, date, period);
+        if(_cellLv){
+          if(mod!=="materials" && _lp==="全天" && (period==="上午"||period==="下午")){
+            try{ setDayLeavePart(no, date, period==="上午"?"下午":"上午"); }catch(_){}
+          } else { try{ removeDayLeave(no, date); }catch(_){} }
+        }
+      }
+    }
     var props = { 日期:date, 学号:String(no||""), 学生姓名:studentNameByGridNo(no)||"", 状态:next };
     if(mod==="materials"){ props.类型 = gridState.curType||"作业提交"; props.事项 = gridState.curItem||""; }
     else if(period){ props.时段 = period; }   // 考勤：记录时段（上午/下午）
@@ -11689,10 +11763,11 @@
     var chain=Promise.resolve();
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
-      if(leaveOn(no, date)) return;   /* 今日请假：标记模式跳过(leave-2026-09-14) */
       var value = gridMark.picked.has(no) ? st.no : st.yes;
       var periods = (mod==="attendance") ? ((gridState.curItem==="晚自习")?["晚自习"]:["上午","下午"]) : [null];   // 考勤标记：晚自习单格，常规双格
       periods.forEach(function(per){
+        /* 当天请假：按格跳过(全天全跳、半天只跳对应时段)，其余时段照常登记(leavehalf-2026-09-14) */
+        if(mod==="materials" ? leaveMatOn(no, date) : leaveOnCell(no, date, per)){ return; }
         var rec=gridFindRecord(mod, no, date, per);
         var props = { 日期:date, 学号:no, 学生姓名:nm, 状态:value };
         if(mod==="attendance" && per) props.时段=per;
@@ -11748,21 +11823,23 @@
     // 仅补当天缺失的时段/记录（考勤按上午+下午分别判断；材料按当前类型/事项判断）
     var periodsOf=function(){ if(mod!=="attendance") return [null]; if(onlyPeriod) return [onlyPeriod]; return (gridState.curItem==="晚自习") ? ["晚自习"] : ["上午","下午"]; };
     var missing=0, skipLv=0;
+    var lvBlocks=function(no, per){ return (mod==="materials") ? leaveMatOn(no, today) : leaveOnCell(no, today, per); };
     studs.forEach(function(s){
       var no=String(s["学号"]||"");
-      if(leaveOn(no, today)){ skipLv++; return; }   /* 今日请假：跳过，保持「请假」标记不被写成出勤 / 已交 */
-      periodsOf().forEach(function(per){ if(!gridFindRecord(mod, no, today, per)) missing++; });
+      var blocked=periodsOf().filter(function(per){ return lvBlocks(no, per); }).length;
+      if(blocked) skipLv++;   /* 今日请假：请假时段跳过(全天全跳、半天只跳对应时段)，保持「请假」标记 */
+      periodsOf().forEach(function(per){ if(!lvBlocks(no, per) && !gridFindRecord(mod, no, today, per)) missing++; });
     });
     if(!missing){ toast("今日（"+today+"）同学均已登记，无需补齐"); return; }
     if(!confirm("将把今日（"+today+"）尚未登记的 "+missing+" 个时段/记录一键标记为「"+def+"」？\n"
-      +(skipLv?("其中今日请假的 "+skipLv+" 人会跳过（保持「请假」标记）。\n"):"")
+      +(skipLv?("其中今日请假涉及 "+skipLv+" 人，请假时段会跳过（保持「请假」标记）。\n"):"")
       +"（只补缺失的时段，已手动标记的同学不受影响；之后可点单元格改回）")) return;
     setStatus("syncing");
     var chain=Promise.resolve();
     studs.forEach(function(s){
       var no=String(s["学号"]||""), nm=s["姓名"]||"";
-      if(leaveOn(no, today)) return;   // 今日请假：不补齐(leave-2026-09-14)
       periodsOf().forEach(function(per){
+        if(lvBlocks(no, per)) return;   // 今日请假：请假时段不补齐(leavehalf-2026-09-14)
         if(gridFindRecord(mod, no, today, per)) return;   // 该时段已有记录则不覆盖
         var props={ 日期:today, 学号:no, 学生姓名:nm, 状态:def };
         if(mod==="attendance" && per) props.时段=per;
@@ -13897,7 +13974,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "leave-2026-09-14";
+  var __APP_VERSION__ = "leavehalf-2026-09-14";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
