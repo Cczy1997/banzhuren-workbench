@@ -9414,7 +9414,9 @@
     }).then(function(){
       // 班委成员增删改后，把职务+任职时间回写学生档案的「班干部」字段并维护「关注标签」
       if(key==="committee"){ return regenAllCommittee().then(function(){ return refreshModules(["committee","students"]).catch(function(e){ console.warn(e); }); }); }
-      // 材料收集：保存后由教师点「✅ 应用规则」统一计算加减分(手动，避免误算)
+      /* 材料/考勤：表单保存同样是「状态变更」，自动重算加减分。
+         原注释让老师手动点「应用规则」→ 在表单里改了状态，加减分纹丝不动(matpts-2026-09-15) */
+      if(key==="materials"||key==="attendance") autoApply(key);
      }).then(function(){ setStatus("ok"); })
      .catch(function(e){
        console.error("[saveForm] failed:", e);
@@ -9454,7 +9456,7 @@
     var delRec=(DATA[key]||[]).filter(function(r){return r._id===id;})[0];
     setStatus("syncing");
     (key==="materials"?apiDelMat(id):apiDelete(key,id))
-      .then(function(){ toast("已删除"); return refreshModules(saveDeps(key)); })
+      .then(function(){ toast("已删除"); if(key==="materials"||key==="attendance") autoApply(key); return refreshModules(saveDeps(key)); })
       .then(function(){ if(key==="committee") return regenAllCommittee().then(function(){ return refreshModules(["committee","students"]); }); })
       .then(function(){ setStatus("ok"); })
       .catch(function(e){ console.error(e); setStatus("offline"); toast("删除失败"); });
@@ -10091,10 +10093,14 @@
     });
     return out;
   }
-  var _applyLock={}; // 同模块防并发：进入模块自动套用 + 防抖自动套用可能重叠，避免重复写入加减分
+  var _applyLock={}, _applyQueued={}; // 同模块防并发：进入模块自动套用 + 防抖自动套用可能重叠，避免重复写入加减分
   function applyRules(mod){
     if(mod!=="attendance" && mod!=="materials") return;
-    if(_applyLock[mod]) return; _applyLock[mod]=true;
+    /* 执行期间又发生改动 → 记「待补跑」，本次收尾立即补跑一次。
+       原来是直接 return 静默丢弃：连续改多个学生状态时只有第一次算进去，后面的改动加减分纹丝不动(matpts-2026-09-15) */
+    if(_applyLock[mod]){ _applyQueued[mod]=true; return; }
+    _applyLock[mod]=true;
+    var _unlockT=setTimeout(function(){ _applyLock[mod]=false; }, 20000);  /* 网络挂起兜底：20s 强制解锁，避免锁死后再改都不生效 */
     var tag = mod==="attendance" ? "考勤" : "材料";
     setStatus("syncing");
     var old=(DATA.points||[]).filter(function(p){ return p["来源"]===tag || String(p["原因"]||"").indexOf("["+tag+"]")===0; });
@@ -10116,9 +10122,15 @@
         if(state.mod==="honorboard") render();
         if(state.mod==="overview") loadOverviewAffairs();
         toast("已应用「"+(mod==="attendance"?"考勤":"材料收集")+"」规则："+(n?("+"+plus+" / −"+minus+"，"+n+" 条记录"):"暂无可计算的加减分"));
-        _applyLock[mod]=false;
+        _finishApply(mod, _unlockT);
       });
-    }).catch(function(e){ console.error(e); setStatus("offline"); toast("应用规则失败："+(e&&e.message||e)); _applyLock[mod]=false; });
+    }).catch(function(e){ console.error(e); setStatus("offline"); toast("应用规则失败："+(e&&e.message||e)); _finishApply(mod, _unlockT); });
+  }
+  /* 解锁 + 兑现排队：执行期间的改动在这里补跑，保证「最后一次改动」一定反映到加减分 */
+  function _finishApply(mod, timer){
+    if(timer) clearTimeout(timer);
+    _applyLock[mod]=false;
+    if(_applyQueued[mod]){ _applyQueued[mod]=false; setTimeout(function(){ applyRules(mod); }, 60); }
   }
   /* 防抖自动套用：标记/批量/删列等任何改动后，过一会儿自动重算考勤/材料加减分，
      使「加减分管理」及时反映，无需每次手动点「应用规则」(按钮保留作兜底) */
@@ -10730,6 +10742,7 @@
     chain.then(function(){
       toast("已登记材料收集并自动计分 ✓");
       closeMatOCR();
+      autoApply("materials");   /* 原来只 toast 说「已自动计分」，实际没重算(matpts-2026-09-15) */
       return refreshAll();
     }).then(function(){
       // 录完自动聚焦到该事项文件夹
@@ -14134,7 +14147,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "syncbulk-2026-09-15";
+  var __APP_VERSION__ = "matpts-2026-09-15";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
