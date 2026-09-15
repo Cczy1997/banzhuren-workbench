@@ -41,6 +41,11 @@
      以前整份内联在 HTML 里，而 HTML 每次部署都变 → 每次更新都得连它一起重下；
      外置后 HTML 瘦掉约 20%，这个文件几乎永不变、由 Service Worker 长期缓存。
      URL 带库版本号：只有升级 supabase-js 才会换地址，缓存不会失效。 -->
+<!-- 提前与 Supabase 建连（DNS+TLS 约 200~400ms）：页面一进来就要拉数据，
+     等到脚本里第一次请求再建连会白等；这里提前握手，首屏数据能早半拍到。
+     跨域接口用 crossorigin；dns-prefetch 给不支持 preconnect 的老浏览器兜底。 -->
+<link rel="preconnect" href="https://ffuslbsknqqsjqjbvpjr.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://ffuslbsknqqsjqjbvpjr.supabase.co">
 <script src="supabase.min.js?v=2.112.4" onerror="window.__supaLibFailed=1"></script>
 <link rel="stylesheet" href="app.css?v=2026-09-15a">
 </head>
@@ -14308,7 +14313,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "dutyrot2-2026-09-15";
+  var __APP_VERSION__ = "prewarm-2026-09-16";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
