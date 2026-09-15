@@ -1340,13 +1340,24 @@
       if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; } return res.data || [];
     });
   }
-  /* 批量删除：一次请求删掉一批 id(替代逐条串行 delete，消除「应用规则」时的请求风暴)。
-     用于 applyRules 清空某模块全部旧加减分。ids 为空直接 resolve */
-  function apiDeleteBatch(key, ids){
+  /* 批量删除：分批请求(每批 120 个 id)。
+     ⚠️ 原实现把全部 id 塞进**一次** .in()：记录一多 URL 就超长(网关 414/400)，整批删除失败，
+     而调用处过去是 catch 后静默继续 → 旧加减分删不掉、新记录照样插 → 重复扣分越积越多(ptsdup-2026-09-15)。
+     ids 为空直接 resolve；返回累计被删的 id 数组 */
+  function apiDeleteBatch(key, ids, batchSize){
     if(!ids || !ids.length) return Promise.resolve([]);
-    return db.from(tbl(key)).delete().in('id', ids).select('id').then(function(res){
-      if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; } return res.data || [];
-    });
+    var N=batchSize||120, out=[], chain=Promise.resolve();
+    for(var i=0;i<ids.length;i+=N){
+      (function(sl){
+        chain=chain.then(function(){
+          return db.from(tbl(key)).delete().in('id', sl).select('id').then(function(res){
+            if(res.error){ trySchemaFix(res.error.message || res.error.code || ""); throw res.error; }
+            return (res.data||[]).map(function(r){ return r.id; });
+          });
+        }).then(function(got){ if(got&&got.length) out=out.concat(got); });
+      })(ids.slice(i, i+N));
+    }
+    return chain.then(function(){ return out; });
   }
   /* 批量插入：一次请求插一批(Supabase insert 支持数组)，超出 BATCH 自动分批。
      返回展开后的本地记录数组 [{_id, ...data字段}]，调用方直接 push 进 DATA */
@@ -7246,16 +7257,12 @@
     var names={}; matching.forEach(function(r){ var n=String(r["学生姓名"]||"").trim(); if(n) names[n]=1; });
     var nameList=Object.keys(names);
     if(!confirm("确定删除文件夹「"+item+"」（"+type+"）吗？\n该文件夹下的全部 "+matching.length+" 条材料记录会一并删除，不可撤销。\n相关学生的「材料」加分 / 扣分也会同步清除。")) return;
-    // 材料删完后，对受影响学生重算材料积分(删除其全部 [材料] 积分再从剩余材料重建)，
-    // 从而清掉本文件夹产生的加分/扣分，同时保留其它文件夹的积分。单条失败不影响整体
+    // 材料删完后重算积分，清掉本文件夹产生的加分/扣分，同时保留其它文件夹的积分。
+    // ⚠️ 统一走 applyRules：过去这里调 applyMaterialScoring（另一套计分规则 + 逐条 apiDelete），
+    // 与 applyRules 并存 → 同一批积分被两套规则各写一遍 = 重复扣分(ptsdup-2026-09-15)
     var syncPoints=function(){
-      if(!nameList.length) return Promise.resolve();
-      var chain=Promise.resolve();
-      nameList.forEach(function(nm){
-        chain=chain.then(function(){ return applyMaterialScoring(nm).catch(function(e){ console.warn("材料删除后重算积分失败",nm,e); }); });
-      });
-      return chain.then(function(){ return refreshAll().catch(function(e){ console.warn("积分刷新失败",e); }); })
-        .catch(function(e){ console.warn("积分同步异常",e); });
+      try{ applyRules("materials", true); }catch(e){ console.warn("材料删除后重算积分失败",e); }
+      return refreshAll().catch(function(e){ console.warn("积分刷新失败",e); });
     };
     if(matUseLocal){
       var ids={}; matching.forEach(function(r){ ids[r._id]=1; });
@@ -10051,7 +10058,7 @@
       });
       if(qual>0) out.push({日期:todayStr(), 学生姓名:nm, 学号:no, 类型:"加分", 分值:qual*bonus, 时间:nowHMS(), 原因:"[考勤]连续全勤周奖励（"+qual+"周·周一至周五均出勤）", 来源:"考勤"});
     });
-    return out;
+    return dedupePtsList(out);
   }
   function computeMaterialPoints(){
     var out=[], cons=RULE_CFG.matConsecutive||10, lateP=RULE_CFG.matLatePenalty||0.5, noP=RULE_CFG.matNoPenalty!=null?RULE_CFG.matNoPenalty:1;
@@ -10091,10 +10098,21 @@
         });
       });
     });
-    return out;
+    return dedupePtsList(out);
+  }
+  /* 重算加减分前确认 points 已完整拉取：本地若没有 points(开机加载失败 / 从未拉到)，
+     oldIds 就不全 → 旧的删不掉、新的照样插 → 重复计分(ptsdup-2026-09-15)。
+     正常情况(已加载且无失败标记)零开销直接返回 true */
+  function ensurePointsLoaded(){
+    if(_modLoaded["points"] && !LOAD_FAILS["points"]) return Promise.resolve(true);
+    return loadPass(["points"]).then(function(failed){
+      var bad=false; (failed||[]).forEach(function(f){ if(f.k==="points") bad=true; });
+      if(!bad) _modLoaded["points"]=1;
+      return !bad;
+    }).catch(function(e){ console.warn("加减分数据预加载失败", e); return false; });
   }
   var _applyLock={}, _applyQueued={}; // 同模块防并发：进入模块自动套用 + 防抖自动套用可能重叠，避免重复写入加减分
-  function applyRules(mod){
+  function applyRules(mod, silent){
     if(mod!=="attendance" && mod!=="materials") return;
     /* 执行期间又发生改动 → 记「待补跑」，本次收尾立即补跑一次。
        原来是直接 return 静默丢弃：连续改多个学生状态时只有第一次算进去，后面的改动加减分纹丝不动(matpts-2026-09-15) */
@@ -10103,11 +10121,18 @@
     var _unlockT=setTimeout(function(){ _applyLock[mod]=false; }, 20000);  /* 网络挂起兜底：20s 强制解锁，避免锁死后再改都不生效 */
     var tag = mod==="attendance" ? "考勤" : "材料";
     setStatus("syncing");
-    var old=(DATA.points||[]).filter(function(p){ return p["来源"]===tag || String(p["原因"]||"").indexOf("["+tag+"]")===0; });
-    var oldIds=old.map(function(p){ return p._id; }).filter(Boolean);
-    // ① 批量删除旧加减分：一次请求删全部旧 id(原逐条串行删除，大班一学期可达上千请求)
-    apiDeleteBatch("points", oldIds).catch(function(e){ console.warn("清除旧加减分失败（已忽略，下面重算会覆盖）", e); }).then(function(){
-      DATA.points=(DATA.points||[]).filter(function(p){ return !(p["来源"]===tag || String(p["原因"]||"").indexOf("["+tag+"]")===0); });
+    /* ⓪ 先确保 points 已完整加载，否则 oldIds 不全 → 旧的删不掉、新的插进来 = 重复计分 */
+    ensurePointsLoaded().then(function(okLoad){
+     if(!okLoad){ setStatus("offline"); toast("加减分数据尚未同步完成，本次未重算（稍后自动重试）"); return null; }
+     var old=(DATA.points||[]).filter(function(p){ return pointsEngine(p)===tag; });
+     var oldIds=old.map(function(p){ return p._id; }).filter(Boolean);
+     /* ① 批量删除旧加减分（分批）。⚠️ 删除失败**必须中止本次重算**：
+        过去 catch 后静默继续 → 旧记录残留 + 新记录插入 = 重复扣分(ptsdup-2026-09-15) */
+     return apiDeleteBatch("points", oldIds).then(function(){ return true; }, function(e){
+        console.warn("清除旧加减分失败", e); return false;
+     }).then(function(delOk){
+      if(!delOk){ setStatus("offline"); toast("旧加减分清理失败，本次已跳过（避免重复计分），请稍后重试"); return null; }
+      DATA.points=(DATA.points||[]).filter(function(p){ return pointsEngine(p)!==tag; });
       var recs = mod==="attendance" ? computeAttendancePoints() : computeMaterialPoints();
       // ② 批量插入新加减分：一次/少数请求插完(原逐条串行插入，同样上千请求)
       return apiAddBatch("points", recs).then(function(created){
@@ -10117,13 +10142,23 @@
           if(o["类型"]==="加分") plus+=Number(o["分值"])||0; else if(o["类型"]==="减分") minus+=Number(o["分值"])||0;
           n++;
         });
+        /* 写入后再校一次：同一天同一文件夹出现多条立刻删掉（源头上不该有，兜底防止再累积） */
+        var dDup=dedupePoints(DATA.points||[]);
+        if(dDup.length){
+          console.warn("[去重] 写入后仍有 "+dDup.length+" 条同键重复 → 立即清理");
+          apiDeleteBatch("points", dDup).then(function(){
+            DATA.points=(DATA.points||[]).filter(function(p){ return dDup.indexOf(p._id)<0; });
+            if(state.mod==="points") renderList("points");
+          }, function(e){ console.warn("去重清理失败", e); });
+        }
         setStatus("ok");
         if(state.mod==="points") renderList("points");
         if(state.mod==="honorboard") render();
         if(state.mod==="overview") loadOverviewAffairs();
-        toast("已应用「"+(mod==="attendance"?"考勤":"材料收集")+"」规则："+(n?("+"+plus+" / −"+minus+"，"+n+" 条记录"):"暂无可计算的加减分"));
+        if(!silent) toast("已应用「"+(mod==="attendance"?"考勤":"材料收集")+"」规则："+(n?("+"+plus+" / −"+minus+"，"+n+" 条记录"):"暂无可计算的加减分"));
         _finishApply(mod, _unlockT);
       });
+     });
     }).catch(function(e){ console.error(e); setStatus("offline"); toast("应用规则失败："+(e&&e.message||e)); _finishApply(mod, _unlockT); });
   }
   /* 解锁 + 兑现排队：执行期间的改动在这里补跑，保证「最后一次改动」一定反映到加减分 */
@@ -10132,6 +10167,100 @@
     _applyLock[mod]=false;
     if(_applyQueued[mod]){ _applyQueued[mod]=false; setTimeout(function(){ applyRules(mod); }, 60); }
   }
+  /* 存量自愈：修好代码不会让库里已有的脏数据消失 —— 开机自检「同键多条 / 请假当天残留扣分」
+     并**直接删除**多余记录（删完再重算，保证数字与规则一致）；数据正常时零写入零提示(ptsdedup-2026-09-15) */
+  var _healDone=false;
+  /* ---------- 加减分去重：同一天同一个文件夹只留一条(ptsdedup-2026-09-15) ----------
+     规则：同一学生 + 同一天 + 同一个文件夹(事项) + 同类型(加/减分) 只允许一条记录；
+           加分同键取「分值最大」的那条，减分同键取最新的一条。
+     手动记录的「原因」不带 [材料]/[考勤] 前缀且无来源标记 → 键为空 → 永不参与自动去重。 */
+  var PTS_ENG_ALIAS={"材料":"材料","材料收集":"材料","材料提交":"材料","作业提交":"材料","作业":"材料","上交":"材料",
+                     "考勤":"考勤","考勤记录":"考勤","考勤登记":"考勤"};
+  function pointsEngine(p){
+    if(!p) return "";
+    var sr=String(p["来源"]||"").trim(); if(PTS_ENG_ALIAS[sr]) return PTS_ENG_ALIAS[sr];
+    var m=String(p["原因"]||"").match(/^[\[【]\s*([^\]】]+?)\s*[\]】]/);
+    return m ? (PTS_ENG_ALIAS[String(m[1]).trim()]||"") : "";
+  }
+  /* 文件夹(事项)名归一化：优先 事项 字段，否则从原因里剥掉前缀与状态后缀；空白全部去掉
+     → 「9.1作业」与「9.1 作业」「9.1作业 未交」视为同一个文件夹 */
+  function pointsFolderOf(p){
+    var it=String(p["事项"]||"").trim();
+    if(!it){
+      it=String(p["原因"]||"").replace(/^[\[【][^\]】]*[\]】]/,"")
+           .replace(/(未交|迟交|缺交|已交)\s*$/,"")
+           .replace(/连续[已上]交奖励.*$/,"")
+           .replace(/连续全勤周奖励.*$/,"");
+    }
+    it=it.replace(/[\s\u3000]+/g,"");
+    return it||"材料";
+  }
+  /* 事由归类：数字统一成 # —— 次数/天数变化算同一件事，避免「+1 和 +3 各存一条」 */
+  function pointsKindOf(p){
+    var why=String(p["原因"]||"").replace(/^[\[【][^\]】]*[\]】]/,"").replace(/[\s\u3000]+/g,"").replace(/\d+(\.\d+)?/g,"#");
+    var m=why.indexOf("连续已交奖励");
+    if(m>=0) return "连续已交奖励"+(m>0?(":"+why.slice(0,m)):"");
+    if(why.indexOf("连续全勤周奖励")>=0) return "连续全勤周奖励";
+    if(/^缺勤/.test(why)) return "缺勤";
+    if(/^迟到/.test(why)) return "迟到";
+    return pointsFolderOf(p);
+  }
+  function pointsKey(p){
+    var eng=pointsEngine(p); if(!eng) return "";
+    var who=String(p["学号"]||"").trim()||String(p["学生姓名"]||"").trim();
+    var d=String(p["日期"]||"").slice(0,10);
+    if(!who||!d) return "";
+    return eng+"|"+who+"|"+d+"|"+String(p["类型"]||"")+"|"+pointsKindOf(p);
+  }
+  /* 去重核心：同键多条 → 加分留分值最大、减分留最新（列表顺序即写入顺序） */
+  function dedupePtsList(arr){
+    var idx={}, out=[];
+    (arr||[]).forEach(function(p){
+      var k=pointsKey(p); if(!k){ out.push(p); return; }
+      var i=idx[k];
+      if(i==null){ idx[k]=out.push(p)-1; return; }
+      if(String(p["类型"]||"")==="加分" ? (Number(p["分值"])||0)>(Number(out[i]["分值"])||0) : true) out[i]=p;
+    });
+    return out;
+  }
+  /* 存量清理用：返回「多余记录」的 id 列表（被保留的那条不在其中） */
+  function dedupePoints(arr){
+    var keep={};
+    dedupePtsList(arr).forEach(function(p){ if(p&&p._id) keep[p._id]=1; });
+    var dels=[];
+    (arr||[]).forEach(function(p){ if(p&&p._id && !keep[p._id]) dels.push(p._id); });
+    return dels;
+  }
+  function healPointsOnce(){
+    /* 只有班主任能删云端加减分（家长/科任的 RLS 本来就写不了，别误伤） */
+    if(typeof isHead==="function" && !isHead()) return;
+    if(_healDone) return; _healDone=true;
+    var arr=DATA.points||[]; if(!arr.length) return;
+    /* 本地 points 不全时决不做删除：云端才是准的(ptsdup-2026-09-15) */
+    if(!_modLoaded["points"] || LOAD_FAILS["points"]) return;
+    var dels=dedupePoints(arr), mods={};
+    arr.forEach(function(p){
+      var eng=pointsEngine(p); if(eng) mods[eng]=1;
+      if(eng==="材料" && String(p["类型"]||"")==="减分"){
+        var no=String(p["学号"]||""), d=String(p["日期"]||"").slice(0,10);
+        if(no && d && leaveMatOn(no,d)) dels.push(p._id);   /* 请假当天不该有材料扣分 */
+      }
+    });
+    dels=dels.filter(Boolean).filter(function(id,i,a){ return a.indexOf(id)===i; });
+    if(!dels.length) return;   /* 数据正常：零写入零提示 */
+    console.warn("[自愈] 加减分重复/异常 "+dels.length+" 条 → 直接清理并重算");
+    apiDeleteBatch("points", dels).then(function(){
+      DATA.points=(DATA.points||[]).filter(function(p){ return dels.indexOf(p._id)<0; });
+      if(mods["材料"]) applyRules("materials", true);
+      if(mods["考勤"]) applyRules("attendance", true);
+      if(!mods["材料"] && !mods["考勤"]){ if(state.mod==="points") renderList("points"); }
+      toast("发现重复/异常的加减分记录，已自动重算清理");
+    }, function(e){
+      console.warn("加减分去重清理失败，下次打开自动重试", e);
+      toast("加减分里有重复记录，本次清理未成功（网络原因），下次打开会自动重试");
+    });
+  }
+
   /* 防抖自动套用：标记/批量/删列等任何改动后，过一会儿自动重算考勤/材料加减分，
      使「加减分管理」及时反映，无需每次手动点「应用规则」(按钮保留作兜底) */
   /* 防抖计时器按模块分开：请假保存等场景要同时重算考勤+材料，共用一个会被后者覆盖(leavepts-2026-09-14) */
@@ -14049,6 +14178,8 @@
     }).then(function(){
       try{ saveBootCache(rest); }catch(_){}   // 后台补齐的分片也落盘（各自独立，互不阻塞）
       try { render(); loadOverviewAffairs(); } catch(e){ console.error(e); }
+      /* 此时 points 已加载、请假名单已读入 → 顺手自检一次存量重复(正常数据零开销) */
+      try{ healPointsOnce(); }catch(e){ console.warn("加减分自检失败", e); }
     }).catch(function(e){ console.warn("后台补齐失败（不影响已显示的数据）", e); });
   }
   /* 懒加载守卫：点到尚未加载完的模块时先拉该表，回来后重渲 */
@@ -14147,7 +14278,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "matpts-2026-09-15";
+  var __APP_VERSION__ = "ptsdedup-2026-09-15";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
