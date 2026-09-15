@@ -2796,16 +2796,23 @@
     try{ l=JSON.parse(localStorage.getItem(DUTYROT_LS)||"null"); }catch(e){}
     if(!l||typeof l!=="object") l=dutyRot;
     var lg=Array.isArray(l.groups)?l.groups:[], cg=Array.isArray(c.groups)?c.groups:[];
-    var lt=+l.ts||0, ct=+c.ts||0, w, o;
-    if(!lg.length&&cg.length){ w=c; o=l; }
-    else if(!cg.length){ w=l; o=c; }
-    else if(ct>lt+60000){ w=c; o=l; }
-    else if(lt>ct+60000){ w=l; o=c; }
-    else { w=c; o=l; }
-    var g=(Array.isArray(w.groups)&&w.groups.length?w.groups:(Array.isArray(o.groups)?o.groups:[])).slice();
+    var lt=+l.ts||0, ct=+c.ts||0, w, g;
+    /* dutyrot2：合并按「组感知」拆维 —— 两边都有组列表：按 ts 取新(60s 内云端优先)。
+       只有一边有组列表：组列表用有组的一边；cursor 状态看「轮换证据」——
+       ts 较新的无组一边若 cursor≠0 或带本周 checkedWeek/manualWeek，
+       = 弱网窗口里真实切过组 → 以它为准；否则(无组一边只是无意义的默认写)有组一边权威。
+       🔴 原来整体选 ts 赢家：弱网窗口里本地刚切组(dutyRot.groups 还空着) → 云端整体赢，
+          刚切的 cursor 被云端旧值盖回 → 刷新回到第一组 */
+    function _rotEv(x){ return (+x.cursor||0)!==0 || x.checkedWeek || x.manualWeek; }
+    var newer=((ct>lt+60000)?c:((lt>ct+60000)?l:c));
+    if(lg.length&&cg.length){ w=newer; g=w.groups.slice(); }
+    else if(lg.length){ g=lg.slice(); w=(newer===l||!_rotEv(c))?l:c; }
+    else if(cg.length){ g=cg.slice(); w=(newer===c||!_rotEv(l))?c:l; }
+    else { w=newer; g=[]; }
+    var oth=(w===l)?c:l;
     dutyRot={ groups:g, cursor:Math.max(0,Math.min(g.length?g.length-1:0,+w.cursor||0)),
       servedWeeks:+w.servedWeeks||1, checkedWeek:w.checkedWeek||null, manualWeek:w.manualWeek||null,
-      stars:(w.stars&&typeof w.stars==="object")?w.stars:((o&&typeof o.stars==="object")?o.stars:{}),
+      stars:(w.stars&&typeof w.stars==="object")?w.stars:((oth&&typeof oth.stars==="object")?oth.stars:{}),
       ts:+w.ts||0 };
     try{ localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(_){}
   }
@@ -2817,7 +2824,10 @@
   }
   function saveDutyRot(){
     try{ dutyRot.ts=Date.now(); localStorage.setItem(DUTYROT_LS, JSON.stringify(dutyRot)); }catch(e){}
-    try{ persistSettings(); }catch(e){}   /* 回写云端：只写本地会在刷新时被 hr_settings 旧值盖回去 */
+    try{
+      persistSettings();   /* 回写云端：只写本地会在刷新时被 hr_settings 旧值盖回去 */
+      setTimeout(function(){ if(_settingsLastErr){ _settingsLastErr=null; toast("⚠️ 值日进度云同步失败：本机已记录，请在网络恢复后再切一次组以补同步"); } }, 2500);
+    }catch(e){}
   }
 
   /* ---------- 当天请假(leave-2026-09-14) ----------
@@ -7370,6 +7380,7 @@
      班主任读写自己的那一行；成员经 member-read 策略读到班主任的那一行 → 同账号跨电脑一致、家长可见教师配置 */
   var settingsTableMissing=false, settingsLoaded=false;
   var settingsRowId=null, settingsRetryN=0, clsFromCloud=false;
+  var _settingsDirty=false, _settingsLastErr=null;   /* dutyrot2：行未定位先记脏；云写失败留痕供 saveDutyRot 提示 */
   function sqlSettings(){
     return "create table if not exists hr_settings (\n"
       + "  id uuid primary key default gen_random_uuid(),\n"
@@ -7397,7 +7408,22 @@
     return apiQuery("settings").then(function(res){
       var rows=res.results||[];
       /* ⚠️ apiQuery 已把行扁平化成 {_id, ...data 的键}：取 rows[0].data 恒为 undefined */
-      if(rows.length){ settingsRowId=rows[0]._id; settingsLoaded=true; hydrateSettings(rows[0].data || rows[0]); }
+      if(rows.length){
+        settingsRowId=rows[0]._id; settingsLoaded=true;
+        hydrateSettings(rows[0].data || rows[0]);
+        /* dutyrot2：历史弱网窗口里 apiAdd 建过重复行 → apiQuery 按 created_at 升序永远取最旧行，
+           写进新行的数据(如切组后的 cursor)永远读不回来。班主任：逐行合并(键级按 ts 取新)
+           → 收敛回最旧行 → 删多余行；成员只合并不写 */
+        if(rows.length>1){
+          rows.slice(1).forEach(function(r){ hydrateSettings(r.data || r); });
+          if(isHead()){
+            _settingsDirty=false; persistSettings();
+            rows.slice(1).forEach(function(r){ try{ apiDelete("settings", r._id).catch(function(){}); }catch(_){} });
+          }
+        }
+        if(_settingsDirty){ _settingsDirty=false; persistSettings(); }
+      }
+      else if(settingsRetryN>=2){ settingsLoaded=true; if(_settingsDirty){ _settingsDirty=false; persistSettings(); } }   /* 真空表：允许建行 */
       else settingsRetryLater();          /* 空结果可能只是这次没读到(RLS/会话尚未就绪)*/
     }).catch(function(e){
       if(classifyError(e).kind==="schema"){ settingsTableMissing=true; return; }   /* 结构性失败不重试 */
@@ -7424,6 +7450,9 @@
   }
   function persistSettings(){
     if(settingsTableMissing || !isHead()) return;   // 仅班主任写；成员只读，绝不回写
+    /* dutyrot2：settings 行还没定位(开机查询失败/重试中) → 只记脏，加载完成后补写。
+       🔴 绝不能在这里 apiAdd：新行读不到(查询永远取最旧行)，还会造成永久重复行 */
+    if(!settingsRowId && !settingsLoaded){ _settingsDirty=true; return; }
     var blob={
       meeting: MEETINGS||[], weekly: WEEKLY||[],
       dutyRot: dutyRot||{}, dutyNote: getDutyNote()||"", leaves: LEAVE||{},
@@ -7431,8 +7460,9 @@
       ruleCats: RULE_CATS||[], ruleCfg: RULE_CFG||{}, matFolders: MAT_FOLDERS||[]
     };
     try{
-      if(settingsRowId) apiUpdate("settings", settingsRowId, blob).catch(function(){});
-      else apiAdd("settings", blob).then(function(o){ if(o&&o._id) settingsRowId=o._id; }).catch(function(){});
+      if(settingsRowId) return apiUpdate("settings", settingsRowId, blob).catch(function(e){ _settingsLastErr=e||true; });
+      return apiAdd("settings", blob).then(function(o){ if(o&&o._id) settingsRowId=o._id; })
+        .catch(function(e){ _settingsLastErr=e||true; });
     }catch(_){}
   }
   function msgTime(ts){
@@ -14278,7 +14308,7 @@
       }catch(_e){}
     });
   })();
-  var __APP_VERSION__ = "ptsdedup-2026-09-15";
+  var __APP_VERSION__ = "dutyrot2-2026-09-15";
   var __errLog = [];   // 最近 10 条未捕获错
   var __consoleLog = []; // 最近 20 条 console.error/warn 调用
   var _origConsole = { error: console.error, warn: console.warn };
